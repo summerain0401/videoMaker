@@ -1,0 +1,336 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""长视频叙事分镜生成：DeepSeek 把每块口播切成 3-5 个卡点并写画面提示词。
+
+流程：copy/long/script.txt -> DeepSeek 对每个配音块切卡点/写提示词 ->
+      程序化拼装 script/storyboard_narrative.json（含 beats 与逐句字幕表）
+      -> pipeline/write_image_art.py --story 生成卡点画面
+      -> pipeline/build_long.py 进入叙事渲染模式。
+
+输出 JSON 结构（每个配音块）：
+  beats:      [{beat_idx, shot(wide|medium|close), prompt(画面提示词),
+                sentence_ids, start_char, end_char}]  // 3-5 拍，覆盖全部句子
+  subtitles:  [{id, text, start_char, end_char}]      // 逐句字幕表
+
+密钥：环境变量 DEEPSEEK_API_KEY 或项目根 .env（已 gitignore）。
+"""
+
+import argparse
+import json
+import os
+import re
+import sys
+import urllib.error
+import urllib.request
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def P(*parts):
+    return os.path.join(ROOT, *parts)
+
+
+PROVIDERS = {
+    "deepseek": {
+        "base": "https://api.deepseek.com/v1",
+        "model": "deepseek-v4-flash",
+        "key_envs": ["DEEPSEEK_API_KEY"],
+    },
+}
+SHOTS = ("wide", "medium", "close")
+MIN_BEATS, MAX_BEATS = 3, 5
+MAX_RETRY = 2
+
+SYSTEM_PROMPT = """你是影视级「画面叙事」分镜师。根据用户提供的一个配音块口播，把它切成 3-5 个卡点（beat），并为每个卡点写一条中文画面提示词，用于 AI 生成插画叙事画面。
+
+【画面要求】
+- 画面以人物和故事为主，用场景讲内容，绝不用文字、图表、标语。
+- 提示词必须与口播语义严格对应：讲到什么内容，画面就呈现什么。例如讲「有钱人 vs 富裕的人」，要切到两个对比场景——有钱人：深夜写字楼里疲惫加班的身影；富裕的人：海边清晨从容散步的身影。
+- 每个提示词包含：人物（动作/状态）、场景、情绪氛围、景别（wide 远景 / medium 中景 / close 特写）。
+- 画面中不要出现任何文字、字母、水印；底部预留字幕安全区。
+
+【输出格式（只输出该块的 JSON，不要解释，不要 Markdown 代码块）】
+{
+  "block_idx": 0,
+  "beats": [
+    {"beat_idx": 0, "shot": "wide", "prompt": "人物+动作+场景+情绪，30-80 字", "sentence_ids": [0, 1]},
+    {"beat_idx": 1, "shot": "medium", "prompt": "...", "sentence_ids": [2, 3]}
+  ]
+}
+
+【硬性规则】
+- 该块 3-5 拍。
+- 每块的 sentence_ids 必须恰好覆盖该块全部句子一次，不得遗漏或重复；每拍 1-4 句。
+- 卡点顺序即句子顺序，拍与拍之间的句子 id 必须连续递增。"""
+
+
+def split_sentences(text):
+    """按句末标点拆句，返回带字符偏移的句子列表。"""
+    parts = re.split(r"(?<=[。！？!?])", text)
+    out, pos = [], 0
+    for p in parts:
+        if not p:
+            continue
+        out.append({"id": len(out), "text": p,
+                    "start_char": pos, "end_char": pos + len(p)})
+        pos += len(p)
+    return out
+
+
+def build_block_view(b, bi):
+    """单个配音块的模型输入视图。"""
+    sents = split_sentences(b["voice"])
+    lines = [f"块 {bi}（{b['type']}）口播："]
+    for s in sents:
+        lines.append(f"句 {s['id']}：{s['text']}")
+    lines.append("请把该块切成 3-5 拍，输出 beats JSON。")
+    return "\n".join(lines)
+
+
+def load_api_key(conf):
+    for k in conf["key_envs"]:
+        if os.environ.get(k):
+            return os.environ[k]
+    env_path = P(".env")
+    if os.path.exists(env_path):
+        with open(env_path, encoding="utf-8") as f:
+            for raw in f:
+                line = raw.strip()
+                if line.startswith("DEEPSEEK_API_KEY="):
+                    return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return None
+
+
+def call_api(provider, user_prompt, model, repair=""):
+    conf = PROVIDERS[provider]
+    key = load_api_key(conf)
+    if not key:
+        print(f"缺少 API 密钥：请配置环境变量或 .env 中的 "
+              f"{conf['key_envs'][0]}。")
+        sys.exit(2)
+    base = os.environ.get("COPY_BASE_URL", conf["base"]).rstrip("/")
+    model = model or os.environ.get("COPY_MODEL", conf["model"])
+    system = SYSTEM_PROMPT
+    if repair:
+        system += "\n\n【上一版存在以下问题，请修正后重新输出完整 JSON】\n" + repair
+    body = {
+        "model": model,
+        "messages": [{"role": "system", "content": system},
+                     {"role": "user", "content": user_prompt}],
+        "temperature": 0.5,
+        "max_tokens": 4000,
+        "thinking": {"type": "disabled"},
+    }
+    req = urllib.request.Request(
+        f"{base}/chat/completions",
+        data=json.dumps(body).encode("utf-8"),
+        headers={"Content-Type": "application/json",
+                 "Authorization": f"Bearer {key}"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=600) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        print(f"API 请求失败（{e.code}）：{e.read().decode('utf-8')[:300]}")
+        sys.exit(3)
+    except Exception as e:
+        print(f"网络请求失败：{e}")
+        sys.exit(3)
+    return data["choices"][0]["message"]["content"].strip()
+
+
+def extract_json(text):
+    """从模型输出中提取 JSON（容忍代码块包裹）。"""
+    m = re.search(r"\{.*\}", text, re.S)
+    if not m:
+        raise ValueError("模型输出中没有 JSON")
+    return json.loads(m.group(0))
+
+
+def validate_block_output(blocks, bi, raw):
+    """校验单块模型输出，返回 (问题列表, beats 或 None)。"""
+    problems = []
+    try:
+        data = extract_json(raw)
+    except Exception as e:
+        return [f"块 {bi} JSON 解析失败：{e}"], None
+    if data.get("block_idx") != bi:
+        problems.append(f"块 {bi} 的 block_idx 不匹配：{data.get('block_idx')}")
+    beats = data.get("beats", [])
+    n = len(beats)
+    if not (MIN_BEATS <= n <= MAX_BEATS):
+        problems.append(f"块 {bi} 应为 {MIN_BEATS}-{MAX_BEATS} 拍，实际 {n}")
+    seen, prev = set(), -1
+    for be in beats:
+        if be.get("shot") not in SHOTS:
+            problems.append(f"块 {bi} 拍 {be.get('beat_idx')} 的 shot 非法："
+                            f"{be.get('shot')}")
+        if not be.get("prompt") or len(be["prompt"]) > 300:
+            problems.append(f"块 {bi} 拍 {be.get('beat_idx')} 的 prompt "
+                            f"缺失或超长")
+        for sid in be.get("sentence_ids", []):
+            if sid in seen:
+                problems.append(f"块 {bi} 句子 {sid} 重复分配")
+            seen.add(sid)
+            if sid <= prev:
+                problems.append(f"块 {bi} 句子 id 不连续递增")
+            prev = sid
+    total = len(split_sentences(blocks[bi]["voice"]))
+    if sorted(seen) != list(range(total)):
+        problems.append(f"块 {bi} 句子未全覆盖："
+                        f"{sorted(seen)} != {list(range(total))}")
+    return problems, beats if not problems else None
+
+
+def assemble(blocks, groups):
+    """拼装最终分镜 JSON（含字符偏移与逐句字幕表）。"""
+    out_blocks = []
+    for i, b in enumerate(blocks):
+        sents = split_sentences(b["voice"] or "")
+        beats = []
+        if b["voice"]:
+            for be in groups[i]:
+                ids = be["sentence_ids"]
+                lo = sents[ids[0]]["start_char"] if ids else 0
+                hi = sents[ids[-1]]["end_char"] if ids else 0
+                beats.append({
+                    "beat_idx": be["beat_idx"],
+                    "shot": be["shot"],
+                    "prompt": be["prompt"].strip(),
+                    "sentence_ids": ids,
+                    "start_char": lo,
+                    "end_char": hi,
+                })
+        else:
+            beats = [{"beat_idx": 0, "shot": "wide", "prompt": "",
+                      "sentence_ids": [], "start_char": 0, "end_char": 0}]
+        out_blocks.append({
+            "block_idx": i,
+            "type": b["type"],
+            "head": b["head"],
+            "voice_chars": len(b["voice"] or ""),
+            "beats": beats,
+            "subtitles": [{"id": s["id"], "text": s["text"],
+                           "start_char": s["start_char"],
+                           "end_char": s["end_char"]} for s in sents],
+        })
+    return {"style": "插画叙事", "blocks": out_blocks}
+
+
+def validate_final(story, blocks):
+    """离线复检最终 JSON，返回问题列表。"""
+    problems = []
+    sbs = {b["block_idx"]: b for b in story.get("blocks", [])}
+    if len(sbs) != len(blocks):
+        return [f"分镜块数 {len(sbs)} 与脚本 {len(blocks)} 不一致"]
+    for i, b in enumerate(blocks):
+        sb = sbs.get(i)
+        if not sb:
+            problems.append(f"块 {i} 缺失")
+            continue
+        beats, subs = sb["beats"], sb["subtitles"]
+        if not b["voice"]:
+            if len(beats) != 1:
+                problems.append(f"块 {i}（无配音）应 1 拍，实际 {len(beats)}")
+            continue
+        n = len(beats)
+        if not (MIN_BEATS <= n <= MAX_BEATS):
+            problems.append(f"块 {i} 应为 {MIN_BEATS}-{MAX_BEATS} 拍，实际 {n}")
+        lo, hi = 0, len(b["voice"])
+        for be in beats:
+            if not (be["start_char"] <= be["end_char"]):
+                problems.append(f"块 {i} 拍 {be['beat_idx']} 字符区间非法")
+        first, last = beats[0]["start_char"], beats[-1]["end_char"]
+        if first != 0 or last != hi:
+            problems.append(f"块 {i} 拍区间未覆盖全文（{first}..{last}，应 0..{hi}）")
+        for k in range(1, n):
+            if beats[k]["start_char"] != beats[k - 1]["end_char"]:
+                problems.append(f"块 {i} 拍 {k} 与上一拍字符区间不连续")
+        for s in subs:
+            if not s["text"] or not (0 <= s["start_char"] < s["end_char"] <= hi):
+                problems.append(f"块 {i} 字幕 {s['id']} 区间非法")
+        if subs and (subs[0]["start_char"] != 0 or subs[-1]["end_char"] != hi):
+            problems.append(f"块 {i} 字幕未覆盖全文")
+    return problems
+
+
+def save(story, path):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(story, f, ensure_ascii=False, indent=2)
+    return path
+
+
+def main():
+    ap = argparse.ArgumentParser(description="长视频叙事分镜生成（DeepSeek）")
+    ap.add_argument("--provider", choices=list(PROVIDERS), default="deepseek")
+    ap.add_argument("--model", default=None, help="覆盖默认模型名")
+    ap.add_argument("--out", default=P("script", "storyboard_narrative.json"),
+                    help="输出 JSON 路径")
+    ap.add_argument("--check", metavar="FILE",
+                    help="离线复检指定分镜 JSON，不调 API")
+    args = ap.parse_args()
+
+    sys.path.insert(0, P("pipeline"))
+    import build_long as B
+    blocks = B.parse_script()
+
+    if args.check:
+        with open(args.check, encoding="utf-8") as f:
+            story = json.load(f)
+        problems = validate_final(story, blocks)
+        if problems:
+            print("分镜校验未通过：")
+            for p in problems:
+                print(" -", p)
+            sys.exit(1)
+        total_beats = sum(len(b["beats"]) for b in story["blocks"])
+        print(f"分镜校验通过：{len(story['blocks'])} 块，"
+              f"共 {total_beats} 拍。")
+        return
+
+    voiced = [i for i, b in enumerate(blocks) if b["voice"]]
+    groups = {}
+    fail = False
+    for bi in voiced:
+        view = build_block_view(blocks[bi], bi)
+        text = call_api(args.provider, view, args.model)
+        problems, beats = validate_block_output(blocks, bi, text)
+        for attempt in range(MAX_RETRY):
+            if not problems:
+                break
+            print(f"块 {bi} 第 {attempt + 1} 次未通过校验"
+                  f"（{len(problems)} 个问题），回喂重试…")
+            for p in problems:
+                print(" -", p)
+            repair = "\n".join(f"- {p}" for p in problems[:8])
+            text = call_api(args.provider, view, args.model, repair)
+            problems, beats = validate_block_output(blocks, bi, text)
+        else:
+            print(f"块 {bi} 多次重试仍失败，中止。")
+            for p in problems:
+                print(" -", p)
+            fail = True
+        if beats is not None:
+            groups[bi] = beats
+    if fail or len(groups) != len(voiced):
+        sys.exit(4)
+
+    story = assemble(blocks, groups)
+    problems = validate_final(story, blocks)
+    if problems:
+        print("拼装后校验未通过：")
+        for p in problems:
+            print(" -", p)
+        sys.exit(4)
+    path = save(story, args.out)
+    total_beats = sum(len(b["beats"]) for b in story["blocks"])
+    print(f"分镜已保存：{path}")
+    print(f"共 {len(story['blocks'])} 块，{total_beats} 拍，"
+          f"预计生成 {total_beats} 张画面。")
+    print("下一步：人工抽查卡点与提示词，确认后运行 "
+          "write_image_art.py --story 生成画面。")
+
+
+if __name__ == "__main__":
+    main()
