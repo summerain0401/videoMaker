@@ -32,8 +32,12 @@ python3 pipeline/write_image_art.py
 
 # 叙事分镜 + 卡点画面（画面讲卡点模式）
 python3 pipeline/write_storyboard.py
+python3 pipeline/write_storyboard.py --refine   # 单拍>12s 的拍自动拆半（AI 补提示词）
 python3 pipeline/write_image_art.py --story
 python3 pipeline/build_long.py --frames   # 抽帧验收：文字卡 m3_*.jpg / 叙事 m3n_*.jpg
+
+# 视觉样片（跳过 TTS、只渲染指定块）
+python3 pipeline/build_long.py --blocks 0,1,2,3,4,7,8,9,12,13 --no-tts
 
 # 语法自检
 python3 -m py_compile pipeline/*.py

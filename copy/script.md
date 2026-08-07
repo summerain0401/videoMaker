@@ -91,6 +91,7 @@ python3 pipeline/build_long.py --frames
 # 1. 生成分镜（DeepSeek，每配音块 3-5 拍 + 逐句字幕表）
 python3 pipeline/write_storyboard.py
 python3 pipeline/write_storyboard.py --check script/storyboard_narrative.json
+python3 pipeline/write_storyboard.py --refine    # 拆超长拍（>12s 自动拆半）
 
 # 2. 生成卡点画面（wan2.7-image-pro，密钥读 .env）
 python3 pipeline/write_image_art.py --story                 # 全部
@@ -98,6 +99,9 @@ python3 pipeline/write_image_art.py --story --beats 00_0 02_0   # 只生成指�
 
 # 3. 抽帧验收（叙事模式每拍 2 帧，含字幕版）
 python3 pipeline/build_long.py --frames
+
+# 视觉样片（跳过语音，只渲染指定块）
+python3 pipeline/build_long.py --blocks 0,1,2,3,4,7,8,9,12,13 --no-tts
 ```
 
 画面命名：`assets/long/scenes/{块:02d}_{拍}.png`（如 `02_0.png`）；

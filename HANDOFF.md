@@ -12,7 +12,8 @@
 - ✅ **V2 样段已交付**：`output/long/long_money_v2_pilot.mp4`（181 秒，前 5 个镜头）。
 - ✅ **M2 文案 AI 化完成**：`pipeline/write_long_copy.py`（DeepSeek 五段式完整脚本起草 + 结构校验/回喂重试 + `--accept` 定稿）；当前 `copy/long/script.txt` 为 AI 起草稿（旧手写稿备份 `script.txt.bak`）。
 - ✅ **M3 视觉升级完成**：阶段配色/徽章/插画位 bug 修复、书卡跟随脚本、逐词浮现/视差/转场映射/进度条随时间跟随、程序化质感底图；通义万相 `wan2.7-image-pro` 插画已生成到 `assets/long/art/`（TITLE/END/S1-S5）。
-- 🔄 **M3 v2 画面叙事化**：方向改为画面讲卡点——正文零文字卡、文案交给配音+逐句字幕；`write_storyboard.py` 分镜（19 块 63 拍 + 逐句字幕表，`script/storyboard_narrative.json`）；`write_image_art.py --story` 生成卡点画面到 `assets/long/scenes/{块}_{拍}.png`；引擎检测到分镜即进入叙事模式（删除 JSON 回退文字卡）。已生成 5 张试点（00_0、02_0-02_3），待用户确认后批量生成全部 63 拍。
+- ✅ **M3 v2 画面叙事化**：画面讲卡点（正文零文字卡、配音+逐句字幕）；分镜 `script/storyboard_narrative.json`（19 块 80 拍，经 `--refine` 拆超长拍）；`write_image_art.py --story` 生成卡点画面到 `assets/long/scenes/`（当前 44 张，覆盖样片块）；引擎检测到分镜即进入叙事模式（删除 JSON 回退文字卡）。
+- 🎬 **视觉样片**：`output/long/long_money_v2_visual_sample.mp4`（约 8.8 分钟、静音轨、6 内容块+4 阶段页）；运镜已增强（缩放 0.28、视差加大）；生图模型默认 `wan2.7-image`（经济版）。
 - 🖼 **快速抽帧验收**：`python3 pipeline/build_long.py --frames`（约 1–3 分钟，19 块 × 3 帧到 `output/preview/m3_*.jpg`，跳过 TTS）。
 - ⏳ **全片未渲染**：19 个镜头、约 9–10 分钟。等用户对样段反馈确认后再跑。
 - ⏳ **用户尚未反馈样段观感**（音色/运镜/元素/转场四方面）。

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""长视频 AI 插画底图生成（阿里云百炼 wan2.7-image-pro）。
+"""长视频 AI 插画底图生成（阿里云百炼 wan2.7-image）。
 
 生成 assets/long/art/{TITLE,END,S1..S5}.png 七张 16:9 插画底图，
 引擎（build_long.py 的 make_background）会按 art_key 自动加载。
@@ -8,7 +8,7 @@
 环境变量（均可放项目根 .env，已 gitignore）：
   DASHSCOPE_API_KEY   必填，百炼 API Key
   DASHSCOPE_BASE_URL  默认 https://dashscope.aliyuncs.com
-  IMAGE_MODEL         默认 wan2.7-image-pro（快速版可用 wan2.7-image）
+  IMAGE_MODEL         默认 wan2.7-image（经济版；质量优先可用 wan2.7-image-pro）
   IMAGE_THINKING      默认 1（开启思考模式提升质量）；设 0 关闭
 
 用法：
@@ -35,7 +35,7 @@ def P(*parts):
 
 SLOTS = ["TITLE", "END", "S1", "S2", "S3", "S4", "S5"]
 DEFAULT_BASE = "https://dashscope.aliyuncs.com"
-DEFAULT_MODEL = "wan2.7-image-pro"
+DEFAULT_MODEL = "wan2.7-image"
 
 STYLE = ("暖色调温馨明亮的抽象知识感数字插画，奶油色与暖黄为主，柔和阳光"
          "与暖色光晕、细腻颗粒质感、微光几何线条，画面干净通透不阴暗，"

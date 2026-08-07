@@ -44,6 +44,7 @@ PHASE_DUR = 4.0
 XD = 0.5  # 转场时长
 BEAT_XD = 0.25  # 块内卡点 dissolve 时长
 STORY_PATH = P("script", "storyboard_narrative.json")
+NO_TTS = False  # --no-tts：跳过配音合成，音轨静音
 BOOK = "《金钱的艺术》"
 AUTHOR = "Morgan Housel"
 
@@ -221,17 +222,17 @@ def motion_exprs(idx, nframes):
     cx = "'iw/2-(iw/zoom/2)'"
     cy = "'ih/2-(ih/zoom/2)'"
     if prof == "push":
-        z = f"1+0.18*on/{n}"
+        z = f"1+0.28*on/{n}"
     elif prof == "pull":
-        z = f"1.18-0.18*on/{n}"
+        z = f"1.28-0.28*on/{n}"
     elif prof == "panl":
-        z = "1.12"
+        z = "1.18"
         cx = f"'+(iw-iw/zoom)*(1-on/{n})'"
     elif prof == "panr":
-        z = "1.12"
+        z = "1.18"
         cx = f"'+(iw-iw/zoom)*(on/{n})'"
     else:  # up
-        z = "1.12"
+        z = "1.18"
         cy = f"'+(ih-ih/zoom)*(1-on/{n})'"
     return z, cx, cy
 
@@ -277,12 +278,12 @@ def render_scene(blocks, idx, total, first, last, meta=None):
 
     starts, total_dur = _timeline(blocks)
     z, cx, cy = motion_exprs(idx, nframes)
-    dx, dy = "5*sin(t/5)", "4*cos(t/4)"   # 前景层反向微漂移（视差）
+    dx, dy = "9*sin(t/4.5)", "7*cos(t/4)"   # 前景层反向微漂移（视差）
     fc = [
         f"[0:v]scale={2 * W}:{2 * H},"
         f"zoompan=z='{z}':x={cx}:y={cy}:d=1:s={W}x{H}:fps={FPS},"
         f"format=yuv420p[bg0]",
-        f"[bg0][1:v]overlay=x='22*sin(t/4)':y='14*cos(t/3.5)'[bgd2]",
+        f"[bg0][1:v]overlay=x='26*sin(t/4)':y='16*cos(t/3.5)'[bgd2]",
         f"[bgd2][2:v]overlay=x='{dx}':y='{dy}'[o0]",
     ]
     o_prev = "o0"
@@ -378,13 +379,13 @@ def render_frames(blocks, meta):
             V.make_sweep_layer().save(sweep)
 
         z, cx, cy = motion_exprs(i, nframes)
-        dx, dy = "3*sin(t/5)", "2*cos(t/4)"
+        dx, dy = "5*sin(t/5)", "3.5*cos(t/4)"
         fc = [
             f"[0:v]scale=1920x1080,"
             f"zoompan=z='{z}':x={cx}:y={cy}:d=1:s={FW}x{FH}:fps={FFPS},"
             f"format=yuv420p[bg0]",
             f"[1:v]scale={FW}:{FH},format=rgba[d0]",
-            f"[bg0][d0]overlay=x='11*sin(t/4)':y='7*cos(t/3.5)'[bgd2]",
+            f"[bg0][d0]overlay=x='13*sin(t/4)':y='8*cos(t/3.5)'[bgd2]",
             f"[2:v]scale={FW}:{FH},format=rgba[b0]",
             f"[bgd2][b0]overlay=x='{dx}':y='{dy}'[o0]",
         ]
@@ -523,6 +524,8 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
     bg_paths = []
     for k in range(n):
         bg_paths.append(make_beat_bg(b, idx, k, beat_art_path(b, idx, k)))
+    deco = P("assets", "long", "layers", f"deco_{idx:02d}.png")
+    V.make_deco_layer(idx).save(deco)
     base = P("assets", "long", "layers", f"nbase_{idx:02d}.png")
     V.make_narrative_base(b, idx, total, meta).save(base)
     prog = P("assets", "long", "layers", f"prog_{idx:02d}.png")
@@ -554,7 +557,14 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
         prev = out
     o_prev = prev if n > 1 else "b0"
     bi = n
-    fc.append(f"[{o_prev}][{bi}:v]overlay=0:0[o1]")
+    # deco 光斑视差层（相对卡点画面漂移，制造纵深）
+    fc.append(f"[{o_prev}][{bi}:v]overlay=x='26*sin(t/4)':"
+              f"y='16*cos(t/3.5)'[d0]")
+    o_prev = "d0"
+    bi += 1
+    # 徽章/进度轨层反向微漂移（与进度填充同表达式，保持对齐）
+    fc.append(f"[{o_prev}][{bi}:v]overlay=x='9*sin(t/4.5)':"
+              f"y='7*cos(t/4)'[o1]")
     o_prev = "o1"
     bi += 1
     fc.append(
@@ -562,7 +572,8 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
         f"{W}*({starts[idx]:.2f}+t)/{total_dur:.2f},{W})':h={H}:x=0:y=0,"
         f"format=rgba[p0]"
     )
-    fc.append(f"[{o_prev}][p0]overlay=0:0[o2]")
+    fc.append(f"[{o_prev}][p0]overlay=x='9*sin(t/4.5)':"
+              f"y='7*cos(t/4)'[o2]")
     o_prev = "o2"
     bi += 1
     for k, (p, s) in enumerate(sub_paths):
@@ -591,6 +602,8 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
     for k in range(n):
         cmd += ["-loop", "1", "-framerate", str(FPS),
                 "-t", f"{durs[k]:.3f}", "-i", bg_paths[k]]
+    cmd += ["-loop", "1", "-framerate", str(FPS),
+            "-t", f"{sdur:.3f}", "-i", deco]
     cmd += ["-loop", "1", "-framerate", str(FPS),
             "-t", f"{sdur:.3f}", "-i", base,
             "-loop", "1", "-framerate", str(FPS),
@@ -648,10 +661,10 @@ def render_frames_narrative(blocks, meta, story):
 def make_scene_audio(b, idx):
     tmp = P("audio", "long", "tmp")
     os.makedirs(tmp, exist_ok=True)
-    if b["type"] == "PHASE":
+    if NO_TTS or b["type"] == "PHASE":
         out = os.path.join(tmp, f"vs2_{idx:02d}.wav")
         sh("ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
-           "-t", f"{PHASE_DUR:.3f}", "-c:a", "pcm_s16le", out)
+           "-t", f"{scene_time(b):.3f}", "-c:a", "pcm_s16le", out)
         return out
     segs = []
 
@@ -791,15 +804,43 @@ def write_reports(blocks, total, out_name):
 
 
 def main():
+    global NO_TTS
     ap = argparse.ArgumentParser(description="长视频 V2 渲染引擎")
     ap.add_argument("--pilot", action="store_true", help="只渲染前 5 个块")
     ap.add_argument("--frames", action="store_true",
                     help="快速抽帧：全块 2 秒无声片段各抽 3 帧，跳过 TTS 与合成")
+    ap.add_argument("--blocks", default=None,
+                    help="只渲染指定块（逗号分隔序号），如 0,1,2,3,4,7,8,9,12,13")
+    ap.add_argument("--no-tts", action="store_true",
+                    help="跳过配音合成：音轨静音，时长按字数估算")
     args = ap.parse_args()
 
     blocks = parse_script()
     meta = book_meta(blocks)
     story = load_storyboard()
+    if args.blocks:
+        kept = [int(x) for x in args.blocks.split(",") if x.strip()]
+        blocks = [b for i, b in enumerate(blocks) if i in kept]
+        if story:
+            sb_map = {sb["block_idx"]: sb for sb in story["blocks"]}
+            kept_sb = [sb_map[i] for i in kept if i in sb_map]
+            have = set(os.listdir(P("assets", "long", "scenes")))
+            for sb in kept_sb:
+                keep_beats = []
+                for be in sb["beats"]:
+                    fn = f"{sb['block_idx']:02d}_{be['beat_idx']}.png"
+                    if not be.get("prompt") or fn in have:
+                        keep_beats.append(be)
+                sb["beats"] = keep_beats
+                if keep_beats:
+                    lo = keep_beats[0]["start_char"]
+                    hi = keep_beats[-1]["end_char"]
+                    sb["subtitles"] = [s for s in sb["subtitles"]
+                                       if lo <= s["start_char"]
+                                       and s["end_char"] <= hi]
+                else:
+                    sb["subtitles"] = []
+            story = {"blocks": kept_sb}
     if args.frames:
         if story:
             render_frames_narrative(blocks, meta, story)
@@ -810,7 +851,12 @@ def main():
         return
     if args.pilot:
         blocks = blocks[:5]
-    make_audio(blocks)
+    NO_TTS = args.no_tts
+    if args.no_tts:
+        for b in blocks:
+            b["voice_dur"] = len(b["voice"] or "") / 4.0
+    else:
+        make_audio(blocks)
     total = len(blocks)
     for i, b in enumerate(blocks):
         if story:
@@ -820,8 +866,12 @@ def main():
         else:
             render_scene(blocks, i, total, first=(i == 0),
                          last=(i == total - 1), meta=meta)
-    out_name = "long_money_v2_pilot.mp4" if args.pilot \
-        else "long_money_v2.mp4"
+    if args.blocks:
+        out_name = "long_money_v2_visual_sample.mp4"
+    elif args.pilot:
+        out_name = "long_money_v2_pilot.mp4"
+    else:
+        out_name = "long_money_v2.mp4"
     out = finalize(blocks, out_name)
     dur = probe_dur(out)
     preview_frames(dur, out_name)

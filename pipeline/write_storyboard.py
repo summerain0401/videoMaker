@@ -38,7 +38,7 @@ PROVIDERS = {
     },
 }
 SHOTS = ("wide", "medium", "close")
-MIN_BEATS, MAX_BEATS = 3, 5
+MIN_BEATS, MAX_BEATS = 3, 14
 MAX_RETRY = 2
 
 SYSTEM_PROMPT = """你是影视级「画面叙事」分镜师。根据用户提供的一个配音块口播，把它切成 3-5 个卡点（beat），并为每个卡点写一条中文画面提示词，用于 AI 生成插画叙事画面。
@@ -62,6 +62,16 @@ SYSTEM_PROMPT = """你是影视级「画面叙事」分镜师。根据用户提�
 - 该块 3-5 拍。
 - 每块的 sentence_ids 必须恰好覆盖该块全部句子一次，不得遗漏或重复；每拍 1-4 句。
 - 卡点顺序即句子顺序，拍与拍之间的句子 id 必须连续递增。"""
+
+REFINE_SYSTEM_PROMPT = """你是影视级「画面叙事」分镜师。用户会给出一拍口播的句子和上一拍的画面提示词，请为这一半内容写一条新的画面提示词，用于 AI 生成插画叙事画面。
+
+【要求】
+- 与给出的口播句子语义严格对应：人物+动作+场景+情绪+景别。
+- 与上一拍画面自然衔接（同一个人物继续同一场景或自然过渡），保持暖色温馨明亮的插画叙事风格。
+- 画面中不要出现任何文字、字母、图表、标语或水印；底部预留字幕安全区。
+
+【输出格式（只输出 JSON，不要解释）】
+{"shot": "wide|medium|close", "prompt": "30-80 字"}"""
 
 
 def split_sentences(text):
@@ -101,7 +111,7 @@ def load_api_key(conf):
     return None
 
 
-def call_api(provider, user_prompt, model, repair=""):
+def call_api(provider, user_prompt, model, repair="", system=SYSTEM_PROMPT):
     conf = PROVIDERS[provider]
     key = load_api_key(conf)
     if not key:
@@ -110,7 +120,6 @@ def call_api(provider, user_prompt, model, repair=""):
         sys.exit(2)
     base = os.environ.get("COPY_BASE_URL", conf["base"]).rstrip("/")
     model = model or os.environ.get("COPY_MODEL", conf["model"])
-    system = SYSTEM_PROMPT
     if repair:
         system += "\n\n【上一版存在以下问题，请修正后重新输出完整 JSON】\n" + repair
     body = {
@@ -261,6 +270,117 @@ def save(story, path):
     return path
 
 
+def refine_story(old_story, blocks, max_sec=12.0):
+    """把单拍估算 > max_sec 且 ≥2 句的拍拆成两半（按字符均衡）。"""
+    new_blocks = []
+    scenes_dir = P("assets", "long", "scenes")
+    for sb in old_story["blocks"]:
+        b = blocks[sb["block_idx"]]
+        sub_map = {s["id"]: s for s in sb["subtitles"]}
+        out = []
+        for be in sb["beats"]:
+            ids = list(be["sentence_ids"])
+            est = (be["end_char"] - be["start_char"]) / 4.0
+            has_img = os.path.exists(os.path.join(
+                scenes_dir, f"{sb['block_idx']:02d}_{be['beat_idx']}.png"))
+            if has_img and est > max_sec and len(ids) >= 2:
+                total = sum(sub_map[i]["end_char"] - sub_map[i]["start_char"]
+                            for i in ids)
+                acc, cut = 0, 1
+                for cut in range(1, len(ids)):
+                    acc += sub_map[ids[cut - 1]]["end_char"] - \
+                           sub_map[ids[cut - 1]]["start_char"]
+                    if acc >= total / 2:
+                        break
+                a, c = ids[:cut], ids[cut:]
+                out.append({
+                    "beat_idx": None, "shot": be["shot"],
+                    "prompt": be["prompt"],
+                    "sentence_ids": a,
+                    "start_char": sub_map[a[0]]["start_char"],
+                    "end_char": sub_map[a[-1]]["end_char"],
+                    "src_idx": be["beat_idx"], "new_prompt": True})
+                out.append({
+                    "beat_idx": None, "shot": None, "prompt": None,
+                    "sentence_ids": c,
+                    "start_char": sub_map[c[0]]["start_char"],
+                    "end_char": sub_map[c[-1]]["end_char"],
+                    "src_idx": None, "new_prompt": True})
+            else:
+                out.append({
+                    "beat_idx": None, "shot": be["shot"],
+                    "prompt": be["prompt"],
+                    "sentence_ids": ids,
+                    "start_char": be["start_char"],
+                    "end_char": be["end_char"],
+                    "src_idx": be["beat_idx"] if has_img else None,
+                    "new_prompt": False})
+        for k, be in enumerate(out):
+            be["beat_idx"] = k
+        new_blocks.append({**sb, "beats": out})
+    return {"style": old_story.get("style", "插画叙事"),
+            "blocks": new_blocks}
+
+
+def build_refine_view(b, sb, ids, parent_prompt):
+    sub_map = {s["id"]: s["text"] for s in sb["subtitles"]}
+    lines = [f"块 {b['type']}（{b['head']}）口播句子："]
+    for i in ids:
+        lines.append(f"句 {i}：{sub_map[i]}")
+    lines.append(f"上一拍画面（请保持衔接）：{parent_prompt}")
+    lines.append("请为这半拍写新画面提示词。")
+    return "\n".join(lines)
+
+
+def validate_refine(raw):
+    try:
+        data = extract_json(raw)
+    except Exception as e:
+        return [f"JSON 解析失败：{e}"], None
+    problems = []
+    if data.get("shot") not in SHOTS:
+        problems.append(f"shot 非法：{data.get('shot')}")
+    p = data.get("prompt", "")
+    if not p or len(p) > 300:
+        problems.append("prompt 缺失或超长")
+    return problems, (data.get("shot"), p) if not problems else None
+
+
+def migrate_scene_files(new_story):
+    """按 src_idx 把未拆拍/前半拍原图改名到新拍号，返回改名数。"""
+    scenes = P("assets", "long", "scenes")
+    os.makedirs(scenes, exist_ok=True)
+    staged = []
+    for sb in new_story["blocks"]:
+        for be in sb["beats"]:
+            src = be.get("src_idx")
+            if src is None:
+                continue
+            old_fn = os.path.join(scenes,
+                                  f"{sb['block_idx']:02d}_{src}.png")
+            tmp_fn = os.path.join(scenes,
+                                  f".t_{sb['block_idx']:02d}_{src}.png")
+            if os.path.exists(old_fn):
+                os.replace(old_fn, tmp_fn)
+                staged.append((tmp_fn, os.path.join(
+                    scenes, f"{sb['block_idx']:02d}_{be['beat_idx']}.png")))
+    for tmp_fn, new_fn in staged:
+        os.replace(tmp_fn, new_fn)
+    return len(staged)
+
+
+def missing_beats(story):
+    """返回需要生成画面的拍（有 prompt 且无对应文件）。"""
+    have = set(os.listdir(P("assets", "long", "scenes")))
+    out = []
+    for sb in story["blocks"]:
+        for be in sb["beats"]:
+            if be.get("prompt") and \
+                    f"{sb['block_idx']:02d}_{be['beat_idx']}.png" not in have:
+                out.append(f"{sb['block_idx']:02d}_{be['beat_idx']}")
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description="长视频叙事分镜生成（DeepSeek）")
     ap.add_argument("--provider", choices=list(PROVIDERS), default="deepseek")
@@ -269,11 +389,81 @@ def main():
                     help="输出 JSON 路径")
     ap.add_argument("--check", metavar="FILE",
                     help="离线复检指定分镜 JSON，不调 API")
+    ap.add_argument("--refine", action="store_true",
+                    help="细化：把单拍 >12s 的拍拆成两半（新半拍由 AI 写提示词）")
+    ap.add_argument("--max-sec", type=float, default=12.0,
+                    help="--refine 的单拍上限秒数（默认 12）")
     args = ap.parse_args()
 
     sys.path.insert(0, P("pipeline"))
     import build_long as B
     blocks = B.parse_script()
+
+    if args.refine:
+        import shutil
+        with open(args.out, encoding="utf-8") as f:
+            old_story = json.load(f)
+        story = refine_story(old_story, blocks, max_sec=args.max_sec)
+        old_beats = sum(len(b["beats"]) for b in old_story["blocks"])
+        new_beats = sum(len(b["beats"]) for b in story["blocks"])
+        # 为拆出的新半拍补写提示词
+        failed = 0
+        for sb in story["blocks"]:
+            b = blocks[sb["block_idx"]]
+            parent = None
+            for be in sb["beats"]:
+                if be.get("new_prompt") and be["prompt"]:
+                    parent = be["prompt"]
+                    continue
+                if be.get("new_prompt") and not be["prompt"]:
+                    view = build_refine_view(b, sb, be["sentence_ids"], parent)
+                    result = None
+                    for attempt in range(MAX_RETRY + 1):
+                        repair = ""
+                        if attempt:
+                            repair = "\n".join(
+                                f"- {p}" for p in problems[:8])
+                        text = call_api(args.provider, view, args.model,
+                                        repair, system=REFINE_SYSTEM_PROMPT)
+                        problems, result = validate_refine(text)
+                        if not problems:
+                            break
+                    if result:
+                        be["shot"], be["prompt"] = result
+                    else:
+                        print(f"块 {sb['block_idx']} 拍 "
+                              f"{be['beat_idx']} 提示词生成失败")
+                        failed += 1
+        if failed:
+            print(f"{failed} 个新拍提示词失败，中止。")
+            sys.exit(4)
+        # 清理内部字段
+        for sb in story["blocks"]:
+            for be in sb["beats"]:
+                be.pop("new_prompt", None)
+                be.pop("src_idx", None)
+        problems = validate_final(story, blocks)
+        if problems:
+            print("细化后校验未通过：")
+            for p in problems:
+                print(" -", p)
+            sys.exit(4)
+        # 备份 + 迁移原图 + 保存
+        shutil.copy2(args.out, args.out + ".bak")
+        # 迁移需要在清除 src_idx 前做；重新构建带 src 的副本
+        story_with_src = refine_story(old_story, blocks, max_sec=args.max_sec)
+        renamed = migrate_scene_files(story_with_src)
+        save(story, args.out)
+        missing = missing_beats(story)
+        print(f"细化完成：{old_beats} 拍 -> {new_beats} 拍，"
+              f"原图改名复用 {renamed} 张。")
+        if missing:
+            print(f"需生成 {len(missing)} 张新图，运行：")
+            print("  python3 pipeline/write_image_art.py --story"
+                  f" --beats {' '.join(missing)}")
+        else:
+            print("无新增拍，无需补图。")
+        return
 
     if args.check:
         with open(args.check, encoding="utf-8") as f:
