@@ -39,6 +39,9 @@ python3 pipeline/build_long.py --frames
 # 视觉样片（只渲染指定块、跳过语音）
 python3 pipeline/build_long.py --blocks 0,1,2,3 --no-tts
 
+# 视觉样片（微软女声 edge-tts，免费无需密钥）
+TTS_SOURCE=edge python3 pipeline/build_long.py --blocks 0,1,2
+
 # 长视频渲染（需提权，Piper）
 python3 pipeline/build_long.py --pilot    # 样段
 python3 pipeline/build_long.py            # 全片
@@ -49,4 +52,15 @@ python3 pipeline/build_long.py            # 全片
 
 视觉说明：画面不叠加压暗层、vignette 已减弱（全亮）；运镜为明显增强档
 （缩放 0.40、视差 ±14px）；阶段页背景 = 后续内容块首张卡点画面（保持
-故事连续），不再使用 art/ 抽象底图。
+故事连续），不再使用 art/ 抽象底图；无进度条与阶段徽章；字幕为底部单行
+（字号自适应，贴近画面底部）。
+
+语音：`TTS_SOURCE=edge` 使用微软 Edge 在线语音（免费、无需密钥，
+首次需 `pip install edge-tts`；非官方接口，失效可回退 Piper 或 Azure
+正式 API）；默认男声 `zh-CN-YunyangNeural`（成熟专业），`AZURE_VOICE`
+可换 `zh-CN-YunxiNeural` 等。
+
+封面图：`python3 pipeline/write_image_art.py --force --only COVER`
+→ `assets/long/cover.png`（16:9 暖色书籍主题、无文字、留白给标题）。
+
+字幕：固定 36px 单行，长句自动拆成连续字幕事件；背景浅色半透明。

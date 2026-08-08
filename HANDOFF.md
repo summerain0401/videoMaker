@@ -14,6 +14,7 @@
 - ✅ **M3 视觉升级完成**：阶段配色/徽章/插画位 bug 修复、书卡跟随脚本、逐词浮现/视差/转场映射/进度条随时间跟随、程序化质感底图；通义万相 `wan2.7-image-pro` 插画已生成到 `assets/long/art/`（TITLE/END/S1-S5）。
 - ✅ **M3 v2 画面叙事化**：画面讲卡点（正文零文字卡、配音+逐句字幕）；分镜 `script/storyboard_narrative.json`（19 块 80 拍，经 `--refine` 拆超长拍）；`write_image_art.py --story` 生成卡点画面到 `assets/long/scenes/`（当前 44 张，覆盖样片块）；引擎检测到分镜即进入叙事模式（删除 JSON 回退文字卡）。
 - 🎬 **视觉样片 v2**：`output/long/long_money_v2_visual_sample.mp4`（块 00-03、静音轨）；已修复暗度（去掉 55% 压暗层、vignette PI/7，画面全亮）、运镜明显增强（缩放 0.40、视差 ±14）、移除 art/ 底图引用（阶段页改用后续卡点画面）；生图模型默认 `wan2.7-image`（经济版）。
+- 🎬 **视觉样片 v4（进行中）**：字幕固定 36px 单行、长句拆连续字幕事件、浅色底；片头 00_0/00_1 已重生成明亮积极版；语音切 edge-tts 男声 `zh-CN-YunyangNeural`（免费无密钥）；新增封面图 `assets/long/cover.png`；样片仍只渲染块 00-02。
 - 🖼 **快速抽帧验收**：`python3 pipeline/build_long.py --frames`（约 1–3 分钟，19 块 × 3 帧到 `output/preview/m3_*.jpg`，跳过 TTS）。
 - ⏳ **全片未渲染**：19 个镜头、约 9–10 分钟。等用户对样段反馈确认后再跑。
 - ⏳ **用户尚未反馈样段观感**（音色/运镜/元素/转场四方面）。

@@ -33,7 +33,7 @@ def P(*parts):
     return os.path.join(ROOT, *parts)
 
 
-SLOTS = ["TITLE", "END", "S1", "S2", "S3", "S4", "S5"]
+SLOTS = ["TITLE", "END", "S1", "S2", "S3", "S4", "S5", "COVER"]
 DEFAULT_BASE = "https://dashscope.aliyuncs.com"
 DEFAULT_MODEL = "wan2.7-image"
 
@@ -65,6 +65,9 @@ PROMPTS = {
           "象征可操作的工具与步骤，画面明亮通透，中央留白。",
     "S5": "开阔的暖色天际，晨光从云隙洒下，金色光尘缓缓飘落，温暖宁静"
           "自由，画面明亮通透，中央留白。",
+    "COVER": "暖色书籍主题封面：一本厚书立在暖色桌面上，金色晨光洒落，"
+             "书页微微发光，四周暖色光晕与几何光点环绕，正面构图，"
+             "顶部与中央预留大面积留白以便叠加标题文字，温暖积极充满希望。",
 }
 
 
@@ -206,12 +209,14 @@ def main():
     slots = args.only or SLOTS
     failed = 0
     for slot in slots:
-        path = P("assets", "long", "art", f"{slot}.png")
+        out_path = P("assets", "long", "cover.png") if slot == "COVER" \
+            else None
+        path = out_path or P("assets", "long", "art", f"{slot}.png")
         if os.path.exists(path) and not args.force:
             print(f"跳过（已存在）：{slot}")
             continue
         print(f"生成 {slot}（{model}，thinking={thinking}）…")
-        out = generate_image(slot, model, base, thinking)
+        out = generate_image(slot, model, base, thinking, out_path=out_path)
         if out:
             print(f"已保存：{out}")
         else:

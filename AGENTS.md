@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-- `pipeline/` — Python 构建脚本：`build.py`（9:16 短视频）、`build_long.py`（16:9 长视频 V2 主引擎）、`long_visuals.py`（画面元素库）、`tts_piper.py`（本地神经 TTS）、`write_copy.py`（短视频文案起草）、`write_long_copy.py`（长视频文案起草）、`write_storyboard.py`（叙事分镜）、`write_image_art.py`（通义万相插画生成）。
+- `pipeline/` — Python 构建脚本：`build.py`（9:16 短视频）、`build_long.py`（16:9 长视频 V2 主引擎）、`long_visuals.py`（画面元素库）、`tts_piper.py`（本地神经 TTS）、`tts_edge.py`（微软 Edge 女声 TTS）、`write_copy.py`（短视频文案起草）、`write_long_copy.py`（长视频文案起草）、`write_storyboard.py`（叙事分镜）、`write_image_art.py`（通义万相插画生成）。
 - `copy/` — 文案源：`voiceover.txt`（短视频）、`long/script.txt`（长视频，唯一文案源）、`brief.md`（需求单）、草稿 `draft_*.txt`。
 - `assets/` — 素材与中间层：`piper/`（模型）、`long/`（Pillow 生成的图层）、`ai/`（AI 插画位）、`txt/`。
 - `audio/` — 配音与音乐（`long/` 含可复用缓存，命名带配置后缀）。
@@ -38,6 +38,12 @@ python3 pipeline/build_long.py --frames   # 抽帧验收：文字卡 m3_*.jpg / 
 
 # 视觉样片（跳过 TTS、只渲染指定块）
 python3 pipeline/build_long.py --blocks 0,1,2,3,4,7,8,9,12,13 --no-tts
+
+# 视觉样片（微软女声 edge-tts，免费无需密钥；依赖 edge-tts 库）
+TTS_SOURCE=edge python3 pipeline/build_long.py --blocks 0,1,2   # 默认男声 YunyangNeural
+
+# 封面图
+python3 pipeline/write_image_art.py --force --only COVER
 
 # 语法自检
 python3 -m py_compile pipeline/*.py

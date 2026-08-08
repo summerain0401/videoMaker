@@ -7,7 +7,8 @@
   python3 pipeline/build_long.py --pilot    # 只渲染前 5 个块供评审
 
 环境变量：
-  TTS_SOURCE=piper|system  默认 piper（本地男声）；system 为系统音色
+  TTS_SOURCE=piper|edge|system  默认 piper（本地男声）；edge 为微软女声
+                                （免费，无需密钥）；system 为系统音色
   PIPER_LENGTH_SCALE       语速（默认 1.0，越大越慢）
   在 audio/long/ 放入用户音乐文件（mp3/wav/m4a）自动混音，否则纯人声
 """
@@ -129,6 +130,9 @@ def synth_line(text, wav):
     if TTS_SOURCE == "piper":
         import tts_piper
         tts_piper.synthesize(text, wav, length_scale=PIPER_LS)
+    elif TTS_SOURCE == "edge":
+        import tts_edge
+        tts_edge.synthesize(text, wav)
     else:
         aiff = wav + ".aiff"
         sh("say", "-v", VOICE, "-r", str(SYSTEM_RATE), "-o", aiff, text)
@@ -136,8 +140,12 @@ def synth_line(text, wav):
 
 
 def voice_stem(idx, text=""):
-    cfg = TTS_SOURCE + ("ls" + str(PIPER_LS) if TTS_SOURCE == "piper"
-                        else f"{VOICE}{SYSTEM_RATE}")
+    if TTS_SOURCE == "piper":
+        cfg = f"piperls{PIPER_LS}"
+    elif TTS_SOURCE == "edge":
+        cfg = "edge" + os.environ.get("AZURE_VOICE", "zh-CN-YunyangNeural")
+    else:
+        cfg = f"{VOICE}{SYSTEM_RATE}"
     h = hashlib.md5((text or "").encode("utf-8")).hexdigest()[:8]
     return f"blk{idx:02d}_{cfg}_{h}"
 
@@ -504,6 +512,19 @@ def subtitle_windows(block, sub):
     return s, e
 
 
+def split_subtitle_chunks(text, max_chars=40):
+    """把句子切成 ≤max_chars 的块（长句拆成连续字幕事件，保持单行）。"""
+    out, cur = [], ""
+    for ch in text:
+        cur += ch
+        if len(cur) >= max_chars:
+            out.append(cur)
+            cur = ""
+    if cur:
+        out.append(cur)
+    return out
+
+
 def render_scene_narrative(blocks, idx, total, first, last, meta, story):
     """叙事模式：卡点画面 zoompan + dissolve 拼接 + 字幕/进度叠层。"""
     b = blocks[idx]
@@ -518,17 +539,21 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
                                      beat_art_path(b, idx, k, blocks)))
     deco = P("assets", "long", "layers", f"deco_{idx:02d}.png")
     V.make_deco_layer(idx).save(deco)
-    base = P("assets", "long", "layers", f"nbase_{idx:02d}.png")
-    V.make_narrative_base(b, idx, total, meta).save(base)
-    prog = P("assets", "long", "layers", f"prog_{idx:02d}.png")
-    V.make_progress_fill().save(prog)
-    sub_paths = []
+    sub_events = []
     for s in sb["subtitles"]:
-        p = P("assets", "long", "layers", f"sub_{idx:02d}_{s['id']:02d}.png")
-        V.make_subtitle_layer(s["text"]).save(p)
-        sub_paths.append((p, s))
+        ts, te = subtitle_windows(b, s)
+        total = max(s["end_char"] - s["start_char"], 1)
+        offset = 0
+        for ch in split_subtitle_chunks(s["text"]):
+            ln = len(ch)
+            st = ts + (offset / total) * (te - ts)
+            et = ts + ((offset + ln) / total) * (te - ts)
+            p = P("assets", "long", "layers",
+                  f"sub_{idx:02d}_{s['id']:02d}_{offset:03d}.png")
+            V.make_subtitle_layer(ch).save(p)
+            sub_events.append((p, st, et))
+            offset += ln
 
-    starts, total_dur = _timeline(blocks)
     fc = []
     for k in range(n):
         nframes = max(int(durs[k] * FPS), 1)
@@ -554,22 +579,7 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
               f"y='22*cos(t/3.5)'[d0]")
     o_prev = "d0"
     bi += 1
-    # 徽章/进度轨层反向微漂移（与进度填充同表达式，保持对齐）
-    fc.append(f"[{o_prev}][{bi}:v]overlay=x='14*sin(t/4)':"
-              f"y='11*cos(t/4)'[o1]")
-    o_prev = "o1"
-    bi += 1
-    fc.append(
-        f"[{bi}:v]crop=w='if(lt({starts[idx]:.2f}+t,{total_dur:.2f}),"
-        f"{W}*({starts[idx]:.2f}+t)/{total_dur:.2f},{W})':h={H}:x=0:y=0,"
-        f"format=rgba[p0]"
-    )
-    fc.append(f"[{o_prev}][p0]overlay=x='14*sin(t/4)':"
-              f"y='11*cos(t/4)'[o2]")
-    o_prev = "o2"
-    bi += 1
-    for k, (p, s) in enumerate(sub_paths):
-        ts, te = subtitle_windows(b, s)
+    for k, (p, ts, te) in enumerate(sub_events):
         fc.append(
             f"[{bi}:v]fade=t=in:st={max(0.0, ts - 0.15):.2f}:d=0.25:alpha=1,"
             f"fade=t=out:st={max(0.0, te - 0.20):.2f}:d=0.25:alpha=1,"
@@ -596,11 +606,7 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
                 "-t", f"{durs[k]:.3f}", "-i", bg_paths[k]]
     cmd += ["-loop", "1", "-framerate", str(FPS),
             "-t", f"{sdur:.3f}", "-i", deco]
-    cmd += ["-loop", "1", "-framerate", str(FPS),
-            "-t", f"{sdur:.3f}", "-i", base,
-            "-loop", "1", "-framerate", str(FPS),
-            "-t", f"{sdur:.3f}", "-i", prog]
-    for p, s in sub_paths:
+    for p, ts, te in sub_events:
         cmd += ["-loop", "1", "-framerate", str(FPS),
                 "-t", f"{sdur:.3f}", "-i", p]
     cmd += ["-i", wav, "-filter_complex", ";".join(fc),
@@ -616,7 +622,6 @@ def render_frames_narrative(blocks, meta, story):
     """叙事模式快速抽帧：每拍 2 张静态帧（无字幕/带字幕），PIL 合成。"""
     outdir = P("output", "preview")
     os.makedirs(outdir, exist_ok=True)
-    starts, total_dur = _timeline(blocks)
     for i, b in enumerate(blocks):
         sb = story["blocks"][i]
         for k, be in enumerate(sb["beats"]):
@@ -630,20 +635,13 @@ def render_frames_narrative(blocks, meta, story):
             x0 = (img.width - W) // 2
             y0 = (img.height - H) // 2
             img = img.crop((x0, y0, x0 + W, y0 + H)).convert("RGBA")
-            img = Image.alpha_composite(img, V.make_narrative_base(
-                b, i, len(blocks), meta))
-            mid = starts[i] + 0.5 * scene_dur_estimate(b)
-            frac = min(1.0, mid / max(total_dur, 1.0))
-            fill = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-            d = ImageDraw.Draw(fill)
-            d.rounded_rectangle((48, H - 38, 48 + (W - 96) * frac, H - 32),
-                                radius=3, fill=V.ACCENT)
-            img = Image.alpha_composite(img, fill)
             img.convert("RGB").save(
                 os.path.join(outdir, f"m3n_{i:02d}_{k:02d}.jpg"), quality=88)
             if sb["subtitles"]:
                 img2 = Image.alpha_composite(
-                    img, V.make_subtitle_layer(sb["subtitles"][0]["text"]))
+                    img, V.make_subtitle_layer(
+                        split_subtitle_chunks(
+                            sb["subtitles"][0]["text"])[0]))
                 img2.convert("RGB").save(
                     os.path.join(outdir, f"m3n_{i:02d}_{k:02d}_s.jpg"),
                     quality=88)

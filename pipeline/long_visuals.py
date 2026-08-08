@@ -151,35 +151,24 @@ def make_progress_fill():
     return img
 
 
-def make_subtitle_layer(text, size=46, max_w=1500):
-    """底部逐句字幕层：半透明深底圆角 + 白字，最多两行。"""
+def make_subtitle_layer(text, max_w=1560, size=36):
+    """底部单行字幕：固定字号 36px、半透明浅底、贴近画面底部。"""
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     f = font(FONT_BODY, size)
-    lines = wrap(d, text, f, max_w)[:2]
-    line_h = int(size * 1.35)
-    total_h = line_h * len(lines)
-    y0 = H - 150 - total_h
+    line_h = int(size * 1.5)
+    y0 = H - 66 - line_h  # 底边距画面底部约 60px
     x0, x1 = W / 2 - max_w / 2, W / 2 + max_w / 2
-    d.rounded_rectangle((x0, y0 - 18, x1, y0 + total_h + 12), radius=22,
-                        fill=(8, 8, 10, 150))
-    y = y0
-    for ln in lines:
-        d.text((W / 2, y + size / 2), ln, font=f,
-               fill=(250, 248, 240, 255), anchor="mm")
-        y += line_h
+    d.rounded_rectangle((x0, y0 - 12, x1, y0 + line_h + 8), radius=18,
+                        fill=(25, 25, 32, 115))
+    d.text((W / 2, y0 + line_h / 2), text, font=f,
+           fill=(250, 248, 240, 255), anchor="mm")
     return img
 
 
 def make_narrative_base(block, idx, total, meta=None):
-    """叙事模式叠层：左上阶段小徽章 + 底部进度轨（无书卡/文字卡）。"""
-    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    draw_progress(d, idx, total)
-    btype = block["type"]
-    if block["phase"] and btype not in ("TITLE", "PHASE", "END"):
-        draw_phase_badge(d, block["phase"], idx)
-    return img
+    """叙事模式叠层：已移除进度条与阶段徽章（空透明层，保留接口占位）。"""
+    return Image.new("RGBA", (W, H), (0, 0, 0, 0))
 
 
 def make_sweep_layer():

@@ -111,3 +111,14 @@ python3 pipeline/build_long.py --blocks 0,1,2,3,4,7,8,9,12,13 --no-tts
 
 视觉参数（`build_long.py`）：画面不压暗、vignette=PI/7（全亮）；
 运镜缩放 0.40、pan 基准 1.25、前景视差 ±14px（明显增强档）。
+叙事模式无进度条与阶段徽章；字幕为底部单行（字号自适应，贴底约 60px）。
+
+微软语音（免费、无需密钥，默认男声 `zh-CN-YunyangNeural`）：
+```bash
+TTS_SOURCE=edge python3 pipeline/build_long.py --blocks 0,1,2
+# AZURE_VOICE=zh-CN-YunxiNeural 可换其他声线；EDGE_RATE=+0% 调语速
+```
+依赖 `edge-tts`（`pip install edge-tts`，非官方接口，失效可回退 Piper）。
+
+封面图：`python3 pipeline/write_image_art.py --force --only COVER` →
+`assets/long/cover.png`。字幕固定 36px 单行、长句拆连续事件、浅色底。
