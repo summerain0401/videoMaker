@@ -199,19 +199,10 @@ def art_key(b):
 
 
 def make_background(b, idx):
-    """优先 AI 插画（assets/long/art/S{n}.png），否则程序化渐变。"""
+    """卡片模式底图：程序化质感渐变（不再使用 art/ 插画底图）。"""
     out = P("assets", "long", "layers", f"bg_{idx:02d}.png")
-    art = P("assets", "long", "art", f"{art_key(b)}.png")
-    if os.path.exists(art):
-        img = Image.open(art).convert("RGB").resize((2 * W, 2 * H),
-                                                    Image.LANCZOS)
-        dark = Image.new("RGBA", img.size, (8, 6, 10, 150))
-        img = img.convert("RGBA")
-        img = Image.alpha_composite(img, dark)
-        img.save(out)
-    else:
-        c0, c1, c2 = palette_for(b)
-        V.procedural_bg(c0, c1, c2, 2 * W, 2 * H).save(out)
+    c0, c1, c2 = palette_for(b)
+    V.procedural_bg(c0, c1, c2, 2 * W, 2 * H).save(out)
     return out
 
 
@@ -222,17 +213,17 @@ def motion_exprs(idx, nframes):
     cx = "'iw/2-(iw/zoom/2)'"
     cy = "'ih/2-(ih/zoom/2)'"
     if prof == "push":
-        z = f"1+0.28*on/{n}"
+        z = f"1+0.40*on/{n}"
     elif prof == "pull":
-        z = f"1.28-0.28*on/{n}"
+        z = f"1.40-0.40*on/{n}"
     elif prof == "panl":
-        z = "1.18"
+        z = "1.25"
         cx = f"'+(iw-iw/zoom)*(1-on/{n})'"
     elif prof == "panr":
-        z = "1.18"
+        z = "1.25"
         cx = f"'+(iw-iw/zoom)*(on/{n})'"
     else:  # up
-        z = "1.18"
+        z = "1.25"
         cy = f"'+(ih-ih/zoom)*(1-on/{n})'"
     return z, cx, cy
 
@@ -278,12 +269,12 @@ def render_scene(blocks, idx, total, first, last, meta=None):
 
     starts, total_dur = _timeline(blocks)
     z, cx, cy = motion_exprs(idx, nframes)
-    dx, dy = "9*sin(t/4.5)", "7*cos(t/4)"   # 前景层反向微漂移（视差）
+    dx, dy = "14*sin(t/4)", "11*cos(t/4)"   # 前景层反向微漂移（视差）
     fc = [
         f"[0:v]scale={2 * W}:{2 * H},"
         f"zoompan=z='{z}':x={cx}:y={cy}:d=1:s={W}x{H}:fps={FPS},"
         f"format=yuv420p[bg0]",
-        f"[bg0][1:v]overlay=x='26*sin(t/4)':y='16*cos(t/3.5)'[bgd2]",
+        f"[bg0][1:v]overlay=x='34*sin(t/4)':y='22*cos(t/3.5)'[bgd2]",
         f"[bgd2][2:v]overlay=x='{dx}':y='{dy}'[o0]",
     ]
     o_prev = "o0"
@@ -320,7 +311,7 @@ def render_scene(blocks, idx, total, first, last, meta=None):
         o_prev = f"o{k + 1}"
         next_in += 1
 
-    tail = f"[{o_prev}]vignette=PI/4.5"
+    tail = f"[{o_prev}]vignette=PI/7"
     if first:
         tail += ",fade=t=in:st=0:d=0.5"
     if last:
@@ -379,13 +370,13 @@ def render_frames(blocks, meta):
             V.make_sweep_layer().save(sweep)
 
         z, cx, cy = motion_exprs(i, nframes)
-        dx, dy = "5*sin(t/5)", "3.5*cos(t/4)"
+        dx, dy = "8*sin(t/5)", "5.5*cos(t/4)"
         fc = [
             f"[0:v]scale=1920x1080,"
             f"zoompan=z='{z}':x={cx}:y={cy}:d=1:s={FW}x{FH}:fps={FFPS},"
             f"format=yuv420p[bg0]",
             f"[1:v]scale={FW}:{FH},format=rgba[d0]",
-            f"[bg0][d0]overlay=x='13*sin(t/4)':y='8*cos(t/3.5)'[bgd2]",
+            f"[bg0][d0]overlay=x='17*sin(t/4)':y='11*cos(t/3.5)'[bgd2]",
             f"[2:v]scale={FW}:{FH},format=rgba[b0]",
             f"[bgd2][b0]overlay=x='{dx}':y='{dy}'[o0]",
         ]
@@ -425,7 +416,7 @@ def render_frames(blocks, meta):
             )
             o_prev = f"o{k + 1}"
             next_in += 1
-        fc.append(f"[{o_prev}]vignette=PI/4.5,format=yuv420p[v]")
+        fc.append(f"[{o_prev}]vignette=PI/7,format=yuv420p[v]")
 
         clip = os.path.join(outdir, f"m3_{i:02d}.mp4")
         cmd = ["ffmpeg", "-y",
@@ -462,31 +453,31 @@ def load_storyboard():
     return None
 
 
-def beat_art_path(b, idx, beat_idx):
-    """卡点画面：优先 scenes/{idx}_{beat}.png；阶段页用 S{n}；首尾用 TITLE/END。"""
+def phase_art_path(blocks, idx):
+    """阶段页背景：后续第一个有卡点图的内容块首拍画面（保持故事连续）。"""
+    for j in range(idx + 1, len(blocks)):
+        p = P("assets", "long", "scenes", f"{j:02d}_0.png")
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def beat_art_path(b, idx, beat_idx, blocks=None):
+    """卡点画面：优先 scenes/{idx}_{beat}.png；PHASE 用后续内容块首拍；否则 None。"""
     p = P("assets", "long", "scenes", f"{idx:02d}_{beat_idx}.png")
     if os.path.exists(p):
         return p
-    if b["type"] == "TITLE":
-        return P("assets", "long", "art", "TITLE.png")
-    if b["type"] == "END":
-        return P("assets", "long", "art", "END.png")
-    num = phase_num(b["phase"])
-    if num and num.isdigit():
-        return P("assets", "long", "art", f"S{int(num)}.png")
+    if b["type"] == "PHASE" and blocks is not None:
+        return phase_art_path(blocks, idx)
     return None
 
 
 def make_beat_bg(b, idx, beat_idx, art_path):
-    """卡点底图：插画压暗放大，否则程序化底图。"""
+    """卡点底图：原图直接放大（不压暗），否则程序化底图。"""
     out = P("assets", "long", "layers", f"nbg_{idx:02d}_{beat_idx:02d}.png")
     if art_path and os.path.exists(art_path):
-        img = Image.open(art_path).convert("RGB").resize((2 * W, 2 * H),
-                                                         Image.LANCZOS)
-        dark = Image.new("RGBA", img.size, (8, 6, 10, 140))
-        img = img.convert("RGBA")
-        img = Image.alpha_composite(img, dark)
-        img.save(out)
+        Image.open(art_path).convert("RGB").resize(
+            (2 * W, 2 * H), Image.LANCZOS).save(out)
     else:
         c0, c1, c2 = palette_for(b)
         V.procedural_bg(c0, c1, c2, 2 * W, 2 * H).save(out)
@@ -523,7 +514,8 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
     n = len(beats)
     bg_paths = []
     for k in range(n):
-        bg_paths.append(make_beat_bg(b, idx, k, beat_art_path(b, idx, k)))
+        bg_paths.append(make_beat_bg(b, idx, k,
+                                     beat_art_path(b, idx, k, blocks)))
     deco = P("assets", "long", "layers", f"deco_{idx:02d}.png")
     V.make_deco_layer(idx).save(deco)
     base = P("assets", "long", "layers", f"nbase_{idx:02d}.png")
@@ -558,13 +550,13 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
     o_prev = prev if n > 1 else "b0"
     bi = n
     # deco 光斑视差层（相对卡点画面漂移，制造纵深）
-    fc.append(f"[{o_prev}][{bi}:v]overlay=x='26*sin(t/4)':"
-              f"y='16*cos(t/3.5)'[d0]")
+    fc.append(f"[{o_prev}][{bi}:v]overlay=x='34*sin(t/4)':"
+              f"y='22*cos(t/3.5)'[d0]")
     o_prev = "d0"
     bi += 1
     # 徽章/进度轨层反向微漂移（与进度填充同表达式，保持对齐）
-    fc.append(f"[{o_prev}][{bi}:v]overlay=x='9*sin(t/4.5)':"
-              f"y='7*cos(t/4)'[o1]")
+    fc.append(f"[{o_prev}][{bi}:v]overlay=x='14*sin(t/4)':"
+              f"y='11*cos(t/4)'[o1]")
     o_prev = "o1"
     bi += 1
     fc.append(
@@ -572,8 +564,8 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
         f"{W}*({starts[idx]:.2f}+t)/{total_dur:.2f},{W})':h={H}:x=0:y=0,"
         f"format=rgba[p0]"
     )
-    fc.append(f"[{o_prev}][p0]overlay=x='9*sin(t/4.5)':"
-              f"y='7*cos(t/4)'[o2]")
+    fc.append(f"[{o_prev}][p0]overlay=x='14*sin(t/4)':"
+              f"y='11*cos(t/4)'[o2]")
     o_prev = "o2"
     bi += 1
     for k, (p, s) in enumerate(sub_paths):
@@ -590,7 +582,7 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
         )
         o_prev = f"o{k + 3}"
         bi += 1
-    tail = f"[{o_prev}]vignette=PI/4.5"
+    tail = f"[{o_prev}]vignette=PI/7"
     if first:
         tail += ",fade=t=in:st=0:d=0.5"
     if last:
@@ -628,7 +620,7 @@ def render_frames_narrative(blocks, meta, story):
     for i, b in enumerate(blocks):
         sb = story["blocks"][i]
         for k, be in enumerate(sb["beats"]):
-            art = beat_art_path(b, i, k)
+            art = beat_art_path(b, i, k, blocks)
             if art and os.path.exists(art):
                 img = Image.open(art).convert("RGB")
             else:

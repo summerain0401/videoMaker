@@ -9,7 +9,7 @@
 | `pipeline/` | 全部构建/起草/生图脚本 |
 | `copy/` | 文案源：长视频 `copy/long/script.txt`、短视频 `voiceover.txt` |
 | `script/storyboard_narrative.json` | 当前叙事分镜（63 拍 + 字幕表） |
-| `assets/long/art/` | 插画底图（TITLE/END/S1-S5，阶段页与首尾页） |
+| `assets/long/art/` | 历史插画底图（TITLE/END/S1-S5，已不再被渲染引用，保留存档） |
 | `assets/long/scenes/` | 叙事卡点画面（当前 44 张：样片块细化后） |
 | `audio/long/voice/` | Piper 配音缓存（生成贵，保留复用） |
 | `audio/long/music.wav` | 背景乐（用户提供，混音用） |
@@ -37,7 +37,7 @@ python3 pipeline/write_image_art.py --story
 python3 pipeline/build_long.py --frames
 
 # 视觉样片（只渲染指定块、跳过语音）
-python3 pipeline/build_long.py --blocks 0,1,2,3,4,7,8,9,12,13 --no-tts
+python3 pipeline/build_long.py --blocks 0,1,2,3 --no-tts
 
 # 长视频渲染（需提权，Piper）
 python3 pipeline/build_long.py --pilot    # 样段
@@ -46,3 +46,7 @@ python3 pipeline/build_long.py            # 全片
 
 生图模型默认 `wan2.7-image`（经济版），可用 `IMAGE_MODEL` 切换为
 `wan2.7-image-pro`。
+
+视觉说明：画面不叠加压暗层、vignette 已减弱（全亮）；运镜为明显增强档
+（缩放 0.40、视差 ±14px）；阶段页背景 = 后续内容块首张卡点画面（保持
+故事连续），不再使用 art/ 抽象底图。

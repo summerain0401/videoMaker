@@ -105,5 +105,9 @@ python3 pipeline/build_long.py --blocks 0,1,2,3,4,7,8,9,12,13 --no-tts
 ```
 
 画面命名：`assets/long/scenes/{块:02d}_{拍}.png`（如 `02_0.png`）；
-阶段页用 `assets/long/art/S1-S5.png`，首尾页用 `TITLE.png` / `END.png`。
+阶段页用「后续内容块首张卡点画面」做背景（故事连续），缺失拍兜底为
+程序化渐变；`assets/long/art/` 已不再被渲染引用（保留为历史资产）。
 本片每拍独立人物统一画风；主角一致性（参考图图生图）为下一条片预留。
+
+视觉参数（`build_long.py`）：画面不压暗、vignette=PI/7（全亮）；
+运镜缩放 0.40、pan 基准 1.25、前景视差 ±14px（明显增强档）。
