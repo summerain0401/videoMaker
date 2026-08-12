@@ -106,7 +106,8 @@ def load_api_key(conf):
         with open(env_path, encoding="utf-8") as f:
             for raw in f:
                 line = raw.strip()
-                if line.startswith("DEEPSEEK_API_KEY="):
+                if "=" in line and line.split("=", 1)[0].strip() == \
+                        "DEEPSEEK_API_KEY":
                     return line.split("=", 1)[1].strip().strip('"').strip("'")
     return None
 

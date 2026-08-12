@@ -7,8 +7,9 @@
   python3 pipeline/build_long.py --pilot    # 只渲染前 5 个块供评审
 
 环境变量：
-  TTS_SOURCE=piper|edge|system  默认 piper（本地男声）；edge 为微软女声
-                                （免费，无需密钥）；system 为系统音色
+  TTS_SOURCE=piper|edge|azure|system  默认 piper（本地男声）；edge 为微软
+                                      在线（免费无密钥）；azure 为正式 API
+                                      （需 AZURE_SPEECH_KEY）；system 为系统音色
   PIPER_LENGTH_SCALE       语速（默认 1.0，越大越慢）
   在 audio/long/ 放入用户音乐文件（mp3/wav/m4a）自动混音，否则纯人声
 """
@@ -133,6 +134,9 @@ def synth_line(text, wav):
     elif TTS_SOURCE == "edge":
         import tts_edge
         tts_edge.synthesize(text, wav)
+    elif TTS_SOURCE == "azure":
+        import tts_azure
+        tts_azure.synthesize(text, wav)
     else:
         aiff = wav + ".aiff"
         sh("say", "-v", VOICE, "-r", str(SYSTEM_RATE), "-o", aiff, text)
@@ -143,7 +147,12 @@ def voice_stem(idx, text=""):
     if TTS_SOURCE == "piper":
         cfg = f"piperls{PIPER_LS}"
     elif TTS_SOURCE == "edge":
-        cfg = "edge" + os.environ.get("AZURE_VOICE", "zh-CN-YunyangNeural")
+        import tts_edge
+        cfg = "edge" + tts_edge.VOICE
+    elif TTS_SOURCE == "azure":
+        import tts_azure
+        cfg = "azure" + tts_azure._cfg("AZURE_VOICE",
+                                       "zh-CN-YunyangNeural")
     else:
         cfg = f"{VOICE}{SYSTEM_RATE}"
     h = hashlib.md5((text or "").encode("utf-8")).hexdigest()[:8]

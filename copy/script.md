@@ -57,21 +57,12 @@
 
 离线检查任意文案文件：`python3 pipeline/write_long_copy.py --check 文件路径`。
 
-## 长视频 AI 插画底图（M3）
+## 长视频 AI 生图（wan2.7-image）
 
-引擎按 `assets/long/art/` 下的文件自动加载插画底图（存在即用，缺失回退
-程序化质感底图）：`TITLE.png`、`END.png`、`S1.png`…`S5.png`（对应五个阶段）。
-
-```bash
-# 补齐缺失槽位（密钥自动读 .env 的 DASHSCOPE_API_KEY）
-python3 pipeline/write_image_art.py
-python3 pipeline/write_image_art.py --force        # 全部重新生成
-python3 pipeline/write_image_art.py --only S1      # 只生成指定槽位
-```
-
-环境变量：`DASHSCOPE_API_KEY`（必填）、`DASHSCOPE_BASE_URL`（默认
-`https://dashscope.aliyuncs.com`，可用百炼业务空间专属域名）、
-`IMAGE_MODEL`（默认 `wan2.7-image-pro`）、`IMAGE_THINKING`（默认开）。
+生图默认模型 `wan2.7-image`（经济版），`IMAGE_MODEL` 可切 `wan2.7-image-pro`；
+密钥走 `.env` 的 `DASHSCOPE_API_KEY`，`DASHSCOPE_BASE_URL` 可用百炼业务空间
+专属域名。注意：`assets/long/art/` 的历史底图已不再被渲染引用（保留存档），
+当前画面全部来自 `--story` 卡点图与 `--only COVER` 封面图。
 
 快速抽帧验收（跳过 TTS 与合成，约 1–3 分钟，19 块 × 3 帧到
 `output/preview/m3_*.jpg`）：
@@ -119,6 +110,10 @@ TTS_SOURCE=edge python3 pipeline/build_long.py --blocks 0,1,2
 # AZURE_VOICE=zh-CN-YunxiNeural 可换其他声线；EDGE_RATE=+0% 调语速
 ```
 依赖 `edge-tts`（`pip install edge-tts`，非官方接口，失效可回退 Piper）。
+
+Azure 正式语音（`TTS_SOURCE=azure`）：`.env` 配置 `AZURE_SPEECH_KEY`、
+`AZURE_REGION`（可回退 `REST_API_URL` 解析区域）、`AZURE_VOICE`（声音名，
+如 `zh-CN-Xiaochen:DragonHDFlashLatestNeural`）。与 edge/Piper 三选一切换。
 
 封面图：`python3 pipeline/write_image_art.py --force --only COVER` →
 `assets/long/cover.png`。字幕固定 36px 单行、长句拆连续事件、浅色底。

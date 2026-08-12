@@ -60,6 +60,12 @@ python3 pipeline/build_long.py            # 全片
 正式 API）；默认男声 `zh-CN-YunyangNeural`（成熟专业），`AZURE_VOICE`
 可换 `zh-CN-YunxiNeural` 等。
 
+Azure 正式语音（需密钥，免费层 50 万字符/月）：
+`TTS_SOURCE=azure`，`.env` 配置 `AZURE_SPEECH_KEY`、`AZURE_REGION`
+（可回退 `REST_API_URL` 解析）、`AZURE_VOICE`（声音名，如
+`zh-CN-Xiaochen:DragonHDFlashLatestNeural` 成熟知性女声）。与 edge/Piper
+共存，随时用 `TTS_SOURCE` 切换。
+
 封面图：`python3 pipeline/write_image_art.py --force --only COVER`
 → `assets/long/cover.png`（16:9 暖色书籍主题、无文字、留白给标题）。
 
