@@ -2,10 +2,12 @@
 # -*- coding: utf-8 -*-
 """长视频叙事分镜生成：DeepSeek 把每块口播切成 3-5 个卡点并写画面提示词。
 
-流程：copy/long/script.txt -> DeepSeek 对每个配音块切卡点/写提示词 ->
-      程序化拼装 script/storyboard_narrative.json（含 beats 与逐句字幕表）
-      -> pipeline/write_image_art.py --story 生成卡点画面
-      -> pipeline/build_long.py 进入叙事渲染模式。
+项目制路径：默认读写 projects/001_金钱的艺术/input/（环境变量 PROJECT
+可换项目，--project 参数可覆盖）。流程：项目 input/script.txt ->
+DeepSeek 对每个配音块切卡点/写提示词 -> 程序化拼装
+input/storyboard_narrative.json（含 beats 与逐句字幕表）
+-> pipeline/write_image_art.py --story 生成卡点画面
+-> pipeline/build_long.py 进入叙事渲染模式。
 
 输出 JSON 结构（每个配音块）：
   beats:      [{beat_idx, shot(wide|medium|close), prompt(画面提示词),
@@ -24,10 +26,17 @@ import urllib.error
 import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import proj as PJ
 
 
 def P(*parts):
     return os.path.join(ROOT, *parts)
+
+
+def PROJ(*parts):
+    """当前项目内路径（input/assets/audio/output）。"""
+    return PJ.PROJ(*parts)
 
 
 PROVIDERS = {
@@ -274,7 +283,7 @@ def save(story, path):
 def refine_story(old_story, blocks, max_sec=12.0):
     """把单拍估算 > max_sec 且 ≥2 句的拍拆成两半（按字符均衡）。"""
     new_blocks = []
-    scenes_dir = P("assets", "long", "scenes")
+    scenes_dir = PROJ("assets", "scenes")
     for sb in old_story["blocks"]:
         b = blocks[sb["block_idx"]]
         sub_map = {s["id"]: s for s in sb["subtitles"]}
@@ -349,7 +358,7 @@ def validate_refine(raw):
 
 def migrate_scene_files(new_story):
     """按 src_idx 把未拆拍/前半拍原图改名到新拍号，返回改名数。"""
-    scenes = P("assets", "long", "scenes")
+    scenes = PROJ("assets", "scenes")
     os.makedirs(scenes, exist_ok=True)
     staged = []
     for sb in new_story["blocks"]:
@@ -372,7 +381,7 @@ def migrate_scene_files(new_story):
 
 def missing_beats(story):
     """返回需要生成画面的拍（有 prompt 且无对应文件）。"""
-    have = set(os.listdir(P("assets", "long", "scenes")))
+    have = set(os.listdir(PROJ("assets", "scenes")))
     out = []
     for sb in story["blocks"]:
         for be in sb["beats"]:
@@ -384,9 +393,11 @@ def missing_beats(story):
 
 def main():
     ap = argparse.ArgumentParser(description="长视频叙事分镜生成（DeepSeek）")
+    ap.add_argument("--project", default=None,
+                    help="项目 id（默认取环境变量 PROJECT，缺省 001）")
     ap.add_argument("--provider", choices=list(PROVIDERS), default="deepseek")
     ap.add_argument("--model", default=None, help="覆盖默认模型名")
-    ap.add_argument("--out", default=P("script", "storyboard_narrative.json"),
+    ap.add_argument("--out", default=None,
                     help="输出 JSON 路径")
     ap.add_argument("--check", metavar="FILE",
                     help="离线复检指定分镜 JSON，不调 API")
@@ -396,13 +407,17 @@ def main():
                     help="--refine 的单拍上限秒数（默认 12）")
     args = ap.parse_args()
 
+    if args.project:
+        PJ.CURRENT_ID = args.project
+    out_path = args.out or PROJ("input", "storyboard_narrative.json")
+
     sys.path.insert(0, P("pipeline"))
     import build_long as B
     blocks = B.parse_script()
 
     if args.refine:
         import shutil
-        with open(args.out, encoding="utf-8") as f:
+        with open(out_path, encoding="utf-8") as f:
             old_story = json.load(f)
         story = refine_story(old_story, blocks, max_sec=args.max_sec)
         old_beats = sum(len(b["beats"]) for b in old_story["blocks"])
@@ -450,11 +465,11 @@ def main():
                 print(" -", p)
             sys.exit(4)
         # 备份 + 迁移原图 + 保存
-        shutil.copy2(args.out, args.out + ".bak")
+        shutil.copy2(out_path, out_path + ".bak")
         # 迁移需要在清除 src_idx 前做；重新构建带 src 的副本
         story_with_src = refine_story(old_story, blocks, max_sec=args.max_sec)
         renamed = migrate_scene_files(story_with_src)
-        save(story, args.out)
+        save(story, out_path)
         missing = missing_beats(story)
         print(f"细化完成：{old_beats} 拍 -> {new_beats} 拍，"
               f"原图改名复用 {renamed} 张。")
@@ -514,7 +529,7 @@ def main():
         for p in problems:
             print(" -", p)
         sys.exit(4)
-    path = save(story, args.out)
+    path = save(story, out_path)
     total_beats = sum(len(b["beats"]) for b in story["blocks"])
     print(f"分镜已保存：{path}")
     print(f"共 {len(story['blocks'])} 块，{total_beats} 拍，"

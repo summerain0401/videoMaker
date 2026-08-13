@@ -2,10 +2,11 @@
 # -*- coding: utf-8 -*-
 """长视频文案 AI 起草（五段式标记格式 -> 人工定稿）。
 
-流程：copy/long/brief.md 需求单 -> DeepSeek 起草完整脚本到
-      copy/long/draft_*.txt -> 结构校验（失败自动回喂重试）-> 人工审阅修改
-      -> --accept 严格校验后定稿到 copy/long/script.txt（旧稿备份 .bak）
-      -> pipeline/build_long.py 出片。
+项目制路径：默认读写 projects/001_金钱的艺术/input/（环境变量 PROJECT
+可换项目，--project 参数可覆盖）。流程：项目 input/brief.md 需求单 ->
+DeepSeek 起草完整脚本到 input/draft_*.txt -> 结构校验（失败自动回喂重试）
+-> 人工审阅修改 -> --accept 严格校验后定稿到 input/script.txt（旧稿备份 .bak）
+-> pipeline/build_long.py 出片。
 
 脚本格式与 build_long.parse_script 严格一致：
   # TITLE           片头页：## 《书名》、## 钩子句 + voice：整段口播
@@ -30,10 +31,17 @@ import urllib.error
 import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import proj as PJ
 
 
 def P(*parts):
     return os.path.join(ROOT, *parts)
+
+
+def PROJ(*parts):
+    """当前项目内路径（input/assets/audio/output）。"""
+    return PJ.PROJ(*parts)
 
 
 PHASE_HEADS = [
@@ -282,7 +290,7 @@ def call_api(provider, user_prompt, model, repair=""):
 
 def read_brief(book, author, brief_file):
     parts = []
-    path = brief_file or P("copy", "long", "brief.md")
+    path = brief_file or PROJ("input", "brief.md")
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:
             parts.append(f.read().strip())
@@ -296,16 +304,16 @@ def read_brief(book, author, brief_file):
 
 
 def save_draft(text):
-    os.makedirs(P("copy", "long"), exist_ok=True)
+    os.makedirs(PROJ("input"), exist_ok=True)
     stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    path = P("copy", "long", f"draft_{stamp}.txt")
+    path = PROJ("input", f"draft_{stamp}.txt")
     with open(path, "w", encoding="utf-8") as f:
         f.write(text + "\n")
     return path
 
 
 def accept(path):
-    target = P("copy", "long", "script.txt")
+    target = PROJ("input", "script.txt")
     with open(path, encoding="utf-8") as f:
         text = f.read()
     problems, vc, blocks = validate(text)
@@ -326,17 +334,23 @@ def accept(path):
 
 def main():
     ap = argparse.ArgumentParser(description="长视频文案 AI 起草（五段式标记格式）")
+    ap.add_argument("--project", default=None,
+                    help="项目 id（默认取环境变量 PROJECT，缺省 001）")
     ap.add_argument("--provider", choices=list(PROVIDERS), default="deepseek",
                     help="模型平台（默认 deepseek）")
     ap.add_argument("--book", help="书名，覆盖需求单")
     ap.add_argument("--author", help="作者，覆盖需求单")
-    ap.add_argument("--brief-file", help="需求单路径，默认 copy/long/brief.md")
+    ap.add_argument("--brief-file", help="需求单路径，默认项目 input/brief.md")
     ap.add_argument("--model", help="覆盖默认模型名")
     ap.add_argument("--accept", action="store_true",
-                    help="把最新草稿定稿到 copy/long/script.txt")
+                    help="把最新草稿定稿到项目 input/script.txt")
     ap.add_argument("--check", metavar="FILE",
                     help="离线结构校验指定文案文件，不调 API")
     args = ap.parse_args()
+
+    if args.project:
+        PJ.CURRENT_ID = args.project
+    PJ.project_dir(title=args.book or "", author=args.author or "")
 
     if args.check:
         try:
@@ -358,12 +372,12 @@ def main():
         return
 
     if args.accept:
-        drafts = sorted(f for f in os.listdir(P("copy", "long"))
+        drafts = sorted(f for f in os.listdir(PROJ("input"))
                         if f.startswith("draft_") and f.endswith(".txt"))
         if not drafts:
-            print("copy/long/ 下没有草稿，请先运行起草。")
+            print("项目 input/ 下没有草稿，请先运行起草。")
             sys.exit(4)
-        accept(P("copy", "long", drafts[-1]))
+        accept(PROJ("input", drafts[-1]))
         return
 
     user_prompt = read_brief(args.book, args.author, args.brief_file)

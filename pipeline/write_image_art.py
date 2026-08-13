@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""长视频 AI 插画底图生成（阿里云百炼 wan2.7-image）。
+"""长视频 AI 插画生成（阿里云百炼 wan2.7-image）。
 
-生成 assets/long/art/{TITLE,END,S1..S5}.png 七张 16:9 插画底图，
-引擎（build_long.py 的 make_background）会按 art_key 自动加载。
+项目制路径：默认读写 projects/001_金钱的艺术/（环境变量 PROJECT 可换项目，
+--project 参数可覆盖）：
+  --story    按项目 input/storyboard_narrative.json 生成卡点画面到
+             项目 assets/scenes/{块}_{拍}.png
+  普通模式   生成 项目 assets/art/{TITLE,END,S1..S5}.png 与
+             项目 assets/cover.png（art/ 为历史底图存档，渲染不再引用）
 
 环境变量（均可放项目根 .env，已 gitignore）：
   DASHSCOPE_API_KEY   必填，百炼 API Key
@@ -15,6 +19,8 @@
   python3 pipeline/write_image_art.py              # 补齐缺失槽位
   python3 pipeline/write_image_art.py --force      # 全部重新生成
   python3 pipeline/write_image_art.py --only S1    # 只生成指定槽位
+  python3 pipeline/write_image_art.py --story --beats 00_0 02_1
+  python3 pipeline/write_image_art.py --force --only COVER
 
 失败不影响渲染：某张缺失时引擎自动回退程序化底图。
 """
@@ -27,10 +33,17 @@ import urllib.error
 import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import proj as PJ
 
 
 def P(*parts):
     return os.path.join(ROOT, *parts)
+
+
+def PROJ(*parts):
+    """当前项目内路径（input/assets/audio/output）。"""
+    return PJ.PROJ(*parts)
 
 
 SLOTS = ["TITLE", "END", "S1", "S2", "S3", "S4", "S5", "COVER"]
@@ -141,7 +154,7 @@ def generate_image(slot, model, base, thinking, prompt=None, ref_images=None,
         return None
     if not png.startswith(b"\x89PNG"):
         print(f"警告：{slot} 下载内容不是 PNG（{len(png)} 字节），仍写入文件。")
-    path = out_path or os.path.join(P("assets", "long", "art"),
+    path = out_path or os.path.join(PROJ("assets", "art"),
                                     f"{slot}.png")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as f:
@@ -152,7 +165,7 @@ def generate_image(slot, model, base, thinking, prompt=None, ref_images=None,
 def run_story(args, model, base, thinking):
     """叙事模式：按分镜 JSON 生成每块每拍画面。"""
     story_path = args.story if args.story != "auto" \
-        else P("script", "storyboard_narrative.json")
+        else PROJ("input", "storyboard_narrative.json")
     if not os.path.exists(story_path):
         print(f"未找到分镜 JSON：{story_path}")
         sys.exit(1)
@@ -169,7 +182,7 @@ def run_story(args, model, base, thinking):
             key = f"{bi:02d}_{int(be['beat_idx'])}"
             if want and key not in want:
                 continue
-            out = P("assets", "long", "scenes", f"{key}.png")
+            out = PROJ("assets", "scenes", f"{key}.png")
             if os.path.exists(out) and not args.force:
                 print(f"跳过（已存在）：{out}")
                 continue
@@ -189,17 +202,23 @@ def run_story(args, model, base, thinking):
 
 def main():
     ap = argparse.ArgumentParser(description="长视频 AI 插画底图生成（通义万相）")
+    ap.add_argument("--project", default=None,
+                    help="项目 id（默认取环境变量 PROJECT，缺省 001）")
     ap.add_argument("--force", action="store_true", help="覆盖已存在的图片")
     ap.add_argument("--only", nargs="+", choices=SLOTS,
                     help="只生成指定槽位，如 --only TITLE S1")
     ap.add_argument("--story", nargs="?", const="auto", default=None,
                     help="叙事模式：按分镜 JSON 生成卡点画面"
-                         "（默认 auto 读 script/storyboard_narrative.json）")
+                         "（默认 auto 读项目 input/storyboard_narrative.json）")
     ap.add_argument("--beats", nargs="+", default=None,
                     help="--story 模式下只生成指定拍，如 00_0 02_1")
     ap.add_argument("--model", default=None, help="覆盖 IMAGE_MODEL")
     ap.add_argument("--base", default=None, help="覆盖 DASHSCOPE_BASE_URL")
     args = ap.parse_args()
+
+    if args.project:
+        PJ.CURRENT_ID = args.project
+    PJ.project_dir()
 
     model = args.model or os.environ.get("IMAGE_MODEL", DEFAULT_MODEL)
     base = args.base or os.environ.get("DASHSCOPE_BASE_URL", DEFAULT_BASE)
@@ -210,9 +229,9 @@ def main():
     slots = args.only or SLOTS
     failed = 0
     for slot in slots:
-        out_path = P("assets", "long", "cover.png") if slot == "COVER" \
+        out_path = PROJ("assets", "cover.png") if slot == "COVER" \
             else None
-        path = out_path or P("assets", "long", "art", f"{slot}.png")
+        path = out_path or PROJ("assets", "art", f"{slot}.png")
         if os.path.exists(path) and not args.force:
             print(f"跳过（已存在）：{slot}")
             continue

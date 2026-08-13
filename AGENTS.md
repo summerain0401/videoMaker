@@ -2,33 +2,32 @@
 
 ## Project Structure & Module Organization
 
-- `pipeline/` — Python 构建脚本：`build.py`（9:16 短视频）、`build_long.py`（16:9 长视频 V2 主引擎）、`long_visuals.py`（画面元素库）、`tts_piper.py`（本地神经 TTS）、`tts_edge.py`（微软 Edge 在线 TTS，免费无密钥）、`tts_azure.py`（Azure 正式语音，需密钥）、`write_copy.py`（短视频文案起草）、`write_long_copy.py`（长视频文案起草）、`write_storyboard.py`（叙事分镜）、`write_image_art.py`（通义万相插画生成）。
-- `copy/` — 文案源：`voiceover.txt`（短视频）、`long/script.txt`（长视频，唯一文案源）、`brief.md`（需求单）、草稿 `draft_*.txt`。
-- `assets/` — 素材与中间层：`short/`（短视频素材）、`long/{art,scenes,layers}`（长视频插画/卡点画面/渲染中间层）、`piper/`（模型）、`ai/`（短视频 AI 插画位）。
-- `audio/` — 配音与音乐：`short/`（短视频）、`long/{voice,tmp,music.wav}`（长视频配音缓存/合成中间/背景乐，缓存名带配置与文本哈希）。
-- `output/`、`script/` — `short/`、`long/` 成片与分块中间、`preview/` 抽帧；自动生成的分镜 CSV/JSON。
+- `pipeline/` — 共享构建脚本：`proj.py`（项目制路径解析）、`build_long.py`（16:9 长视频 V2 主引擎）、`long_visuals.py`（画面元素库）、`tts_piper.py`（本地神经 TTS）、`tts_edge.py`（微软 Edge 在线 TTS，免费无密钥）、`tts_azure.py`（Azure 正式语音，需密钥）、`write_long_copy.py`（长视频文案起草）、`write_storyboard.py`（叙事分镜）、`write_image_art.py`（通义万相插画生成）。
+- `projects/{id}_书名/` — 单个长视频项目：`input/`（brief.md、script.txt、draft_*.txt、storyboard_narrative.json）、`assets/`（scenes/ 卡点画面、art/ 历史底图存档、cover.png、layers/ 渲染中间层）、`audio/`（voice/ 配音缓存、music.wav、tmp/）、`output/`（成片、vs2_* 分块、preview/ 抽帧、报告）。
+- `assets/piper/` — 共享 Piper 模型（运行时依赖，不入库）。
+- `docs/` — 工作流文档（`docs/长视频工作流.md`）。
 - 文档：`PROJECT_PLAN.md`（规划）、`HANDOFF.md`（交接）、`report.pdf`（频道分析）。
+
+项目定位规则：所有脚本按 `PROJECT` 环境变量（默认 `001`）或 `--project`
+参数解析项目目录（见 `pipeline/proj.py`）；根目录不存放任何项目数据。
 
 ## Build, Test, and Development Commands
 
 ```bash
+# 项目切换：PROJECT=002 … 或 --project 002（默认 001_金钱的艺术）
+
 # 长视频全片 / 样段（必须提权运行：Piper 的 PyTorch 共享内存被沙盒限制）
 python3 pipeline/build_long.py
 python3 pipeline/build_long.py --pilot
 
-# 短视频
-python3 pipeline/build.py
-
-# AI 起草文案（DeepSeek/Kimi，人工定稿后 --accept）
-python3 pipeline/write_copy.py --provider deepseek
-
 # 长视频文案 AI 起草（DeepSeek 五段式完整脚本，密钥自动读项目根 .env）
 python3 pipeline/write_long_copy.py --provider deepseek
-python3 pipeline/write_long_copy.py --check copy/long/script.txt   # 离线校验
+python3 pipeline/write_long_copy.py --check projects/001_金钱的艺术/input/script.txt   # 离线校验
 python3 pipeline/write_long_copy.py --accept                        # 人工审阅后定稿
 
-# 长视频 AI 插画底图（通义万相 wan2.7-image-pro，密钥自动读 .env）
+# 长视频 AI 插画（通义万相 wan2.7-image，密钥自动读 .env）
 python3 pipeline/write_image_art.py
+python3 pipeline/write_image_art.py --force --only COVER   # 封面图
 
 # 叙事分镜 + 卡点画面（画面讲卡点模式）
 python3 pipeline/write_storyboard.py
@@ -39,14 +38,11 @@ python3 pipeline/build_long.py --frames   # 抽帧验收：文字卡 m3_*.jpg / 
 # 视觉样片（跳过 TTS、只渲染指定块）
 python3 pipeline/build_long.py --blocks 0,1,2,3,4,7,8,9,12,13 --no-tts
 
-# 视觉样片（微软女声 edge-tts，免费无需密钥；依赖 edge-tts 库）
+# 视觉样片（微软 edge-tts，免费无需密钥；依赖 edge-tts 库）
 TTS_SOURCE=edge python3 pipeline/build_long.py --blocks 0,1,2   # 默认男声 YunyangNeural
 
 # Azure 正式语音（.env 配 AZURE_SPEECH_KEY/AZURE_REGION/AZURE_VOICE）
 TTS_SOURCE=azure python3 pipeline/build_long.py --blocks 0,1
-
-# 封面图
-python3 pipeline/write_image_art.py --force --only COVER
 
 # 语法自检
 python3 -m py_compile pipeline/*.py
@@ -57,9 +53,9 @@ python3 -m py_compile pipeline/*.py
 ## Coding Style & Naming Conventions
 
 - Python 遵循 PEP 8，4 空格缩进，函数/变量用 `snake_case`，中文注释与文档字符串。
-- 文件名用 ASCII；对外文件（文案/成片）可用中文。
+- 文件名用 ASCII；对外文件（文案/成片/项目目录中文名）可用中文。
 - 子进程调用传参数列表（不用 shell 拼接），避免转义与注入。
-- 环境变量大写（`TTS_SOURCE`、`PIPER_LENGTH_SCALE`）；缓存文件名携带配置（如 `blk00_piperls1.15.wav`）。
+- 环境变量大写（`PROJECT`、`TTS_SOURCE`、`PIPER_LENGTH_SCALE`）；缓存文件名携带配置（如 `blk00_azurezh-CN-Xiaochen:DragonHDFlashLatestNeural_<哈希>.wav`）。
 
 ## Testing Guidelines
 
@@ -67,10 +63,11 @@ python3 -m py_compile pipeline/*.py
 
 ## Commit & Pull Request Guidelines
 
-仓库暂无提交历史，建议采用 Conventional Commits：`feat:` / `fix:` / `docs:` / `perf:`，正文说明改动与影响。PR 需描述改动、附 QA 结果与关键帧/成片链接；涉及缓存或音色变更时注明需清理的产物。
+采用 Conventional Commits：`feat:` / `fix:` / `refactor:` / `docs:` / `perf:`，正文说明改动与影响。PR 需描述改动、附 QA 结果与关键帧/成片链接；涉及缓存或音色变更时注明需清理的产物。
 
 ## Security & Configuration Tips
 
 - API 密钥只走环境变量（`DEEPSEEK_API_KEY`、`DASHSCOPE_API_KEY` 等）或项目根 `.env`（已被 `.gitignore` 排除），绝不写入仓库或提交。
+- `.env`、项目 `audio/voice/`、`audio/tmp/`、`assets/layers/`、成片 mp4、preview 均由 `.gitignore` 排除；提交前检查 `git status` 确认无混入。
 - 外部服务调用前需用户授权；`piper`/`say` 必须提权运行。
 - 模型与拼音数据已本地化（`assets/piper/`），首次安装依赖需联网授权一次。

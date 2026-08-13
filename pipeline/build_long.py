@@ -2,16 +2,22 @@
 # -*- coding: utf-8 -*-
 """长视频 V2 引擎：Piper 本地神经配音 + 全程运镜 + 视差 + 丰富元素 + xfade 转场。
 
+项目制路径：默认渲染 projects/001_金钱的艺术（环境变量 PROJECT 可换项目），
+文案/分镜在项目 input/，画面在项目 assets/，配音缓存与背景乐在项目 audio/，
+成片与报告输出到项目 output/。
+
 用法：
-  python3 pipeline/build_long.py            # 全片渲染
-  python3 pipeline/build_long.py --pilot    # 只渲染前 5 个块供评审
+  python3 pipeline/build_long.py            # 全片渲染（PROJECT=001）
+  PROJECT=002 python3 pipeline/build_long.py --pilot
+  python3 pipeline/build_long.py --project 001 --blocks 0,1,2
 
 环境变量：
+  PROJECT=001              项目 id（默认 001；--project 参数可覆盖）
   TTS_SOURCE=piper|edge|azure|system  默认 piper（本地男声）；edge 为微软
                                       在线（免费无密钥）；azure 为正式 API
                                       （需 AZURE_SPEECH_KEY）；system 为系统音色
   PIPER_LENGTH_SCALE       语速（默认 1.0，越大越慢）
-  在 audio/long/ 放入用户音乐文件（mp3/wav/m4a）自动混音，否则纯人声
+  在项目 audio/ 放入用户音乐文件（music.wav/mp3/m4a…）自动混音，否则纯人声
 """
 
 import argparse
@@ -26,6 +32,7 @@ import sys
 from PIL import Image, ImageDraw
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import proj as PJ
 import long_visuals as V
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -33,6 +40,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def P(*parts):
     return os.path.join(ROOT, *parts)
+
+
+def PROJ(*parts):
+    """当前项目内路径（input/assets/audio/output）。"""
+    return PJ.PROJ(*parts)
 
 
 W, H, FPS = 1920, 1080, 30
@@ -45,10 +57,14 @@ QUOTE_LEAD = 1.0
 PHASE_DUR = 4.0
 XD = 0.5  # 转场时长
 BEAT_XD = 0.25  # 块内卡点 dissolve 时长
-STORY_PATH = P("script", "storyboard_narrative.json")
 NO_TTS = False  # --no-tts：跳过配音合成，音轨静音
 BOOK = "《金钱的艺术》"
 AUTHOR = "Morgan Housel"
+
+
+def story_path():
+    """当前项目分镜 JSON 路径（--project 覆盖后需动态解析）。"""
+    return PROJ("input", "storyboard_narrative.json")
 
 PALETTES = {
     "TITLE": ["0x2B2436", "0x3D3152", "0x574B79"],
@@ -74,7 +90,7 @@ def probe_dur(path):
 
 def parse_script():
     blocks, cur = [], None
-    with open(P("copy", "long", "script.txt"), encoding="utf-8") as f:
+    with open(PROJ("input", "script.txt"), encoding="utf-8") as f:
         for raw in f:
             line = raw.rstrip("\n")
             if line.startswith("# "):
@@ -160,13 +176,13 @@ def voice_stem(idx, text=""):
 
 
 def make_audio(blocks):
-    os.makedirs(P("audio", "long", "voice"), exist_ok=True)
-    os.makedirs(P("audio", "long", "tmp"), exist_ok=True)
+    os.makedirs(PROJ("audio", "voice"), exist_ok=True)
+    os.makedirs(PROJ("audio", "tmp"), exist_ok=True)
     for i, b in enumerate(blocks):
         if b["voice"]:
             stem = voice_stem(i, b["voice"])
-            raw = P("audio", "long", "voice", stem + "_raw.wav")
-            pp = P("audio", "long", "voice", stem + ".wav")
+            raw = PROJ("audio", "voice", stem + "_raw.wav")
+            pp = PROJ("audio", "voice", stem + ".wav")
             if not (os.path.exists(raw) and os.path.exists(pp)):
                 synth_line(b["voice"], raw)
                 # 语音后处理：高通 + 轻压限 + 逐段响度对齐
@@ -217,7 +233,7 @@ def art_key(b):
 
 def make_background(b, idx):
     """卡片模式底图：程序化质感渐变（不再使用 art/ 插画底图）。"""
-    out = P("assets", "long", "layers", f"bg_{idx:02d}.png")
+    out = PROJ("assets", "layers", f"bg_{idx:02d}.png")
     c0, c1, c2 = palette_for(b)
     V.procedural_bg(c0, c1, c2, 2 * W, 2 * H).save(out)
     return out
@@ -267,21 +283,21 @@ def render_scene(blocks, idx, total, first, last, meta=None):
     sdur = scene_time(b)
     nframes = int(sdur * FPS)
     bg = make_background(b, idx)
-    deco = P("assets", "long", "layers", f"deco_{idx:02d}.png")
+    deco = PROJ("assets", "layers", f"deco_{idx:02d}.png")
     V.make_deco_layer(idx).save(deco)
-    base = P("assets", "long", "layers", f"base_{idx:02d}.png")
+    base = PROJ("assets", "layers", f"base_{idx:02d}.png")
     V.make_base(b, idx, total, meta).save(base)
     layers = V.make_line_layers(b, idx)
     layer_paths = []
     for k, lay in enumerate(layers):
-        p = P("assets", "long", "layers", f"ln_{idx:02d}_{k}.png")
+        p = PROJ("assets", "layers", f"ln_{idx:02d}_{k}.png")
         lay.save(p)
         layer_paths.append(p)
-    prog = P("assets", "long", "layers", f"prog_{idx:02d}.png")
+    prog = PROJ("assets", "layers", f"prog_{idx:02d}.png")
     V.make_progress_fill().save(prog)
     sweep = None
     if b["type"] == "PHASE":
-        sweep = P("assets", "long", "layers", f"sweep_{idx:02d}.png")
+        sweep = PROJ("assets", "layers", f"sweep_{idx:02d}.png")
         V.make_sweep_layer().save(sweep)
 
     starts, total_dur = _timeline(blocks)
@@ -355,13 +371,13 @@ def render_scene(blocks, idx, total, first, last, meta=None):
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
             "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
             "-ar", "44100", "-ac", "1", "-r", str(FPS),
-            "-t", f"{sdur:.3f}", P("output", "long", f"vs2_{idx:02d}.mp4")]
+            "-t", f"{sdur:.3f}", PROJ("output", f"vs2_{idx:02d}.mp4")]
     sh(*cmd)
 
 
 def render_frames(blocks, meta):
     """快速抽帧：每块渲染 2 秒 960x540 无声片段并抽 3 帧，供风格验收。"""
-    outdir = P("output", "preview")
+    outdir = PROJ("output", "preview")
     os.makedirs(outdir, exist_ok=True)
     FW, FH, FFPS = 960, 540, 15
     FDUR = 2.0
@@ -369,21 +385,21 @@ def render_frames(blocks, meta):
     starts, total_dur = _timeline(blocks)
     for i, b in enumerate(blocks):
         bg = make_background(b, i)
-        deco = P("assets", "long", "layers", f"deco_{i:02d}.png")
+        deco = PROJ("assets", "layers", f"deco_{i:02d}.png")
         V.make_deco_layer(i).save(deco)
-        base = P("assets", "long", "layers", f"base_{i:02d}.png")
+        base = PROJ("assets", "layers", f"base_{i:02d}.png")
         V.make_base(b, i, len(blocks), meta).save(base)
         layers = V.make_line_layers(b, i)
         layer_paths = []
         for k, lay in enumerate(layers):
-            p = P("assets", "long", "layers", f"ln_{i:02d}_{k}.png")
+            p = PROJ("assets", "layers", f"ln_{i:02d}_{k}.png")
             lay.save(p)
             layer_paths.append(p)
-        prog = P("assets", "long", "layers", f"prog_{i:02d}.png")
+        prog = PROJ("assets", "layers", f"prog_{i:02d}.png")
         V.make_progress_fill().save(prog)
         sweep = None
         if b["type"] == "PHASE":
-            sweep = P("assets", "long", "layers", f"sweep_{i:02d}.png")
+            sweep = PROJ("assets", "layers", f"sweep_{i:02d}.png")
             V.make_sweep_layer().save(sweep)
 
         z, cx, cy = motion_exprs(i, nframes)
@@ -464,8 +480,8 @@ def render_frames(blocks, meta):
 
 def load_storyboard():
     """读取叙事分镜 JSON；不存在则返回 None（回退卡片模式）。"""
-    if os.path.exists(STORY_PATH):
-        with open(STORY_PATH, encoding="utf-8") as f:
+    if os.path.exists(story_path()):
+        with open(story_path(), encoding="utf-8") as f:
             return json.load(f)
     return None
 
@@ -473,7 +489,7 @@ def load_storyboard():
 def phase_art_path(blocks, idx):
     """阶段页背景：后续第一个有卡点图的内容块首拍画面（保持故事连续）。"""
     for j in range(idx + 1, len(blocks)):
-        p = P("assets", "long", "scenes", f"{j:02d}_0.png")
+        p = PROJ("assets", "scenes", f"{j:02d}_0.png")
         if os.path.exists(p):
             return p
     return None
@@ -481,7 +497,7 @@ def phase_art_path(blocks, idx):
 
 def beat_art_path(b, idx, beat_idx, blocks=None):
     """卡点画面：优先 scenes/{idx}_{beat}.png；PHASE 用后续内容块首拍；否则 None。"""
-    p = P("assets", "long", "scenes", f"{idx:02d}_{beat_idx}.png")
+    p = PROJ("assets", "scenes", f"{idx:02d}_{beat_idx}.png")
     if os.path.exists(p):
         return p
     if b["type"] == "PHASE" and blocks is not None:
@@ -491,7 +507,7 @@ def beat_art_path(b, idx, beat_idx, blocks=None):
 
 def make_beat_bg(b, idx, beat_idx, art_path):
     """卡点底图：原图直接放大（不压暗），否则程序化底图。"""
-    out = P("assets", "long", "layers", f"nbg_{idx:02d}_{beat_idx:02d}.png")
+    out = PROJ("assets", "layers", f"nbg_{idx:02d}_{beat_idx:02d}.png")
     if art_path and os.path.exists(art_path):
         Image.open(art_path).convert("RGB").resize(
             (2 * W, 2 * H), Image.LANCZOS).save(out)
@@ -546,7 +562,7 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
     for k in range(n):
         bg_paths.append(make_beat_bg(b, idx, k,
                                      beat_art_path(b, idx, k, blocks)))
-    deco = P("assets", "long", "layers", f"deco_{idx:02d}.png")
+    deco = PROJ("assets", "layers", f"deco_{idx:02d}.png")
     V.make_deco_layer(idx).save(deco)
     sub_events = []
     for s in sb["subtitles"]:
@@ -557,7 +573,7 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
             ln = len(ch)
             st = ts + (offset / total) * (te - ts)
             et = ts + ((offset + ln) / total) * (te - ts)
-            p = P("assets", "long", "layers",
+            p = PROJ("assets", "layers",
                   f"sub_{idx:02d}_{s['id']:02d}_{offset:03d}.png")
             V.make_subtitle_layer(ch).save(p)
             sub_events.append((p, st, et))
@@ -623,13 +639,13 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
             "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
             "-ar", "44100", "-ac", "1", "-r", str(FPS),
-            "-t", f"{sdur:.3f}", P("output", "long", f"vs2_{idx:02d}.mp4")]
+            "-t", f"{sdur:.3f}", PROJ("output", f"vs2_{idx:02d}.mp4")]
     sh(*cmd)
 
 
 def render_frames_narrative(blocks, meta, story):
     """叙事模式快速抽帧：每拍 2 张静态帧（无字幕/带字幕），PIL 合成。"""
-    outdir = P("output", "preview")
+    outdir = PROJ("output", "preview")
     os.makedirs(outdir, exist_ok=True)
     for i, b in enumerate(blocks):
         sb = story["blocks"][i]
@@ -658,7 +674,7 @@ def render_frames_narrative(blocks, meta, story):
 
 
 def make_scene_audio(b, idx):
-    tmp = P("audio", "long", "tmp")
+    tmp = PROJ("audio", "tmp")
     os.makedirs(tmp, exist_ok=True)
     if NO_TTS or b["type"] == "PHASE":
         out = os.path.join(tmp, f"vs2_{idx:02d}.wav")
@@ -674,14 +690,14 @@ def make_scene_audio(b, idx):
         return path
 
     segs.append(silence(scene_lead(b), f"vs2_{idx:02d}_lead.wav"))
-    segs.append(P("audio", "long", "voice",
+    segs.append(PROJ("audio", "voice",
                   voice_stem(idx, b["voice"]) + ".wav"))
     segs.append(silence(TAIL, f"vs2_{idx:02d}_tail.wav"))
     lst = os.path.join(tmp, f"vs2_{idx:02d}_list.txt")
     with open(lst, "w", encoding="utf-8") as f:
         for p in segs:
             f.write(f"file '{os.path.abspath(p)}'\n")
-    out = P("audio", "long", "tmp", f"vs2_{idx:02d}.wav")
+    out = PROJ("audio", "tmp", f"vs2_{idx:02d}.wav")
     sh("ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", lst,
        "-c:a", "pcm_s16le", out)
     return out
@@ -690,7 +706,7 @@ def make_scene_audio(b, idx):
 def find_music():
     for ext in ("mp3", "wav", "m4a", "flac", "aac"):
         for name in (f"user_music.{ext}", f"music.{ext}"):
-            p = P("audio", "long", name)
+            p = PROJ("audio", name)
             if os.path.exists(p):
                 return p
     return None
@@ -716,7 +732,7 @@ def transition_for(b, k):
 
 def finalize(blocks, out_name):
     """xfade 视频转场 + acrossfade 音频 + 可选用户音乐 + 全局响度。"""
-    scenes = [P("output", "long", f"vs2_{i:02d}.mp4")
+    scenes = [PROJ("output", f"vs2_{i:02d}.mp4")
               for i in range(len(blocks))]
     durs = [scene_time(b) for b in blocks]
     n = len(scenes)
@@ -760,19 +776,19 @@ def finalize(blocks, out_name):
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
             "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
             "-ar", "44100", "-movflags", "+faststart",
-            P("output", "long", out_name)]
+            PROJ("output", out_name)]
     sh(*cmd)
-    return P("output", "long", out_name)
+    return PROJ("output", out_name)
 
 
 def preview_frames(total, out_name):
-    outdir = P("output", "preview")
+    outdir = PROJ("output", "preview")
     os.makedirs(outdir, exist_ok=True)
     n = 10
     for k in range(n):
         t = total * (k + 0.5) / n
         sh("ffmpeg", "-y", "-ss", f"{t:.2f}",
-           "-i", P("output", "long", out_name), "-frames:v", "1",
+           "-i", PROJ("output", out_name), "-frames:v", "1",
            "-vf", "scale=960:540",
            os.path.join(outdir, f"{out_name[:-4]}_{k:02d}.jpg"))
 
@@ -788,12 +804,12 @@ def write_reports(blocks, total, out_name):
             "口播字数": len(b["voice"] or ""),
             "时长(秒)": round(scene_time(b), 2),
         })
-    with open(P("script", "storyboard_long.csv"), "w", encoding="utf-8-sig",
+    with open(PROJ("output", "storyboard_long.csv"), "w", encoding="utf-8-sig",
               newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         w.writeheader()
         w.writerows(rows)
-    with open(P("output", "long", "long_summary.json"),
+    with open(PROJ("output", "long_summary.json"),
               "w", encoding="utf-8") as f:
         json.dump({"tts": TTS_SOURCE, "voice": VOICE,
                    "piper_length_scale": PIPER_LS,
@@ -805,6 +821,8 @@ def write_reports(blocks, total, out_name):
 def main():
     global NO_TTS
     ap = argparse.ArgumentParser(description="长视频 V2 渲染引擎")
+    ap.add_argument("--project", default=None,
+                    help="项目 id（默认取环境变量 PROJECT，缺省 001）")
     ap.add_argument("--pilot", action="store_true", help="只渲染前 5 个块")
     ap.add_argument("--frames", action="store_true",
                     help="快速抽帧：全块 2 秒无声片段各抽 3 帧，跳过 TTS 与合成")
@@ -814,8 +832,11 @@ def main():
                     help="跳过配音合成：音轨静音，时长按字数估算")
     args = ap.parse_args()
 
+    if args.project:
+        PJ.CURRENT_ID = args.project
     blocks = parse_script()
     meta = book_meta(blocks)
+    PJ.project_dir(title=meta[0], author=meta[2])
     story = load_storyboard()
     if args.blocks:
         kept = [int(x) for x in args.blocks.split(",") if x.strip()]
@@ -823,7 +844,7 @@ def main():
         if story:
             sb_map = {sb["block_idx"]: sb for sb in story["blocks"]}
             kept_sb = [sb_map[i] for i in kept if i in sb_map]
-            have = set(os.listdir(P("assets", "long", "scenes")))
+            have = set(os.listdir(PROJ("assets", "scenes")))
             for sb in kept_sb:
                 keep_beats = []
                 for be in sb["beats"]:
@@ -843,10 +864,10 @@ def main():
     if args.frames:
         if story:
             render_frames_narrative(blocks, meta, story)
-            print("FRAMES DONE 见 output/preview/m3n_*.jpg")
+            print(f"FRAMES DONE 见 {PROJ('output', 'preview')}/m3n_*.jpg")
         else:
             render_frames(blocks, meta)
-            print("FRAMES DONE 见 output/preview/m3_*.jpg")
+            print(f"FRAMES DONE 见 {PROJ('output', 'preview')}/m3_*.jpg")
         return
     if args.pilot:
         blocks = blocks[:5]

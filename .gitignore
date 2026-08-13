@@ -1,20 +1,13 @@
+# API 密钥（绝不入库）
 .env
 
-# 自动生成的中间层与抽帧（可随时重跑，不入版本库）
-output/preview/
-assets/long/layers/
-audio/long/tmp/
-audio/short/tmp/
-output/long/vs2_*.mp4
-output/long/*.mp4
-output/short/*.mp4
-output/short/scene_S*.mp4
-output/short/concat.mp4
-audio/long/voice/
-audio/long/music.wav
-assets/short/
-audio/short/scene_S*.wav
-audio/short/music.wav
+# 项目内自动生成产物（可随时重跑，不入版本库）
+projects/*/assets/layers/
+projects/*/audio/voice/
+projects/*/audio/tmp/
+projects/*/audio/music.wav
+projects/*/output/*.mp4
+projects/*/output/preview/
 
 # Python 字节码 / 系统垃圾
 __pycache__/
