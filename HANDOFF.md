@@ -13,7 +13,9 @@
 - ✅ **M3 画面叙事化**：正文零文字卡、文案交给配音+逐句字幕；`write_storyboard.py` 分镜（19 块 80 拍，`--refine` 拆超长拍）；`write_image_art.py --story` 生成卡点画面到项目 `assets/scenes/`（当前 44 张，覆盖样片块）；引擎检测到分镜即进入叙事模式（删除 JSON 回退文字卡模式）。
 - ✅ **视觉样片 v4**：`projects/001_金钱的艺术/output/long_money_v2_visual_sample.mp4`——全亮（无压暗、vignette PI/7）、运镜明显增强（缩放 0.40、视差 ±14）、无进度条/阶段徽章、字幕固定 36px 单行（长句拆连续事件）、片头 00_0/00_1 明亮版、封面图项目 `assets/cover.png`。
 - ✅ **M4 语音（部分）**：Azure 正式语音已接入（`tts_azure.py`，`TTS_SOURCE=azure`），当前声音 `zh-CN-Xiaochen:DragonHDFlashLatestNeural`（晓辰成熟知性女声）；edge-tts（`tts_edge.py`，免费无密钥）与 Piper（本地男声）保留，三选一随时切换。最近测试样片（块 00–01）用 Azure 晓辰配音，响度 -14.3 dB。
-- ⏳ **待办**：渲染更长样片/全片；补全剩余卡点画面（约 58 拍未生成）；主角一致性（参考图图生图）；封面标题文字；节奏对齐/提示音效。
+- ✅ **生图基调控制**：提示词分层（不变底线 + 项目 `visual_style` 变体 + 负面清单）；`--tone-check` 输出风险报告（001 现有 44 张中 19 张被标记，其中 09_0/07_0/00_6 客观偏暗）；`write_storyboard.py --warm` 暖化重写分镜提示词；`--force` 重绘自动追加提亮指令。
+- ✅ **封面生产线**：`write_cover.py`（AI 标题公式 + Pillow 双规格排版），001 已出 `cover_final_16x9.png`（1280x720）与 `cover_final_9x16.png`（720x1280）；文案定稿 `input/cover_copy.json`。
+- ⏳ **待办**：001 暖化重绘（待你从 tone_report.md 勾选，推荐至少 09_0/07_0/00_6）；渲染更长样片/全片；补全剩余卡点画面（约 58 拍未生成）；主角一致性（参考图图生图）；节奏对齐/提示音效。
 
 ## 3. 环境速查
 
@@ -38,6 +40,15 @@ TTS_SOURCE=azure python3 pipeline/build_long.py --blocks 0,1   # Azure 晓辰
 TTS_SOURCE=edge  python3 pipeline/build_long.py --blocks 0,1   # Edge 男声
 python3 pipeline/build_long.py --blocks 0,1 --no-tts           # 静音快速看画面
 python3 pipeline/build_long.py --pilot / 全片
+
+# 基调质检与暖化重绘
+python3 pipeline/write_image_art.py --tone-check                       # 风险报告
+python3 pipeline/write_storyboard.py --warm --check                    # 阴郁拍清单
+python3 pipeline/write_storyboard.py --warm --beats 09_0 07_0          # 暖化提示词
+python3 pipeline/write_image_art.py --story --force --beats 09_0 07_0  # 重绘
+
+# 封面
+python3 pipeline/write_cover.py --all --tag "认知书页"
 
 # 新项目示例
 PROJECT=002 python3 pipeline/write_long_copy.py --book 《书名》 --author 作者
@@ -66,9 +77,9 @@ PROJECT=002 python3 pipeline/write_long_copy.py --book 《书名》 --author 作
 ## 7. 待办（按优先级）
 
 1. 用 Azure 声音渲染更长样片（块 00–03 或更多）确认节奏与运镜。
-2. 补全剩余卡点画面（约 58 拍，wan2.7-image，成本低）后跑全片。
-3. 主角一致性（参考图图生图）——接口已预留（`write_image_art` 的 `ref_images`）。
-4. 封面标题文字 / 视频标题（标题公式见 report.pdf）。
+2. 001 暖化重绘：从 `output/tone_report.md` 勾选风险图（推荐至少 09_0/07_0/00_6）→ `--warm --beats` → `--story --force --beats` 重绘 → 复跑 `--tone-check`。
+3. 补全剩余卡点画面（约 58 拍，wan2.7-image，成本低；新拍自动带暖化风格）后跑全片。
+4. 主角一致性（参考图图生图）——接口已预留（`write_image_art` 的 `ref_images`）。
 5. 节奏对齐/提示音效（BGM `music.wav` 已随项目迁移，音量 0.25）。
 6. 响度微调（当前 -14.3 dB 已达标）。
 
@@ -78,6 +89,8 @@ PROJECT=002 python3 pipeline/write_long_copy.py --book 《书名》 --author 作
 - 视觉：画面叙事优先（人物+故事+卡点），正文零文字卡；暖色温馨明亮；全亮无压暗；运镜明显增强；无进度条/阶段徽章；字幕 36px 单行贴底。
 - 语音：Azure 正式语音（晓辰成熟知性女声）为当前主用；edge-tts 免费备选；Piper 本地兜底。
 - 生图：通义万相 wan2.7-image（经济版）；插画底图 art/ 停止引用（历史资产）。
+- 基调：提示词分层（不变底线 + 项目 visual_style 变体 + 负面清单）；`--tone-check` 亮度<150/暖度<10/暗部占比>25% 判定风险，人工勾选后暖化重绘。
+- 封面：AI 标题公式（时间承诺+书名+转折）人工定稿；Pillow 排版双规格（16:9 1280x720 / 9:16 720x1280）。
 - 目录：项目制（数字前缀 + 中文名），输入/中间产物/产出分层；短视频移出本仓库另开项目。
 - 运营：标题公式/灵魂提问已入文案结构；封面已生成，标题文字待做。
 

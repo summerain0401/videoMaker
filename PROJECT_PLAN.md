@@ -44,6 +44,8 @@ flowchart LR
 | 长视频文案起草 | `pipeline/write_long_copy.py` | DeepSeek 起草五段式 3800-4500 字完整脚本（含视觉标记），结构校验失败自动回喂重试，`--accept` 定稿并备份 | 项目 `input/draft_*.txt` → `input/script.txt` |
 | 叙事分镜 | `pipeline/write_storyboard.py` | DeepSeek 把每配音块切 3-5 拍 + 画面提示词 + 逐句字幕表；`--refine` 拆超长拍 | 项目 `input/storyboard_narrative.json` |
 | 卡点画面 | `pipeline/write_image_art.py --story` | 通义万相 wan2.7-image（经济版）按分镜生成插画叙事画面 | 项目 `assets/scenes/{块}_{拍}.png` |
+| 基调质检 | `write_image_art.py --tone-check` | 亮度/暖度/暗部占比判定 + 提示词阴郁词典扫描，输出风险报告；`write_storyboard.py --warm` 暖化重写提示词 | 项目 `output/tone_report.md` |
+| 封面 | `pipeline/write_cover.py` | DeepSeek 标题公式文案（人工定稿）+ Pillow 双规格排版 | `assets/cover_final_16x9.png`、`cover_final_9x16.png` |
 | 配音 | `tts_piper/tts_edge/tts_azure.py` | `TTS_SOURCE=piper|edge|azure` 三选一，输出 44100 单声道 wav；缓存名带配置与文本哈希 | 项目 `audio/voice/blk*_*.wav` |
 | 渲染引擎 | `pipeline/build_long.py` | ffmpeg：zoompan 运镜 → 卡点 dissolve → 字幕 overlay → xfade 转场 → 背景乐混音 → loudnorm 响度标准化；检测到分镜即叙事模式，否则回退文字卡 | 项目 `output/vs2_*.mp4` → 成片 |
 | 画面元素库 | `pipeline/long_visuals.py` | Pillow 渲染字幕/书卡/装饰层/程序化底图（ffmpeg 无 drawtext/libass） | 项目 `assets/layers/` |
@@ -63,13 +65,14 @@ flowchart LR
 2. ✅ 卡点运镜：每拍 zoompan（缓推/横移/上移轮换）+ beat 间 dissolve，无静止画面；
 3. ✅ 转场升级：按块类型映射 xfade（zoomin / fadewhite / 对角光扫 / slideup 等）；
 4. ✅ 亮度与干净度：全亮无压暗、vignette 减弱；无进度条/阶段徽章；字幕 36px 单行贴底；
-5. ⏳ 节奏对齐 / 提示音效：随 M4 声音阶段推进；
-6. ⏳ 主角一致性：参考图图生图（`ref_images` 接口已预留），下一条片启用。
+5. ✅ 基调控制：提示词分层（不变底线 + 项目 visual_style 变体 + 负面清单）+ `--tone-check` 风险报告 + `--warm` 暖化重写；001 风险图待人工勾选重绘；
+6. ⏳ 节奏对齐 / 提示音效：随 M4 声音阶段推进；
+7. ⏳ 主角一致性：参考图图生图（`ref_images` 接口已预留），下一条片启用。
 
 ## 7. 路线图
 
-- **P1（近期）**：项目制目录收尾 + 用 Azure 声音渲染更长样片（块 00–03+）确认节奏与运镜；补全 001 剩余卡点画面后跑全片。
-- **P2（两周内）**：书库选题模块（书目筛选 + 痛点对照 + 标题公式）；封面标题自动生成；主角一致性图生图。
+- **P1（近期）**：001 暖化重绘（勾选 tone_report 风险图）后补全卡点画面并跑全片；用 Azure 声音渲染更长样片确认节奏与运镜。
+- **P2（两周内）**：书库选题模块（书目筛选 + 痛点对照 + 标题公式）；封面标题公式化已落地（`write_cover.py`），迭代版式；主角一致性图生图。
 - **P3（月度）**：批量产能化——`PROJECT=002…` 多书目批量出片、各平台规格（YouTube / B 站）预设、留言促活文案模板。
 
 ## 8. 风险与约束
@@ -94,10 +97,10 @@ videoMaker/
 ├── projects/
 │   └── 001_金钱的艺术/
 │       ├── project.json     #   元数据（id/title/author/status）
-│       ├── input/           #   文案与分镜（brief.md / script.txt / draft_* / storyboard_narrative.json）
-│       ├── assets/          #   scenes/（卡点画面）、art/（历史底图存档）、cover.png、layers/（渲染中间层）
+│       ├── input/           #   文案与分镜（brief.md / script.txt / draft_* / storyboard_narrative.json / cover_copy.json）
+│       ├── assets/          #   scenes/（卡点画面）、art/（历史底图存档）、cover.png、cover_final_*、layers/（渲染中间层）
 │       ├── audio/           #   voice/（配音缓存）、tmp/（合成中间）、music.wav（背景乐）
-│       └── output/          #   成片 mp4、vs2_* 分块、preview/ 抽帧、long_summary.json、storyboard_long.csv
+│       └── output/          #   成片 mp4、vs2_* 分块、preview/ 抽帧、long_summary.json、storyboard_long.csv、tone_report.md
 ├── assets/piper/            # 共享 Piper 模型（运行时依赖，不入库）
 ├── docs/                    # 工作流文档（docs/长视频工作流.md）
 ├── README.md / AGENTS.md / HANDOFF.md / PROJECT_PLAN.md
@@ -107,8 +110,8 @@ videoMaker/
 ## 11. 下一步行动
 
 1. 渲染更长样片（块 00–03+，Azure 晓辰）确认节奏与运镜实感；
-2. 补全 001 剩余卡点画面（约 58 拍，wan2.7-image）后跑全片；
-3. 封面标题文字 / 视频标题（标题公式见 report.pdf）；
+2. 001 暖化重绘（从 tone_report.md 勾选，推荐 09_0/07_0/00_6）→ 补全剩余卡点画面后跑全片；
+3. 封面版式迭代与标题公式调优（已出 16:9 / 9:16 双规格初版）；
 4. 主角一致性（参考图图生图）与书库选题模块；
 5. 节奏对齐 / 提示音效（M4 声音阶段）。
 

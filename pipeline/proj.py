@@ -101,3 +101,16 @@ def project_dir(pid=None, title="", author=""):
 def PROJ(*parts):
     """项目内路径（输入/中间产物/产出均按当前项目解析）。"""
     return os.path.join(project_dir(), *parts)
+
+
+def read_meta(pid=None):
+    """读取项目 project.json（含 visual_style 等元数据）；不存在返回空 dict。"""
+    d = project_dir(pid)
+    path = os.path.join(d, "project.json")
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}

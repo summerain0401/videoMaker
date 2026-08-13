@@ -28,6 +28,7 @@ import urllib.request
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import proj as PJ
+import tone
 
 
 def P(*parts):
@@ -81,6 +82,21 @@ REFINE_SYSTEM_PROMPT = """你是影视级「画面叙事」分镜师。用户会
 
 【输出格式（只输出 JSON，不要解释）】
 {"shot": "wide|medium|close", "prompt": "30-80 字"}"""
+
+WARM_REWRITE_SYSTEM = """你是影视级「画面叙事」分镜师。用户会给出一条画面提示词
+（可能含有深夜、加班、焦虑、压抑、灰暗等阴郁元素），请把它重写为
+「暖色温馨、明亮通透」的版本。
+
+【要求】
+- 保持原提示词的语义对应：人物、动作、场景与故事结构不变，景别不变。
+- 把场景转为暖光环境：深夜/夜晚 → 傍晚或清晨的暖光；昏暗/灰暗 → 暖色灯光
+  与阳光；冷色调 → 暖色调。负面情绪（疲惫、焦虑、对比）可以保留，
+  但人物与环境必须被暖色光线包裹，画面不阴沉、不压抑、不绝望。
+- 与前后拍画面自然衔接；不改变该拍对应的句子分配与字符区间。
+- 画面中不要出现文字、字母、图表或水印；底部预留字幕安全区。
+
+【输出格式（只输出 JSON，不要解释，不要 Markdown 代码块）】
+{"prompt": "重写后的 30-100 字画面提示词"}"""
 
 
 def split_sentences(text):
@@ -356,6 +372,60 @@ def validate_refine(raw):
     return problems, (data.get("shot"), p) if not problems else None
 
 
+def validate_warm(raw):
+    """校验暖化重写输出，返回 (问题列表, 新 prompt 或 None)。"""
+    try:
+        data = extract_json(raw)
+    except Exception as e:
+        return [f"JSON 解析失败：{e}"], None
+    p = (data.get("prompt") or "").strip()
+    problems = []
+    if not p:
+        problems.append("prompt 缺失")
+    if len(p) > 300:
+        problems.append(f"prompt 超长（{len(p)} 字）")
+    return problems, p if not problems else None
+
+
+def warm_rewrite(story, provider, model, want):
+    """把命中阴郁词典（或 --beats 指定）的拍提示词重写为暖光版本。"""
+    changed, failed = 0, 0
+    for sb in story["blocks"]:
+        for be in sb["beats"]:
+            key = f"{sb['block_idx']:02d}_{int(be['beat_idx'])}"
+            prompt = (be.get("prompt") or "").strip()
+            hits = tone.prompt_risks(prompt)
+            if want and key not in want:
+                continue
+            if not want and not hits:
+                continue
+            if not prompt:
+                continue
+            view = (f"原画面提示词：{prompt}\n"
+                    f"命中的阴郁词：{'、'.join(hits) if hits else '人工指定'}\n"
+                    f"请按规则重写为暖光版本。")
+            result = None
+            problems = []
+            for attempt in range(MAX_RETRY + 1):
+                repair = ""
+                if attempt:
+                    repair = "\n".join(f"- {p}" for p in problems[:8])
+                text = call_api(provider, view, model, repair,
+                                system=WARM_REWRITE_SYSTEM)
+                problems, result = validate_warm(text)
+                if not problems:
+                    break
+            if result:
+                be["prompt"] = result
+                changed += 1
+                print(f"已暖化 块{sb['block_idx']:02d} "
+                      f"拍{be['beat_idx']}：{result[:50]}…")
+            else:
+                print(f"块{sb['block_idx']} 拍{be['beat_idx']} 暖化失败")
+                failed += 1
+    return changed, failed
+
+
 def migrate_scene_files(new_story):
     """按 src_idx 把未拆拍/前半拍原图改名到新拍号，返回改名数。"""
     scenes = PROJ("assets", "scenes")
@@ -399,8 +469,12 @@ def main():
     ap.add_argument("--model", default=None, help="覆盖默认模型名")
     ap.add_argument("--out", default=None,
                     help="输出 JSON 路径")
-    ap.add_argument("--check", metavar="FILE",
-                    help="离线复检指定分镜 JSON，不调 API")
+    ap.add_argument("--check", nargs="?", const="auto", metavar="FILE",
+                    help="离线复检分镜 JSON（--warm --check 只列阴郁风险拍）")
+    ap.add_argument("--warm", action="store_true",
+                    help="暖化：把命中阴郁词典的拍提示词重写为暖光版本")
+    ap.add_argument("--beats", nargs="+", default=None,
+                    help="--warm 只暖化指定拍，如 00_2 02_0")
     ap.add_argument("--refine", action="store_true",
                     help="细化：把单拍 >12s 的拍拆成两半（新半拍由 AI 写提示词）")
     ap.add_argument("--max-sec", type=float, default=12.0,
@@ -414,6 +488,39 @@ def main():
     sys.path.insert(0, P("pipeline"))
     import build_long as B
     blocks = B.parse_script()
+
+    if args.warm:
+        import shutil
+        with open(out_path, encoding="utf-8") as f:
+            story = json.load(f)
+        if args.check is not None:
+            hits = []
+            for sb in story["blocks"]:
+                for be in sb["beats"]:
+                    pw = tone.prompt_risks(be.get("prompt", ""))
+                    if pw:
+                        hits.append((f"{sb['block_idx']:02d}_"
+                                     f"{int(be['beat_idx'])}", pw))
+            print(f"阴郁风险拍 {len(hits)} 个（未调用 API）：")
+            for key, pw in hits:
+                print(f" - {key}：{'、'.join(pw)}")
+            return
+        want = set(args.beats or [])
+        changed, failed = warm_rewrite(story, args.provider, args.model, want)
+        if failed:
+            print(f"{failed} 个拍暖化失败，中止。")
+            sys.exit(4)
+        problems = validate_final(story, blocks)
+        if problems:
+            print("暖化后校验未通过：")
+            for p in problems:
+                print(" -", p)
+            sys.exit(4)
+        if os.path.exists(out_path):
+            shutil.copy2(out_path, out_path + ".bak")
+        save(story, out_path)
+        print(f"暖化完成：{changed} 个拍已重写。分镜已保存：{out_path}")
+        return
 
     if args.refine:
         import shutil
@@ -482,7 +589,8 @@ def main():
         return
 
     if args.check:
-        with open(args.check, encoding="utf-8") as f:
+        check_path = args.check if args.check != "auto" else out_path
+        with open(check_path, encoding="utf-8") as f:
             story = json.load(f)
         problems = validate_final(story, blocks)
         if problems:

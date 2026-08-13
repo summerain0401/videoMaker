@@ -32,6 +32,15 @@ python3 pipeline/build_long.py --frames              # 快速抽帧（跳过语�
 # 视觉样片（只渲染指定块、跳过语音）
 python3 pipeline/build_long.py --blocks 0,1,2,3 --no-tts
 
+# 生图基调控制（暖色底线 + 阴郁风险质检）
+python3 pipeline/write_image_art.py --tone-check                     # 风险报告 → output/tone_report.md
+python3 pipeline/write_storyboard.py --warm --check                  # 列出阴郁风险拍（不调 API）
+python3 pipeline/write_storyboard.py --warm --beats 09_0 07_0        # 暖化指定拍提示词（DeepSeek）
+python3 pipeline/write_image_art.py --story --force --beats 09_0 07_0  # 暖化重绘
+
+# 封面（AI 标题公式 + 双规格排版）
+python3 pipeline/write_cover.py --all --tag "认知书页"               # 生成→定稿→渲染
+
 # 长视频渲染（Piper 需提权；可用 TTS_SOURCE=edge/azure 切换）
 python3 pipeline/build_long.py --pilot               # 样段
 python3 pipeline/build_long.py                       # 全片
@@ -53,10 +62,17 @@ PROJECT=002 python3 pipeline/write_long_copy.py --book 《书名》 --author 作
   无进度条与阶段徽章；字幕固定 36px 单行、贴底、浅色底。
 - **生图**：默认 `wan2.7-image`（经济版），`IMAGE_MODEL` 可切
   `wan2.7-image-pro`；密钥走 `.env` 的 `DASHSCOPE_API_KEY`。
+- **基调控制**：提示词分层 = 拍提示词 + 不变底线（暖色明亮、禁止冷色/灰暗）+
+  项目 `visual_style` 变体（`project.json`，防视频间雷同）+ 负面清单；
+  `--tone-check` 按亮度/暖度/暗部占比输出风险报告，勾选后 `--warm --beats`
+  暖化提示词再重绘；`--force` 重绘自动追加提亮暖化指令。
 - **语音**：`TTS_SOURCE=piper|edge|azure` 三选一；当前主用 Azure 晓辰
   成熟知性女声（`zh-CN-Xiaochen:DragonHDFlashLatestNeural`），`.env` 配
   `AZURE_SPEECH_KEY` / `AZURE_REGION` / `AZURE_VOICE`。
 - **封面图**：`python3 pipeline/write_image_art.py --force --only COVER`
-  → 项目 `assets/cover.png`（16:9 暖色书籍主题、无文字、留白给标题）。
+  → 项目 `assets/cover.png` 底图；`python3 pipeline/write_cover.py --all`
+  按标题公式生成文案并排版出 `cover_final_16x9.png`（1280x720）与
+  `cover_final_9x16.png`（720x1280）；改文案可编辑
+  `input/cover_copy.json` 后重跑 `--render`。
 - **背景乐**：`music.wav`（或 mp3/m4a）放入项目 `audio/` 即自动混音
   （0.25 音量 + loudnorm -14 LUFS）；不放则纯人声。

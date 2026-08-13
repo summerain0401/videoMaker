@@ -4,10 +4,14 @@
 
 项目制路径：默认读写 projects/001_金钱的艺术/（环境变量 PROJECT 可换项目，
 --project 参数可覆盖）：
-  --story    按项目 input/storyboard_narrative.json 生成卡点画面到
-             项目 assets/scenes/{块}_{拍}.png
-  普通模式   生成 项目 assets/art/{TITLE,END,S1..S5}.png 与
-             项目 assets/cover.png（art/ 为历史底图存档，渲染不再引用）
+  --story      按项目 input/storyboard_narrative.json 生成卡点画面到
+               项目 assets/scenes/{块}_{拍}.png
+  普通模式     生成 项目 assets/art/{TITLE,END,S1..S5}.png 与
+               项目 assets/cover.png（art/ 为历史底图存档，渲染不再引用）
+  --tone-check 扫描项目 scenes/ 输出阴郁风险报告到 output/tone_report.md
+
+基调控制：提示词 = 拍提示词 + WARM_BASE（不变底线）+ 项目 visual_style
+变体（防视频间雷同）+ 负面清单；--force 重绘时自动追加提亮暖化指令。
 
 环境变量（均可放项目根 .env，已 gitignore）：
   DASHSCOPE_API_KEY   必填，百炼 API Key
@@ -21,6 +25,7 @@
   python3 pipeline/write_image_art.py --only S1    # 只生成指定槽位
   python3 pipeline/write_image_art.py --story --beats 00_0 02_1
   python3 pipeline/write_image_art.py --force --only COVER
+  python3 pipeline/write_image_art.py --tone-check
 
 失败不影响渲染：某张缺失时引擎自动回退程序化底图。
 """
@@ -35,6 +40,7 @@ import urllib.request
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import proj as PJ
+import tone
 
 
 def P(*parts):
@@ -55,11 +61,38 @@ STYLE = ("暖色调温馨明亮的抽象知识感数字插画，奶油色与暖�
          "电影感柔光布光，16:9 横构图，画面中央与左侧预留大面积留白空间"
          "以便叠加文字卡片，画面中不要出现任何文字、字母、人脸或人物。")
 
-STORY_STYLE = ("插画叙事风格：手绘电影感插画，人物形象自然、动作与情绪真实，"
-               "场景有故事感，整体氛围温暖温馨、明亮通透，暖色调为主"
-               "（暖黄、奶油色、柔和阳光与灯光），画面干净明亮、不阴暗不压抑，"
-               "电影感构图与柔光布光，16:9 横构图，画面中不要出现任何文字、"
-               "字母、图表、标语或水印，底部 15% 区域保持简洁以预留给字幕。")
+# 不变底线：所有项目/所有拍共同遵守，优先于拍提示词中的氛围描述
+WARM_BASE = ("插画叙事风格：手绘电影感插画，人物形象自然、动作与情绪真实，"
+             "场景有故事感。画面基调必须温暖温馨、明亮通透，以暖黄、奶油色、"
+             "蜜色光为主色调，柔和阳光或暖色灯光为光源，画面干净明亮；"
+             "不允许冷色调、灰暗天空、昏暗房间或大面积暗部；即使表达疲惫、"
+             "焦虑或对比情绪，人物与环境也必须被暖色光线包裹，"
+             "保持治愈而不压抑。电影感构图与柔光布光，16:9 横构图，"
+             "画面中不要出现任何文字、字母、图表、标语或水印，"
+             "底部 15% 区域保持简洁以预留给字幕。")
+
+# 负面清单：显式排除，兜底模型理解
+NEGATIVE = ("画面中禁止出现：冷色调、灰暗天空、昏暗房间、大面积阴影、"
+            "阴郁压抑氛围、恐怖惊悚元素、雨雪阴天、哭泣绝望等消极画面；"
+            "所有场景必须以暖色光照明亮呈现。")
+
+# 重绘暖化指令：--force 重绘时自动追加
+WARM_BOOST = ("请把画面整体提亮，以暖色灯光与阳光为主要光源，"
+              "消除所有冷色、灰暗与大面积暗部，让情绪即使紧张也被暖光包裹。")
+
+# 项目风格变体表：共同底线不变，变体不同（防视频间雷同）
+VARIANT_STYLES = {
+    "奶油暖金·手绘电影感": "主色奶油色与暖金黄，蜜色柔光，"
+                             "手绘电影感插画质感，细腻颗粒与柔光光晕",
+    "焦糖蜜橙·水彩": "主色焦糖棕与蜜橙，暖橙阳光，水彩晕染质感，通透淡雅",
+    "蜜桃粉·扁平治愈": "主色蜜桃粉与奶白，柔和粉金光线，"
+                         "扁平治愈系插画质感，简洁明快",
+    "燕麦米·油画质感": "主色燕麦米与亚麻棕，暖黄烛光氛围，"
+                         "厚涂油画质感，沉稳温暖",
+    "琥珀棕·复古版画": "主色琥珀棕与赭石，暖黄灯影，"
+                         "复古版画线条质感，故事感强",
+}
+DEFAULT_VARIANT = "奶油暖金·手绘电影感"
 
 PROMPTS = {
     "TITLE": "一本微微发光的书放在暖色书桌上，金色光点与环形钟表齿轮的"
@@ -82,6 +115,23 @@ PROMPTS = {
              "书页微微发光，四周暖色光晕与几何光点环绕，正面构图，"
              "顶部与中央预留大面积留白以便叠加标题文字，温暖积极充满希望。",
 }
+
+
+def style_suffix(meta):
+    """按项目 visual_style 组装风格后缀（不变底线 + 变体 + 负面清单）。"""
+    vs = (meta or {}).get("visual_style") or {}
+    variant = vs.get("variant") or DEFAULT_VARIANT
+    desc = VARIANT_STYLES.get(variant, VARIANT_STYLES[DEFAULT_VARIANT])
+    return " " + WARM_BASE + " " + desc + " " + NEGATIVE
+
+
+def cover_style(meta):
+    """封面底图风格：通用暖色 + 项目 cover_motif 变体。"""
+    vs = (meta or {}).get("visual_style") or {}
+    motif = (vs.get("cover_motif") or "").strip()
+    if motif:
+        return PROMPTS["COVER"] + STYLE + "，主体意象：" + motif
+    return PROMPTS["COVER"] + STYLE
 
 
 def load_api_key():
@@ -171,6 +221,9 @@ def run_story(args, model, base, thinking):
         sys.exit(1)
     with open(story_path, encoding="utf-8") as f:
         story = json.load(f)
+    meta = PJ.read_meta()
+    suffix = style_suffix(meta)
+    boost = WARM_BOOST if args.force else ""
     want = set(args.beats or [])
     failed = 0
     for sb in story["blocks"]:
@@ -186,7 +239,7 @@ def run_story(args, model, base, thinking):
             if os.path.exists(out) and not args.force:
                 print(f"跳过（已存在）：{out}")
                 continue
-            full_prompt = prompt + STORY_STYLE
+            full_prompt = prompt + suffix + (" " + boost if boost else "")
             print(f"生成 块{bi} 拍{be['beat_idx']}（{be.get('shot', 'medium')}）…")
             path = generate_image("story", model, base, thinking,
                                   prompt=full_prompt, out_path=out)
@@ -198,6 +251,59 @@ def run_story(args, model, base, thinking):
         print(f"完成，{failed} 张失败；渲染时会回退到阶段主图或程序化底图。")
         sys.exit(1)
     print("卡点画面全部完成。")
+
+
+def tone_check():
+    """扫描项目 scenes/ 与分镜提示词，输出阴郁风险报告（不调 API）。"""
+    scenes_dir = PROJ("assets", "scenes")
+    if not os.path.isdir(scenes_dir):
+        print(f"未找到卡点画面目录：{scenes_dir}")
+        sys.exit(1)
+    prompt_map = {}
+    story_path = PROJ("input", "storyboard_narrative.json")
+    if os.path.exists(story_path):
+        try:
+            with open(story_path, encoding="utf-8") as f:
+                story = json.load(f)
+            for sb in story.get("blocks", []):
+                for be in sb.get("beats", []):
+                    key = f"{sb['block_idx']:02d}_{int(be['beat_idx'])}"
+                    prompt_map[key] = be.get("prompt", "")
+        except Exception as e:
+            print(f"警告：分镜读取失败（{e}），报告仅含图像指标。")
+    rows = []
+    for fn in sorted(os.listdir(scenes_dir)):
+        if not fn.endswith(".png"):
+            continue
+        key = fn[:-4]
+        stat = tone.analyze_image(os.path.join(scenes_dir, fn))
+        reasons = tone.risk_reasons(stat)
+        pw = tone.prompt_risks(prompt_map.get(key, ""))
+        if pw:
+            reasons.append(f"提示词含阴郁词：{'/'.join(pw)}")
+        rows.append({"file": fn, "stat": stat, "reasons": reasons})
+    risk_rows = [r for r in rows if r["reasons"]]
+    out = PROJ("output", "tone_report.md")
+    lines = ["# 色调风险报告", "",
+             f"阈值：亮度 <{tone.THRESH_LUM:.0f} / "
+             f"暖度 <{tone.THRESH_WARM:.0f} / "
+             f"暗部占比 >{tone.THRESH_DARK * 100:.0f}%",
+             "", f"共 {len(rows)} 张，风险 {len(risk_rows)} 张。", "",
+             "| 文件 | 亮度 | 暖度 | 暗部占比 | 风险原因 |", "|---|---|---|---|---|"]
+    for r in rows:
+        st = r["stat"] or {}
+        lines.append(f"| {r['file']} | {st.get('luminance', '-')} | "
+                     f"{st.get('warmth', '-')} | {st.get('dark_ratio', '-')} | "
+                     f"{'；'.join(r['reasons']) or '达标'} |")
+    with open(out, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    print(f"色调检查完成：{len(rows)} 张，风险 {len(risk_rows)} 张。"
+          f"报告：{out}")
+    if risk_rows:
+        print("风险图（建议暖化重绘）：")
+        for r in risk_rows:
+            print(" -", r["file"], "；".join(r["reasons"]))
+    return risk_rows
 
 
 def main():
@@ -212,6 +318,8 @@ def main():
                          "（默认 auto 读项目 input/storyboard_narrative.json）")
     ap.add_argument("--beats", nargs="+", default=None,
                     help="--story 模式下只生成指定拍，如 00_0 02_1")
+    ap.add_argument("--tone-check", action="store_true",
+                    help="扫描项目 scenes/ 输出阴郁风险报告（不调 API）")
     ap.add_argument("--model", default=None, help="覆盖 IMAGE_MODEL")
     ap.add_argument("--base", default=None, help="覆盖 DASHSCOPE_BASE_URL")
     args = ap.parse_args()
@@ -223,11 +331,15 @@ def main():
     model = args.model or os.environ.get("IMAGE_MODEL", DEFAULT_MODEL)
     base = args.base or os.environ.get("DASHSCOPE_BASE_URL", DEFAULT_BASE)
     thinking = os.environ.get("IMAGE_THINKING", "1") != "0"
+    if args.tone_check:
+        tone_check()
+        return
     if args.story is not None:
         run_story(args, model, base, thinking)
         return
     slots = args.only or SLOTS
     failed = 0
+    meta = PJ.read_meta()
     for slot in slots:
         out_path = PROJ("assets", "cover.png") if slot == "COVER" \
             else None
@@ -236,7 +348,12 @@ def main():
             print(f"跳过（已存在）：{slot}")
             continue
         print(f"生成 {slot}（{model}，thinking={thinking}）…")
-        out = generate_image(slot, model, base, thinking, out_path=out_path)
+        if slot == "COVER":
+            prompt = cover_style(meta)
+            out = generate_image(slot, model, base, thinking,
+                                 prompt=prompt, out_path=out_path)
+        else:
+            out = generate_image(slot, model, base, thinking, out_path=out_path)
         if out:
             print(f"已保存：{out}")
         else:
