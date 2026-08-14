@@ -19,7 +19,7 @@
 | M2 文案 AI 化 | ✅ 完成 | DeepSeek 起草五段式完整脚本 + 结构校验/回喂重试 + 人工定稿（`write_long_copy.py`，密钥走 .env） |
 | M3 视觉升级 | ✅ 完成 | 画面叙事化：DeepSeek 分镜（80 拍）+ 通义万相插画叙事画面 + 卡点切换 + 运镜/亮度/字幕优化；文字卡降级为回退模式 |
 | M4 音色定制 | 🔶 部分完成 | Azure 正式语音（晓辰成熟知性女声）与 edge-tts 已接入可切换；提示音效/节奏对齐待做 |
-| M5 批量产能 | ⏳ 规划中 | 多书目项目制批量出片、封面标题自动生成、平台发布参数 |
+| M5 批量产能 | ⏳ 规划中 | 多书目项目制批量出片、平台发布参数（封面由独立 Agent 负责） |
 
 ## 3. 端到端工作流
 
@@ -45,7 +45,6 @@ flowchart LR
 | 叙事分镜 | `pipeline/write_storyboard.py` | DeepSeek 把每配音块切 3-5 拍 + 画面提示词 + 逐句字幕表；`--refine` 拆超长拍 | 项目 `input/storyboard_narrative.json` |
 | 卡点画面 | `pipeline/write_image_art.py --story` | 通义万相 wan2.7-image（经济版）按分镜生成插画叙事画面 | 项目 `assets/scenes/{块}_{拍}.png` |
 | 基调质检 | `write_image_art.py --tone-check` | 亮度/暖度/暗部占比判定 + 提示词阴郁词典扫描，输出风险报告；`write_storyboard.py --warm` 暖化重写提示词 | 项目 `output/tone_report.md` |
-| 封面 | `pipeline/write_cover.py` | DeepSeek 标题公式文案（人工定稿）+ Pillow 双规格排版 | `assets/cover_final_16x9.png`、`cover_final_9x16.png` |
 | 配音 | `tts_piper/tts_edge/tts_azure.py` | `TTS_SOURCE=piper|edge|azure` 三选一，输出 44100 单声道 wav；缓存名带配置与文本哈希 | 项目 `audio/voice/blk*_*.wav` |
 | 渲染引擎 | `pipeline/build_long.py` | ffmpeg：zoompan 运镜 → 卡点 dissolve → 字幕 overlay → xfade 转场 → 背景乐混音 → loudnorm 响度标准化；检测到分镜即叙事模式，否则回退文字卡 | 项目 `output/vs2_*.mp4` → 成片 |
 | 画面元素库 | `pipeline/long_visuals.py` | Pillow 渲染字幕/书卡/装饰层/程序化底图（ffmpeg 无 drawtext/libass） | 项目 `assets/layers/` |
@@ -72,7 +71,7 @@ flowchart LR
 ## 7. 路线图
 
 - **P1（近期）**：001 暖化重绘（勾选 tone_report 风险图）后补全卡点画面并跑全片；用 Azure 声音渲染更长样片确认节奏与运镜。
-- **P2（两周内）**：书库选题模块（书目筛选 + 痛点对照 + 标题公式）；封面标题公式化已落地（`write_cover.py`），迭代版式；主角一致性图生图。
+- **P2（两周内）**：书库选题模块（书目筛选 + 痛点对照 + 标题公式）；封面由独立 Agent 开发；主角一致性图生图。
 - **P3（月度）**：批量产能化——`PROJECT=002…` 多书目批量出片、各平台规格（YouTube / B 站）预设、留言促活文案模板。
 
 ## 8. 风险与约束
@@ -97,8 +96,8 @@ videoMaker/
 ├── projects/
 │   └── 001_金钱的艺术/
 │       ├── project.json     #   元数据（id/title/author/status）
-│       ├── input/           #   文案与分镜（brief.md / script.txt / draft_* / storyboard_narrative.json / cover_copy.json）
-│       ├── assets/          #   scenes/（卡点画面）、art/（历史底图存档）、cover.png、cover_final_*、layers/（渲染中间层）
+│       ├── input/           #   文案与分镜（brief.md / script.txt / draft_* / storyboard_narrative.json）
+│       ├── assets/          #   scenes/（卡点画面）、art/（历史底图存档）、layers/（渲染中间层）
 │       ├── audio/           #   voice/（配音缓存）、tmp/（合成中间）、music.wav（背景乐）
 │       └── output/          #   成片 mp4、vs2_* 分块、preview/ 抽帧、long_summary.json、storyboard_long.csv、tone_report.md
 ├── assets/piper/            # 共享 Piper 模型（运行时依赖，不入库）
@@ -111,7 +110,7 @@ videoMaker/
 
 1. 渲染更长样片（块 00–03+，Azure 晓辰）确认节奏与运镜实感；
 2. 001 暖化重绘（从 tone_report.md 勾选，推荐 09_0/07_0/00_6）→ 补全剩余卡点画面后跑全片；
-3. 封面版式迭代与标题公式调优（已出 16:9 / 9:16 双规格初版）；
+3. 封面由独立 Agent 开发（本仓库不包含封面工具）；
 4. 主角一致性（参考图图生图）与书库选题模块；
 5. 节奏对齐 / 提示音效（M4 声音阶段）。
 

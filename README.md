@@ -11,7 +11,7 @@
 projects/001_金钱的艺术/
 ├── project.json    # 元数据（id/title/author/status）
 ├── input/          # brief.md、script.txt(.bak)、draft_*.txt、storyboard_narrative.json
-├── assets/         # scenes/（卡点画面）、art/（历史底图存档）、cover.png、layers/（渲染中间层）
+├── assets/         # scenes/（卡点画面）、art/（历史底图存档）、layers/（渲染中间层）
 ├── audio/          # voice/（配音缓存）、music.wav（背景乐）、tmp/（合成中间）
 └── output/         # 成片 mp4、long_summary.json、storyboard_long.csv、preview/（抽帧）
 ```
@@ -37,9 +37,6 @@ python3 pipeline/write_image_art.py --tone-check                     # 风险报
 python3 pipeline/write_storyboard.py --warm --check                  # 列出阴郁风险拍（不调 API）
 python3 pipeline/write_storyboard.py --warm --beats 09_0 07_0        # 暖化指定拍提示词（DeepSeek）
 python3 pipeline/write_image_art.py --story --force --beats 09_0 07_0  # 暖化重绘
-
-# 封面（AI 标题公式 + 双规格排版）
-python3 pipeline/write_cover.py --all --tag "认知书页"               # 生成→定稿→渲染
 
 # 长视频渲染（Piper 需提权；可用 TTS_SOURCE=edge/azure 切换）
 python3 pipeline/build_long.py --pilot               # 样段
@@ -69,10 +66,6 @@ PROJECT=002 python3 pipeline/write_long_copy.py --book 《书名》 --author 作
 - **语音**：`TTS_SOURCE=piper|edge|azure` 三选一；当前主用 Azure 晓辰
   成熟知性女声（`zh-CN-Xiaochen:DragonHDFlashLatestNeural`），`.env` 配
   `AZURE_SPEECH_KEY` / `AZURE_REGION` / `AZURE_VOICE`。
-- **封面图**：`python3 pipeline/write_image_art.py --force --only COVER`
-  → 项目 `assets/cover.png` 底图；`python3 pipeline/write_cover.py --all`
-  按标题公式生成文案并排版出 `cover_final_16x9.png`（1280x720）与
-  `cover_final_9x16.png`（720x1280）；改文案可编辑
-  `input/cover_copy.json` 后重跑 `--render`。
+- **封面**：由独立 Agent 负责，本仓库不包含封面工具与素材。
 - **背景乐**：`music.wav`（或 mp3/m4a）放入项目 `audio/` 即自动混音
   （0.25 音量 + loudnorm -14 LUFS）；不放则纯人声。

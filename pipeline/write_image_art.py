@@ -7,7 +7,7 @@
   --story      按项目 input/storyboard_narrative.json 生成卡点画面到
                项目 assets/scenes/{块}_{拍}.png
   普通模式     生成 项目 assets/art/{TITLE,END,S1..S5}.png 与
-               项目 assets/cover.png（art/ 为历史底图存档，渲染不再引用）
+               （art/ 为历史底图存档，渲染不再引用）
   --tone-check 扫描项目 scenes/ 输出阴郁风险报告到 output/tone_report.md
 
 基调控制：提示词 = 拍提示词 + WARM_BASE（不变底线）+ 项目 visual_style
@@ -24,7 +24,6 @@
   python3 pipeline/write_image_art.py --force      # 全部重新生成
   python3 pipeline/write_image_art.py --only S1    # 只生成指定槽位
   python3 pipeline/write_image_art.py --story --beats 00_0 02_1
-  python3 pipeline/write_image_art.py --force --only COVER
   python3 pipeline/write_image_art.py --tone-check
 
 失败不影响渲染：某张缺失时引擎自动回退程序化底图。
@@ -52,7 +51,7 @@ def PROJ(*parts):
     return PJ.PROJ(*parts)
 
 
-SLOTS = ["TITLE", "END", "S1", "S2", "S3", "S4", "S5", "COVER"]
+SLOTS = ["TITLE", "END", "S1", "S2", "S3", "S4", "S5"]
 DEFAULT_BASE = "https://dashscope.aliyuncs.com"
 DEFAULT_MODEL = "wan2.7-image"
 
@@ -111,9 +110,6 @@ PROMPTS = {
           "象征可操作的工具与步骤，画面明亮通透，中央留白。",
     "S5": "开阔的暖色天际，晨光从云隙洒下，金色光尘缓缓飘落，温暖宁静"
           "自由，画面明亮通透，中央留白。",
-    "COVER": "暖色书籍主题封面：一本厚书立在暖色桌面上，金色晨光洒落，"
-             "书页微微发光，四周暖色光晕与几何光点环绕，正面构图，"
-             "顶部与中央预留大面积留白以便叠加标题文字，温暖积极充满希望。",
 }
 
 
@@ -123,15 +119,6 @@ def style_suffix(meta):
     variant = vs.get("variant") or DEFAULT_VARIANT
     desc = VARIANT_STYLES.get(variant, VARIANT_STYLES[DEFAULT_VARIANT])
     return " " + WARM_BASE + " " + desc + " " + NEGATIVE
-
-
-def cover_style(meta):
-    """封面底图风格：通用暖色 + 项目 cover_motif 变体。"""
-    vs = (meta or {}).get("visual_style") or {}
-    motif = (vs.get("cover_motif") or "").strip()
-    if motif:
-        return PROMPTS["COVER"] + STYLE + "，主体意象：" + motif
-    return PROMPTS["COVER"] + STYLE
 
 
 def load_api_key():
@@ -339,21 +326,13 @@ def main():
         return
     slots = args.only or SLOTS
     failed = 0
-    meta = PJ.read_meta()
     for slot in slots:
-        out_path = PROJ("assets", "cover.png") if slot == "COVER" \
-            else None
-        path = out_path or PROJ("assets", "art", f"{slot}.png")
+        path = PROJ("assets", "art", f"{slot}.png")
         if os.path.exists(path) and not args.force:
             print(f"跳过（已存在）：{slot}")
             continue
         print(f"生成 {slot}（{model}，thinking={thinking}）…")
-        if slot == "COVER":
-            prompt = cover_style(meta)
-            out = generate_image(slot, model, base, thinking,
-                                 prompt=prompt, out_path=out_path)
-        else:
-            out = generate_image(slot, model, base, thinking, out_path=out_path)
+        out = generate_image(slot, model, base, thinking)
         if out:
             print(f"已保存：{out}")
         else:
