@@ -79,17 +79,49 @@ NEGATIVE = ("画面中禁止出现：冷色调、灰暗天空、昏暗房间、�
 WARM_BOOST = ("请把画面整体提亮，以暖色灯光与阳光为主要光源，"
               "消除所有冷色、灰暗与大面积暗部，让情绪即使紧张也被暖光包裹。")
 
+# 2D Q 版流水线常量（docs/插画Prompts.md）：全局底模 + 暖色底线 + 负面词
+GLOBAL_2D_STYLE_PREFIX = (
+    "2D cute chibi kawaii anime illustration, flat vector graphic art, "
+    "bold clean outlines, vibrant pastel colors, "
+    "simple minimalist studio background"
+)
+WARM_LIGHT_EN = (
+    "bright warm lighting, soft golden sunlight, cozy warm color palette, "
+    "cheerful uplifting mood, clean bright atmosphere, "
+    "negative emotions wrapped in warm light, not gloomy not oppressive"
+)
+CHIBI_NEGATIVE_PROMPT = (
+    "photorealistic, realistic, 3D render, dark gritty shadows, "
+    "realistic human anatomy, complex detailed environment, "
+    "photographic textures, any text, letters, words, numbers, labels, "
+    "badges, stickers, banners, bubble boxes, captions, danmaku, "
+    "UI text, chart labels, watermark, signature, blurry, "
+    "dark gloomy atmosphere, cold color tone, sad despair mood, "
+    "scary horror elements, rain snow cloudy sky, large dark shadow area"
+)
+
 # 项目风格变体表：共同底线不变，变体不同（防视频间雷同）
 VARIANT_STYLES = {
-    "奶油暖金·手绘电影感": "主色奶油色与暖金黄，蜜色柔光，"
-                             "手绘电影感插画质感，细腻颗粒与柔光光晕",
-    "焦糖蜜橙·水彩": "主色焦糖棕与蜜橙，暖橙阳光，水彩晕染质感，通透淡雅",
-    "蜜桃粉·扁平治愈": "主色蜜桃粉与奶白，柔和粉金光线，"
-                         "扁平治愈系插画质感，简洁明快",
-    "燕麦米·油画质感": "主色燕麦米与亚麻棕，暖黄烛光氛围，"
-                         "厚涂油画质感，沉稳温暖",
-    "琥珀棕·复古版画": "主色琥珀棕与赭石，暖黄灯影，"
-                         "复古版画线条质感，故事感强",
+    "奶油暖金·手绘电影感": {
+        "zh": "主色奶油色与暖金黄，蜜色柔光，手绘电影感插画质感，细腻颗粒与柔光光晕",
+        "en": "creamy warm gold color palette, honey-colored soft light, delicate grain",
+    },
+    "焦糖蜜橙·水彩": {
+        "zh": "主色焦糖棕与蜜橙，暖橙阳光，水彩晕染质感，通透淡雅",
+        "en": "caramel brown and honey orange color palette, warm orange sunlight, watercolor texture",
+    },
+    "蜜桃粉·扁平治愈": {
+        "zh": "主色蜜桃粉与奶白，柔和粉金光线，扁平治愈系插画质感，简洁明快",
+        "en": "peach pink and cream color palette, soft pink-gold light, flat healing style",
+    },
+    "燕麦米·油画质感": {
+        "zh": "主色燕麦米与亚麻棕，暖黄烛光氛围，厚涂油画质感，沉稳温暖",
+        "en": "oatmeal beige and linen brown color palette, warm candlelight, thick oil painting texture",
+    },
+    "琥珀棕·复古版画": {
+        "zh": "主色琥珀棕与赭石，暖黄灯影，复古版画线条质感，故事感强",
+        "en": "amber brown and ochre color palette, warm yellow lamp light, vintage print line texture",
+    },
 }
 DEFAULT_VARIANT = "奶油暖金·手绘电影感"
 
@@ -117,8 +149,15 @@ def style_suffix(meta):
     """按项目 visual_style 组装风格后缀（不变底线 + 变体 + 负面清单）。"""
     vs = (meta or {}).get("visual_style") or {}
     variant = vs.get("variant") or DEFAULT_VARIANT
-    desc = VARIANT_STYLES.get(variant, VARIANT_STYLES[DEFAULT_VARIANT])
+    desc = VARIANT_STYLES.get(variant, VARIANT_STYLES[DEFAULT_VARIANT])["zh"]
     return " " + WARM_BASE + " " + desc + " " + NEGATIVE
+
+
+def variant_en(meta):
+    """项目变体的英文描述（2D Q 版装配用）。"""
+    vs = (meta or {}).get("visual_style") or {}
+    variant = vs.get("variant") or DEFAULT_VARIANT
+    return VARIANT_STYLES.get(variant, VARIANT_STYLES[DEFAULT_VARIANT])["en"]
 
 
 def load_api_key():
@@ -137,7 +176,7 @@ def load_api_key():
 
 
 def generate_image(slot, model, base, thinking, prompt=None, ref_images=None,
-                   out_path=None):
+                   out_path=None, negative_prompt=None):
     key = load_api_key()
     if not key:
         print("缺少 DASHSCOPE_API_KEY：请配置环境变量或项目根 .env。")
@@ -153,11 +192,14 @@ def generate_image(slot, model, base, thinking, prompt=None, ref_images=None,
                 b64 = base64.b64encode(f.read()).decode("ascii")
             content.append({"image": f"data:image/png;base64,{b64}"})
     content.append({"text": prompt})
+    params = {"size": "1920*1080", "n": 1,
+              "watermark": False, "thinking_mode": thinking}
+    if negative_prompt:
+        params["negative_prompt"] = negative_prompt
     body = {
         "model": model,
         "input": {"messages": [{"role": "user", "content": content}]},
-        "parameters": {"size": "1920*1080", "n": 1,
-                       "watermark": False, "thinking_mode": thinking},
+        "parameters": params,
     }
     base = base.rstrip("/")
     if base.endswith("/api/v1"):
@@ -240,6 +282,48 @@ def run_story(args, model, base, thinking):
     print("卡点画面全部完成。")
 
 
+def run_chibi(args, model, base, thinking):
+    """2D Q 版模式：读 storyboard_output.json，用 final_image_prompt +
+    negative_prompt 批量生图。"""
+    out_path = PROJ("input", "storyboard_output.json")
+    if not os.path.exists(out_path):
+        print(f"未找到 {out_path}，请先运行 "
+              f"python3 pipeline/write_chibi_prompts.py。")
+        sys.exit(1)
+    with open(out_path, encoding="utf-8") as f:
+        story = json.load(f)
+    want = set(args.beats or [])
+    failed = 0
+    made = 0
+    for sb in story.get("blocks", []):
+        bi = sb["block_idx"]
+        for be in sb.get("beats", []):
+            prompt = (be.get("final_image_prompt") or "").strip()
+            if not prompt:
+                continue
+            key = f"{bi:02d}_{int(be['beat_idx'])}"
+            if want and key not in want:
+                continue
+            out = PROJ("assets", "scenes", f"{key}.png")
+            if os.path.exists(out) and not args.force:
+                print(f"跳过（已存在）：{out}")
+                continue
+            print(f"生成 块{bi} 拍{be['beat_idx']}（2D Q 版）…")
+            path = generate_image("chibi", model, base, thinking,
+                                  prompt=prompt, out_path=out,
+                                  negative_prompt=CHIBI_NEGATIVE_PROMPT)
+            if path:
+                made += 1
+                print(f"已保存：{path}")
+            else:
+                failed += 1
+    if failed:
+        print(f"完成，{made} 张成功，{failed} 张失败；"
+              f"渲染时会回退到程序化底图。")
+        sys.exit(1)
+    print(f"2D Q 版卡点画面完成：{made} 张。")
+
+
 def tone_check():
     """扫描项目 scenes/ 与分镜提示词，输出阴郁风险报告（不调 API）。"""
     scenes_dir = PROJ("assets", "scenes")
@@ -303,6 +387,9 @@ def main():
     ap.add_argument("--story", nargs="?", const="auto", default=None,
                     help="叙事模式：按分镜 JSON 生成卡点画面"
                          "（默认 auto 读项目 input/storyboard_narrative.json）")
+    ap.add_argument("--chibi", action="store_true",
+                    help="2D Q 版模式：读 input/storyboard_output.json，"
+                         "用英文 final prompt + negative_prompt 生图")
     ap.add_argument("--beats", nargs="+", default=None,
                     help="--story 模式下只生成指定拍，如 00_0 02_1")
     ap.add_argument("--tone-check", action="store_true",
@@ -320,6 +407,9 @@ def main():
     thinking = os.environ.get("IMAGE_THINKING", "1") != "0"
     if args.tone_check:
         tone_check()
+        return
+    if args.chibi:
+        run_chibi(args, model, base, thinking)
         return
     if args.story is not None:
         run_story(args, model, base, thinking)

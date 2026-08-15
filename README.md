@@ -38,6 +38,12 @@ python3 pipeline/write_storyboard.py --warm --check                  # 列出阴
 python3 pipeline/write_storyboard.py --warm --beats 09_0 07_0        # 暖化指定拍提示词（DeepSeek）
 python3 pipeline/write_image_art.py --story --force --beats 09_0 07_0  # 暖化重绘
 
+# 2D Q 版插画流水线（LLM 解析 + 角色库 + 英文 Prompt 装配 + 负面词）
+python3 pipeline/write_chibi_prompts.py            # 全量解析+装配（按块批量）
+python3 pipeline/write_chibi_prompts.py --blocks 0  # 试点只解析块 0
+python3 pipeline/write_chibi_prompts.py --check    # 离线校验
+python3 pipeline/write_image_art.py --chibi --force --beats 00_0 00_1  # 2D Q 版生图
+
 # 长视频渲染（Piper 需提权；可用 TTS_SOURCE=edge/azure 切换）
 python3 pipeline/build_long.py --pilot               # 样段
 python3 pipeline/build_long.py                       # 全片
@@ -63,6 +69,13 @@ PROJECT=002 python3 pipeline/write_long_copy.py --book 《书名》 --author 作
   项目 `visual_style` 变体（`project.json`，防视频间雷同）+ 负面清单；
   `--tone-check` 按亮度/暖度/暗部占比输出风险报告，勾选后 `--warm --beats`
   暖化提示词再重绘；`--force` 重绘自动追加提亮暖化指令。
+- **2D Q 版**：`write_chibi_prompts.py` 按块批量 LLM 解析（旁白驱动情绪、
+  主题一致性、角色库 `assets/characters.json` + 项目 `input/characters.json`
+  覆盖扩展）→ 装配英文 final prompt（2D chibi 底模 + 暖色 + 变体 + 角色 +
+  动作 + 景别 + 16:9）；画面一律无文字/贴纸/图表（负面词全禁，文字留给引擎
+  字幕与后期）；构图固定主体上 2/3、底部 1/3 字幕安全区。
+- **转场**：块内卡点硬切（Ken Burns 运镜保留），块间 0.3s 方向型 xfade
+  （不用 dissolve/fade 家族，避免人脸叠影）。
 - **语音**：`TTS_SOURCE=piper|edge|azure` 三选一；当前主用 Azure 晓辰
   成熟知性女声（`zh-CN-Xiaochen:DragonHDFlashLatestNeural`），`.env` 配
   `AZURE_SPEECH_KEY` / `AZURE_REGION` / `AZURE_VOICE`。

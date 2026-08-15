@@ -14,6 +14,8 @@
 - ✅ **视觉样片 v4**：`projects/001_金钱的艺术/output/long_money_v2_visual_sample.mp4`——全亮（无压暗、vignette PI/7）、运镜明显增强（缩放 0.40、视差 ±14）、无进度条/阶段徽章、字幕固定 36px 单行（长句拆连续事件）、片头 00_0/00_1 明亮版。
 - ✅ **M4 语音（部分）**：Azure 正式语音已接入（`tts_azure.py`，`TTS_SOURCE=azure`），当前声音 `zh-CN-Xiaochen:DragonHDFlashLatestNeural`（晓辰成熟知性女声）；edge-tts（`tts_edge.py`，免费无密钥）与 Piper（本地男声）保留，三选一随时切换。最近测试样片（块 00–01）用 Azure 晓辰配音，响度 -14.3 dB。
 - ✅ **生图基调控制**：提示词分层（不变底线 + 项目 `visual_style` 变体 + 负面清单）；`--tone-check` 输出风险报告（001 现有 44 张中 19 张被标记，其中 09_0/07_0/00_6 客观偏暗）；`write_storyboard.py --warm` 暖化重写分镜提示词；`--force` 重绘自动追加提亮指令。
+- ✅ **2D Q 版流水线**：`write_chibi_prompts.py`（LLM 按块批量解析：旁白驱动情绪映射 + 角色库 + 装配英文 final prompt，输出 `input/storyboard_output.json`）；`write_image_art.py --chibi`（`negative_prompt` 全禁文字/贴纸/图表）；`assets/characters.json` 全局角色库 + 项目 `input/characters.json` 覆盖扩展。
+- ✅ **样片修复（本轮）**：画面无文字（文字留给字幕与后期）；情绪以口播为准（自动矛盾检测回喂）；块内卡点硬切 + 块间 0.3s 方向型转场（去 dissolve 防叠影）；构图主体上 2/3 + 底部 1/3 字幕安全区。块 0–1 样片已用新规则重绘重渲（65.87s）。
 - ✅ **封面移除（本轮）**：封面工具与素材已全部移除，封面由独立 Agent 负责（本仓库不再包含封面相关代码/产物）。
 - ⏳ **待办**：001 暖化重绘（待你从 tone_report.md 勾选，推荐至少 09_0/07_0/00_6）；渲染更长样片/全片；补全剩余卡点画面（约 58 拍未生成）；主角一致性（参考图图生图）；节奏对齐/提示音效。
 
@@ -47,6 +49,12 @@ python3 pipeline/write_storyboard.py --warm --check                    # 阴郁�
 python3 pipeline/write_storyboard.py --warm --beats 09_0 07_0          # 暖化提示词
 python3 pipeline/write_image_art.py --story --force --beats 09_0 07_0  # 重绘
 
+# 2D Q 版流水线
+python3 pipeline/write_chibi_prompts.py --blocks 0                     # 试点解析+装配
+python3 pipeline/write_chibi_prompts.py --check                        # 离线校验
+python3 pipeline/write_image_art.py --chibi --beats 00_0 00_1          # Q 版生图
+python3 pipeline/write_image_art.py --chibi --force                    # 全量覆盖重绘
+
 # 新项目示例
 PROJECT=002 python3 pipeline/write_long_copy.py --book 《书名》 --author 作者
 ```
@@ -74,8 +82,8 @@ PROJECT=002 python3 pipeline/write_long_copy.py --book 《书名》 --author 作
 ## 7. 待办（按优先级）
 
 1. 用 Azure 声音渲染更长样片（块 00–03 或更多）确认节奏与运镜。
-2. 001 暖化重绘：从 `output/tone_report.md` 勾选风险图（推荐至少 09_0/07_0/00_6）→ `--warm --beats` → `--story --force --beats` 重绘 → 复跑 `--tone-check`。
-3. 补全剩余卡点画面（约 58 拍，wan2.7-image，成本低；新拍自动带暖化风格）后跑全片。
+2. 001 全量 2D Q 版重绘：块 0/2 已跑通，等其余块解析+装配（17 块）+ `--chibi --force` 重绘全部 74 张 → `--tone-check` 复检 → 全片渲染。
+3. 旧暖色中文模式 `--story` 保留为回退；`assets/art/` 历史底图不动。
 4. 主角一致性（参考图图生图）——接口已预留（`write_image_art` 的 `ref_images`）。
 5. 封面（独立 Agent 另行开发，本仓库不维护）。
 6. 节奏对齐/提示音效（BGM `music.wav` 已随项目迁移，音量 0.25）。
@@ -88,6 +96,7 @@ PROJECT=002 python3 pipeline/write_long_copy.py --book 《书名》 --author 作
 - 语音：Azure 正式语音（晓辰成熟知性女声）为当前主用；edge-tts 免费备选；Piper 本地兜底。
 - 生图：通义万相 wan2.7-image（经济版）；插画底图 art/ 停止引用（历史资产）。
 - 基调：提示词分层（不变底线 + 项目 visual_style 变体 + 负面清单）；`--tone-check` 亮度<150/暖度<10/暗部占比>25% 判定风险，人工勾选后暖化重绘。
+- 2D Q 版：画面无文字/贴纸/图表（文字留给字幕与后期）；情绪以旁白为准（矛盾自动检测）；角色库全局+项目双层；构图底部 1/3 字幕安全区；块内硬切、块间 0.3s 方向型转场。
 - 目录：项目制（数字前缀 + 中文名），输入/中间产物/产出分层；短视频移出本仓库另开项目。
 - 封面：由独立 Agent 负责，本仓库不包含封面工具与素材。
 - 运营：标题公式/灵魂提问已入文案结构（标题公式参考 report.pdf）。

@@ -44,6 +44,8 @@ flowchart LR
 | 长视频文案起草 | `pipeline/write_long_copy.py` | DeepSeek 起草五段式 3800-4500 字完整脚本（含视觉标记），结构校验失败自动回喂重试，`--accept` 定稿并备份 | 项目 `input/draft_*.txt` → `input/script.txt` |
 | 叙事分镜 | `pipeline/write_storyboard.py` | DeepSeek 把每配音块切 3-5 拍 + 画面提示词 + 逐句字幕表；`--refine` 拆超长拍 | 项目 `input/storyboard_narrative.json` |
 | 卡点画面 | `pipeline/write_image_art.py --story` | 通义万相 wan2.7-image（经济版）按分镜生成插画叙事画面 | 项目 `assets/scenes/{块}_{拍}.png` |
+| 2D Q 版分镜 | `pipeline/write_chibi_prompts.py` | LLM 按块批量解析（旁白驱动情绪映射 + 角色库 + 主题一致性）→ 装配英文 final prompt（2D chibi + 暖色 + 变体 + 角色 + 动作 + 景别 + 16:9） | 项目 `input/storyboard_output.json` |
+| 2D Q 版生图 | `write_image_art.py --chibi` | 读 storyboard_output.json，`negative_prompt` 全禁文字/贴纸/图表；构图底部 1/3 字幕安全区 | 项目 `assets/scenes/{块}_{拍}.png` |
 | 基调质检 | `write_image_art.py --tone-check` | 亮度/暖度/暗部占比判定 + 提示词阴郁词典扫描，输出风险报告；`write_storyboard.py --warm` 暖化重写提示词 | 项目 `output/tone_report.md` |
 | 配音 | `tts_piper/tts_edge/tts_azure.py` | `TTS_SOURCE=piper|edge|azure` 三选一，输出 44100 单声道 wav；缓存名带配置与文本哈希 | 项目 `audio/voice/blk*_*.wav` |
 | 渲染引擎 | `pipeline/build_long.py` | ffmpeg：zoompan 运镜 → 卡点 dissolve → 字幕 overlay → xfade 转场 → 背景乐混音 → loudnorm 响度标准化；检测到分镜即叙事模式，否则回退文字卡 | 项目 `output/vs2_*.mp4` → 成片 |
@@ -65,8 +67,10 @@ flowchart LR
 3. ✅ 转场升级：按块类型映射 xfade（zoomin / fadewhite / 对角光扫 / slideup 等）；
 4. ✅ 亮度与干净度：全亮无压暗、vignette 减弱；无进度条/阶段徽章；字幕 36px 单行贴底；
 5. ✅ 基调控制：提示词分层（不变底线 + 项目 visual_style 变体 + 负面清单）+ `--tone-check` 风险报告 + `--warm` 暖化重写；001 风险图待人工勾选重绘；
-6. ⏳ 节奏对齐 / 提示音效：随 M4 声音阶段推进；
-7. ⏳ 主角一致性：参考图图生图（`ref_images` 接口已预留），下一条片启用。
+6. ✅ 画面无文字：2D Q 版负面词全禁文字/数字/贴纸/图表，文字与数据留给引擎字幕与后期；情绪以旁白为准（自动矛盾检测回喂）；主题一致性（角色库 + 禁止年龄身份不符形象）；
+7. ✅ 转场防叠影：块内卡点硬切（Ken Burns 保留）、块间 0.3s 方向型 xfade；
+8. ⏳ 节奏对齐 / 提示音效：随 M4 声音阶段推进；
+9. ⏳ 主角一致性：参考图图生图（`ref_images` 接口已预留），下一条片启用。
 
 ## 7. 路线图
 
@@ -108,8 +112,8 @@ videoMaker/
 
 ## 11. 下一步行动
 
-1. 渲染更长样片（块 00–03+，Azure 晓辰）确认节奏与运镜实感；
-2. 001 暖化重绘（从 tone_report.md 勾选，推荐 09_0/07_0/00_6）→ 补全剩余卡点画面后跑全片；
+1. 001 全量 2D Q 版重绘（剩余 17 块解析装配 + `--chibi --force` 74 张）→ 全片渲染；
+2. 渲染更长样片（块 00–03+，Azure 晓辰）确认节奏与运镜实感；
 3. 封面由独立 Agent 开发（本仓库不包含封面工具）；
 4. 主角一致性（参考图图生图）与书库选题模块；
 5. 节奏对齐 / 提示音效（M4 声音阶段）。

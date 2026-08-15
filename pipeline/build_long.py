@@ -55,8 +55,7 @@ PIPER_LS = float(os.environ.get("PIPER_LENGTH_SCALE", "1.15"))
 LEAD, TAIL = 0.4, 0.6
 QUOTE_LEAD = 1.0
 PHASE_DUR = 4.0
-XD = 0.5  # 转场时长
-BEAT_XD = 0.25  # 块内卡点 dissolve 时长
+XD = 0.3  # 块间转场时长（方向型快速转场，不用 dissolve 家族）
 NO_TTS = False  # --no-tts：跳过配音合成，音轨静音
 BOOK = "《金钱的艺术》"
 AUTHOR = "Morgan Housel"
@@ -518,13 +517,12 @@ def make_beat_bg(b, idx, beat_idx, art_path):
 
 
 def beat_durations(sdur, beats):
-    """按字符占比分配每拍时长，扣除 dissolve 重叠后总长 = sdur。"""
+    """按字符占比分配每拍时长（硬切无重叠，总长 = sdur）。"""
     n = len(beats)
     if n <= 1:
         return [sdur]
     weights = [max(1, be["end_char"] - be["start_char"]) for be in beats]
-    target = sdur + (n - 1) * BEAT_XD
-    return [target * w / sum(weights) for w in weights]
+    return [sdur * w / sum(weights) for w in weights]
 
 
 def subtitle_windows(block, sub):
@@ -551,7 +549,7 @@ def split_subtitle_chunks(text, max_chars=40):
 
 
 def render_scene_narrative(blocks, idx, total, first, last, meta, story):
-    """叙事模式：卡点画面 zoompan + dissolve 拼接 + 字幕/进度叠层。"""
+    """叙事模式：卡点画面 zoompan 硬切拼接 + 字幕叠层。"""
     b = blocks[idx]
     sdur = scene_time(b)
     sb = story["blocks"][idx]
@@ -588,16 +586,13 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
             f"zoompan=z='{z}':x={cx}:y={cy}:d=1:s={W}x{H}:fps={FPS},"
             f"format=yuv420p[b{k}]"
         )
-    prev = "b0"
-    acc = 0.0
-    for k in range(n - 1):
-        acc += durs[k]
-        out = f"bx{k}"
-        fc.append(f"[{prev}][b{k + 1}]xfade=transition=dissolve:"
-                  f"duration={BEAT_XD}:offset={acc - (k + 1) * BEAT_XD:.3f}"
-                  f"[{out}]")
-        prev = out
-    o_prev = prev if n > 1 else "b0"
+    # 块内卡点硬切：各拍 zoompan 后 concat 拼接（保留 Ken Burns，无叠化）
+    if n > 1:
+        fc.append("".join(f"[b{k}]" for k in range(n)) +
+                  f"concat=n={n}:v=1:a=0[bc]")
+        o_prev = "bc"
+    else:
+        o_prev = "b0"
     bi = n
     # deco 光斑视差层（相对卡点画面漂移，制造纵深）
     fc.append(f"[{o_prev}][{bi}:v]overlay=x='34*sin(t/4)':"
@@ -718,7 +713,7 @@ def transition_for(b, k):
     if btype == "PHASE":
         return "zoomin"
     if btype == "QUOTE":
-        return "fadewhite"
+        return "circleopen"
     if btype == "TABLE":
         return "diagtr" if k % 2 == 0 else "diagtl"
     if btype == "STEPS":
@@ -727,7 +722,7 @@ def transition_for(b, k):
         return "smoothleft" if k % 2 == 0 else "smoothright"
     if btype == "TITLE":
         return "coverright"
-    return "fade"
+    return "wipeup"
 
 
 def finalize(blocks, out_name):

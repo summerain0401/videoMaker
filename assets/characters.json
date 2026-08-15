@@ -1,0 +1,26 @@
+{
+  "young_pro": {
+    "role_name": "核心主角/年轻上班族",
+    "prompt": "cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie"
+  },
+  "frugal_girl": {
+    "role_name": "实操主角/年轻女性",
+    "prompt": "cute 2D chibi 20yo female, high ponytail, pink hair tie, oversized beige knit sweater"
+  },
+  "author_morgan": {
+    "role_name": "智者/财经导师",
+    "prompt": "cute 2D chibi middle-aged male scholar, neat brown hair, round glasses, brown vest with necktie"
+  },
+  "mentor_buffett": {
+    "role_name": "长线投资者/老者",
+    "prompt": "cute 2D chibi wise elderly investor, fluffy white hair, round glasses, gentle smile, green knit vest"
+  },
+  "stressed_debtor": {
+    "role_name": "过度消费/投机反面角色",
+    "prompt": "cute 2D chibi male office worker, rumpled gray suit, loosened necktie, dark eye circles, sweating"
+  },
+  "none": {
+    "role_name": "无主体/纯概念金融道具",
+    "prompt": ""
+  }
+}
