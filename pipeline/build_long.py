@@ -48,6 +48,7 @@ def PROJ(*parts):
 
 
 W, H, FPS = 1920, 1080, 30
+KENZOOM = 0.05  # 每镜头 Ken Burns 缩放幅度（3%-5% 轻微档，常量可调）
 VOICE = os.environ.get("TTS_VOICE", "Tingting")
 SYSTEM_RATE = int(os.environ.get("TTS_RATE", "190"))
 TTS_SOURCE = os.environ.get("TTS_SOURCE", "piper")
@@ -245,17 +246,17 @@ def motion_exprs(idx, nframes):
     cx = "'iw/2-(iw/zoom/2)'"
     cy = "'ih/2-(ih/zoom/2)'"
     if prof == "push":
-        z = f"1+0.40*on/{n}"
+        z = f"1+{KENZOOM}*on/{n}"
     elif prof == "pull":
-        z = f"1.40-0.40*on/{n}"
+        z = f"{1 + KENZOOM}-{KENZOOM}*on/{n}"
     elif prof == "panl":
-        z = "1.25"
+        z = f"{1 + KENZOOM}"
         cx = f"'+(iw-iw/zoom)*(1-on/{n})'"
     elif prof == "panr":
-        z = "1.25"
+        z = f"{1 + KENZOOM}"
         cx = f"'+(iw-iw/zoom)*(on/{n})'"
     else:  # up
-        z = "1.25"
+        z = f"{1 + KENZOOM}"
         cy = f"'+(ih-ih/zoom)*(1-on/{n})'"
     return z, cx, cy
 
@@ -304,7 +305,7 @@ def render_scene(blocks, idx, total, first, last, meta=None):
     dx, dy = "14*sin(t/4)", "11*cos(t/4)"   # 前景层反向微漂移（视差）
     fc = [
         f"[0:v]scale={2 * W}:{2 * H},"
-        f"zoompan=z='{z}':x={cx}:y={cy}:d=1:s={W}x{H}:fps={FPS},"
+        f"zoompan=z='{z}':x={cx}:y={cy}:d={nframes}:s={W}x{H}:fps={FPS},"
         f"format=yuv420p[bg0]",
         f"[bg0][1:v]overlay=x='34*sin(t/4)':y='22*cos(t/3.5)'[bgd2]",
         f"[bgd2][2:v]overlay=x='{dx}':y='{dy}'[o0]",
@@ -352,7 +353,6 @@ def render_scene(blocks, idx, total, first, last, meta=None):
 
     wav = make_scene_audio(b, idx)
     cmd = ["ffmpeg", "-y",
-           "-loop", "1", "-framerate", str(FPS), "-t", f"{sdur:.3f}",
            "-i", bg,
            "-loop", "1", "-framerate", str(FPS), "-t", f"{sdur:.3f}",
            "-i", deco,
@@ -405,7 +405,8 @@ def render_frames(blocks, meta):
         dx, dy = "8*sin(t/5)", "5.5*cos(t/4)"
         fc = [
             f"[0:v]scale=1920x1080,"
-            f"zoompan=z='{z}':x={cx}:y={cy}:d=1:s={FW}x{FH}:fps={FFPS},"
+            f"zoompan=z='{z}':x={cx}:y={cy}:d={nframes}:"
+            f"s={FW}x{FH}:fps={FFPS},"
             f"format=yuv420p[bg0]",
             f"[1:v]scale={FW}:{FH},format=rgba[d0]",
             f"[bg0][d0]overlay=x='17*sin(t/4)':y='11*cos(t/3.5)'[bgd2]",
@@ -452,7 +453,6 @@ def render_frames(blocks, meta):
 
         clip = os.path.join(outdir, f"m3_{i:02d}.mp4")
         cmd = ["ffmpeg", "-y",
-               "-loop", "1", "-framerate", str(FFPS), "-t", f"{FDUR:.2f}",
                "-i", bg,
                "-loop", "1", "-framerate", str(FFPS), "-t", f"{FDUR:.2f}",
                "-i", deco,
@@ -535,8 +535,11 @@ def subtitle_windows(block, sub):
     return s, e
 
 
-def split_subtitle_chunks(text, max_chars=40):
-    """把句子切成 ≤max_chars 的块（长句拆成连续字幕事件，保持单行）。"""
+def split_subtitle_chunks(text, max_chars=None):
+    """把句子切成 ≤max_chars 的块（长句拆成连续字幕事件，保持单行）。
+    默认按 48px 粗体估算单行可容纳字数（约 27 字）。"""
+    if max_chars is None:
+        max_chars = max(12, int(1500 / (48 * 1.12)))
     out, cur = [], ""
     for ch in text:
         cur += ch
@@ -583,7 +586,8 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
         z, cx, cy = motion_exprs(idx * 5 + k, nframes)
         fc.append(
             f"[{k}:v]scale={2 * W}:{2 * H},"
-            f"zoompan=z='{z}':x={cx}:y={cy}:d=1:s={W}x{H}:fps={FPS},"
+            f"zoompan=z='{z}':x={cx}:y={cy}:d={nframes}:"
+            f"s={W}x{H}:fps={FPS},"
             f"format=yuv420p[b{k}]"
         )
     # 块内卡点硬切：各拍 zoompan 后 concat 拼接（保留 Ken Burns，无叠化）
@@ -598,6 +602,12 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
     fc.append(f"[{o_prev}][{bi}:v]overlay=x='34*sin(t/4)':"
               f"y='22*cos(t/3.5)'[d0]")
     o_prev = "d0"
+    bi += 1
+    # 底部半透明渐变遮罩（画面之上、字幕之下，保证字幕可读）
+    grad = PROJ("assets", "layers", f"grad_{idx:02d}.png")
+    V.make_bottom_gradient().save(grad)
+    fc.append(f"[{o_prev}][{bi}:v]overlay=0:0[g0]")
+    o_prev = "g0"
     bi += 1
     for k, (p, ts, te) in enumerate(sub_events):
         fc.append(
@@ -622,10 +632,11 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
     wav = make_scene_audio(b, idx)
     cmd = ["ffmpeg", "-y"]
     for k in range(n):
-        cmd += ["-loop", "1", "-framerate", str(FPS),
-                "-t", f"{durs[k]:.3f}", "-i", bg_paths[k]]
+        cmd += ["-i", bg_paths[k]]
     cmd += ["-loop", "1", "-framerate", str(FPS),
             "-t", f"{sdur:.3f}", "-i", deco]
+    cmd += ["-loop", "1", "-framerate", str(FPS),
+            "-t", f"{sdur:.3f}", "-i", grad]
     for p, ts, te in sub_events:
         cmd += ["-loop", "1", "-framerate", str(FPS),
                 "-t", f"{sdur:.3f}", "-i", p]

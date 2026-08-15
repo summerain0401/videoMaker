@@ -34,8 +34,9 @@ import urllib.request
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import proj as PJ
-from write_image_art import (GLOBAL_2D_STYLE_PREFIX, WARM_LIGHT_EN,
+from write_image_art import (GLOBAL_2D_STYLE_PREFIX, BRIGHT_BASE_EN,
                              variant_en)
+import tone
 
 STYLE_ID = "2D_CHIBI_VECTOR_FINANCE"
 SHOT_EN = {"wide": "wide shot", "medium": "medium shot",
@@ -44,8 +45,20 @@ CLEAN_NO_TEXT_EN = "clean composition, no text, no UI, no stickers"
 COMPOSITION_SAFE_EN = ("centered composition, subject in upper two-thirds, "
                        "clean bottom third reserved for subtitles, "
                        "no text or props in bottom third")
+FULL_BLEED_EN = ("full-bleed edge-to-edge composition, "
+                 "no frame, no border, no margin")
+THEME_BG_EN = {
+    "cool": ("pale cool gray-blue background, muted cyan-gray tones, "
+             "calm desaturated cool palette, bright but cool"),
+    "warm": ("warm apricot and light golden background, "
+             "soft golden sunlight, bright cozy warm palette"),
+    "neutral": ("soft cream and light beige background, "
+                "gentle neutral warm palette"),
+}
 MAX_RETRY = 2
 MAX_ACTION = 200
+CTA_WORDS = ["咱们开始", "准备好了吗", "关注", "点赞", "收藏", "谢谢大家"]
+FALLBACK_CHAR = "young_pro"
 
 # 情绪矛盾检测：口播含消极语义但动作/情绪积极 → 判定冲突（回喂重试）
 DARK_NARR = ["空虚", "没钱", "焦虑", "负债", "余额见底", "见底", "恐慌", "穷"]
@@ -86,6 +99,10 @@ SYSTEM_PROMPT = """你是财商视频分镜翻译与角色指派引擎。用户�
    emotion ≤60 字符，越简洁越好。
 7. 输出的 beats 数组必须覆盖该块全部拍（beat_idx 与输入一一对应），
    不得遗漏、不得新增、不得重复。
+8. 背景色跟随情绪（action_props 中不要写死背景颜色，交给装配层决定）：
+   - 焦虑/困境/反思 → 冷灰蓝/淡青灰背景，明亮但不压抑；
+   - 认知/启发/希望 → 暖杏色/淡金黄背景；
+   - 其余 → 中性奶油/米色背景。
 
 候选角色列表：
 {character_list}
@@ -254,13 +271,29 @@ def validate_parse(raw, expected, char_ids, narrations=None):
 
 def assemble_prompt(be, char_prompt, meta):
     """装配公式：全局 2D 底模 + 暖色底线 + 项目变体 + 角色 + 动作 + 景别 + 16:9。"""
-    parts = [GLOBAL_2D_STYLE_PREFIX, WARM_LIGHT_EN, variant_en(meta),
+    theme = tone.theme_for(be.get("emotion", ""))
+    parts = [GLOBAL_2D_STYLE_PREFIX, BRIGHT_BASE_EN, variant_en(meta),
+             FULL_BLEED_EN, THEME_BG_EN[theme],
              CLEAN_NO_TEXT_EN, COMPOSITION_SAFE_EN]
     if char_prompt:
         parts.append(char_prompt)
     parts.append(be["action_props"])
     parts.append(SHOT_EN.get(be["shot"], "medium shot"))
     return ", ".join(parts) + ", --ar 16:9"
+
+
+def assign_character_safety_guard(parsed_beat, narration="",
+                                  fallback_char=FALLBACK_CHAR):
+    """收尾/未识别分镜强制绑定主角，防止随机生成无关角色。
+    检查画面提示词 + 对应口播文本中的 CTA 词。"""
+    raw_text = ((parsed_beat.get("original_cn") or "") + " " +
+                (narration or ""))
+    char_id = parsed_beat.get("character_id", "none")
+    if any(cta in raw_text for cta in CTA_WORDS):
+        return fallback_char
+    if char_id == "none" and any(k in raw_text for k in ["我", "你", "咱们"]):
+        return fallback_char
+    return char_id
 
 
 def parse_blocks(args, story, chars, meta, out_path):
@@ -313,7 +346,6 @@ def parse_blocks(args, story, chars, meta, out_path):
         for be in beats:
             idx = int(be["beat_idx"])
             cid, act, emo = result[idx]
-            char_prompt = (chars.get(cid) or {}).get("prompt", "")
             entry = {
                 "beat_idx": idx,
                 "shot": be.get("shot", "medium"),
@@ -322,6 +354,10 @@ def parse_blocks(args, story, chars, meta, out_path):
                 "action_props": act,
                 "emotion": emo,
             }
+            entry["character_id"] = assign_character_safety_guard(
+                entry, narrations.get(idx, ""))
+            char_prompt = (chars.get(entry["character_id"]) or {}).get(
+                "prompt", "")
             entry["final_image_prompt"] = assemble_prompt(
                 entry, char_prompt, meta)
             out_beats.append(entry)

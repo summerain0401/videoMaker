@@ -17,6 +17,28 @@ THRESH_LUM = 150.0
 THRESH_WARM = 10.0
 THRESH_DARK = 0.25
 
+# 情绪主题背景：冷色主题（焦虑/困境/反思）与暖色主题（认知/启发/希望）
+COOL_EMO_KEYS = [
+    "anxious", "empty", "numb", "confused", "doubt", "lost", "distress",
+    "dazed", "trapped", "stressed", "frustrat", "detached", "struggl",
+    "reflect", "sad", "overconfident",
+]
+WARM_EMO_KEYS = [
+    "happy", "hopeful", "confident", "calm", "salary", "content", "realiz",
+    "reveal", "ready", "inspired", "authoritative", "wise", "awaken",
+    "relieved", "comfortable",
+]
+
+
+def theme_for(emotion):
+    """按 emotion 关键词返回背景主题：cool / warm / neutral。"""
+    e = (emotion or "").lower()
+    if any(k in e for k in COOL_EMO_KEYS):
+        return "cool"
+    if any(k in e for k in WARM_EMO_KEYS):
+        return "warm"
+    return "neutral"
+
 # 阴郁/消极词典（命中即提示风险，重写时优先处理）
 DARK_WORDS = [
     "深夜", "凌晨", "加班", "焦虑", "疲惫", "崩溃", "恐慌", "压抑",
@@ -24,6 +46,12 @@ DARK_WORDS = [
     "黑暗", "阴影", "孤独", "失眠", "痛苦", "眼泪", "绝望", "麻木",
     "茫然", "迷茫", "烦躁", "账单", "债务", "破产", "哭", "恐惧",
     "忧郁", "死气", "荒凉",
+]
+
+# Q 版模式下的绝对负面词（仅画面观感问题，情绪词如焦虑/疲惫不算）
+ABSOLUTE_NEG = [
+    "压抑", "阴暗", "绝望", "昏暗", "阴沉", "黑暗", "恐怖", "恐惧",
+    "死气", "荒凉",
 ]
 
 
@@ -58,6 +86,7 @@ def risk_reasons(stat):
     return reasons
 
 
-def prompt_risks(prompt):
+def prompt_risks(prompt, words=None):
     """返回提示词中命中的阴郁词列表。"""
-    return [w for w in DARK_WORDS if w in (prompt or "")]
+    words = words if words is not None else DARK_WORDS
+    return [w for w in words if w in (prompt or "")]

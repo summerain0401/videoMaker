@@ -1,25 +1,49 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""长视频画面元素库：书卡、阶段徽章、数据图形、装饰层、卡片模板。"""
+"""长视频画面元素库：书卡、阶段徽章、数据图形、装饰层、字幕、卡片模板。"""
 
 import math
+import os
 import random
+import re
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 W, H = 1920, 1080
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FONT_TITLE = "/System/Library/Fonts/STHeiti Medium.ttc"
 FONT_BODY = "/System/Library/Fonts/Hiragino Sans GB.ttc"
+FONT_SUB_HEAVY = os.path.join(ROOT, "assets", "fonts",
+                              "SourceHanSansCN-Heavy.otf")
+FONT_SUB_FALLBACK = "/System/Library/Fonts/Hiragino Sans GB.ttc"
 ACCENT = (232, 182, 76)
 INK = (245, 235, 220)
 PARCH_INK = (70, 58, 42)
+SUB_WHITE = (255, 255, 255, 255)
+SUB_YELLOW = (255, 210, 63, 255)
+SUB_CORAL = (231, 29, 54, 255)
 BOOK_DEFAULT = "《金钱的艺术》"
 AUTHOR_DEFAULT = "Morgan Housel"
 HOOK_DEFAULT = "为什么你越花钱，越焦虑？"
 
+AMOUNT_RE = re.compile(r"[¥￥]?\d[\d,]*(?:\.\d+)?\s*(?:元|万|千|块|亿|%)?")
+EMO_TURN_WORDS = [
+    "焦虑", "空虚", "迷茫", "疲惫", "恐惧", "开心", "幸福",
+    "但是", "可是", "其实", "然而", "真相", "反而",
+    "没钱", "负债", "存款", "余额", "翻倍",
+]
+
 
 def font(path, size):
     return ImageFont.truetype(path, size)
+
+
+def sub_font(size):
+    """字幕粗体：优先思源黑体 Heavy，失败回退系统 Hiragino W6。"""
+    try:
+        return ImageFont.truetype(FONT_SUB_HEAVY, size)
+    except Exception:
+        return ImageFont.truetype(FONT_SUB_FALLBACK, size, index=2)
 
 
 def wrap(d, text, f, max_w):
@@ -151,18 +175,68 @@ def make_progress_fill():
     return img
 
 
-def make_subtitle_layer(text, max_w=1560, size=36):
-    """底部单行字幕：固定字号 36px、半透明浅底、贴近画面底部。"""
+def _subtitle_spans(text):
+    """把字幕文本切成着色段：金额/数字→黄，情绪/转折词→珊瑚红，其余→白。"""
+    col = {}
+    for m in AMOUNT_RE.finditer(text):
+        for i in range(m.start(), m.end()):
+            col[i] = SUB_YELLOW
+    for w in EMO_TURN_WORDS:
+        i = text.find(w)
+        while i != -1:
+            for j in range(i, i + len(w)):
+                col[j] = SUB_CORAL
+            i = text.find(w, i + len(w))
+    segs, cur, start = [], None, 0
+    for idx, ch in enumerate(text):
+        c = col.get(idx, SUB_WHITE)
+        if c is not cur:
+            if cur is not None:
+                segs.append((text[start:idx], cur))
+            cur, start = c, idx
+    if cur is not None:
+        segs.append((text[start:], cur))
+    return segs
+
+
+def make_subtitle_layer(text, max_w=1500, size=48):
+    """全屏沉浸字幕：48px 粗体白字 + 描边微投影 + 关键词高亮，无底条。"""
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    f = font(FONT_BODY, size)
-    line_h = int(size * 1.5)
-    y0 = H - 66 - line_h  # 底边距画面底部约 60px
-    x0, x1 = W / 2 - max_w / 2, W / 2 + max_w / 2
-    d.rounded_rectangle((x0, y0 - 12, x1, y0 + line_h + 8), radius=18,
-                        fill=(25, 25, 32, 115))
-    d.text((W / 2, y0 + line_h / 2), text, font=f,
-           fill=(250, 248, 240, 255), anchor="mm")
+    f = sub_font(size)
+    line_h = int(size * 1.35)
+    y_center = H - 56 - line_h / 2  # 底边距画面底部约 56px
+    segs = _subtitle_spans(text)
+    widths = [d.textlength(s, font=f) for s, _ in segs]
+    total = sum(widths)
+    x = W / 2 - total / 2
+    centers = []
+    for w in widths:
+        centers.append(x + w / 2)
+        x += w
+    outline = (20, 18, 16, 235)
+    shadow = (0, 0, 0, 150)
+    for (s, _c), cx in zip(segs, centers):
+        d.text((cx + 2, y_center + 3), s, font=f, fill=shadow, anchor="mm")
+    for (s, _c), cx in zip(segs, centers):
+        for dx in range(-3, 4):
+            for dy in range(-3, 4):
+                if dx or dy:
+                    d.text((cx + dx, y_center + dy), s, font=f,
+                           fill=outline, anchor="mm")
+    for (s, c), cx in zip(segs, centers):
+        d.text((cx, y_center), s, font=f, fill=c, anchor="mm")
+    return img
+
+
+def make_bottom_gradient(h_ratio=0.15, peak_alpha=102):
+    """底部半透明线性渐变遮罩：下缘 alpha≈0.4，向上渐隐到 0。"""
+    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    gh = int(H * h_ratio)
+    for y in range(H - gh, H):
+        t = (y - (H - gh)) / max(1, gh - 1)
+        d.line([(0, y), (W, y)], fill=(0, 0, 0, int(peak_alpha * t)))
     return img
 
 

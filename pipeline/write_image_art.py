@@ -85,10 +85,9 @@ GLOBAL_2D_STYLE_PREFIX = (
     "bold clean outlines, vibrant pastel colors, "
     "simple minimalist studio background"
 )
-WARM_LIGHT_EN = (
-    "bright warm lighting, soft golden sunlight, cozy warm color palette, "
-    "cheerful uplifting mood, clean bright atmosphere, "
-    "negative emotions wrapped in warm light, not gloomy not oppressive"
+BRIGHT_BASE_EN = (
+    "bright clean lighting, clear bright atmosphere, "
+    "not dark, not gloomy, not oppressive"
 )
 CHIBI_NEGATIVE_PROMPT = (
     "photorealistic, realistic, 3D render, dark gritty shadows, "
@@ -96,7 +95,8 @@ CHIBI_NEGATIVE_PROMPT = (
     "photographic textures, any text, letters, words, numbers, labels, "
     "badges, stickers, banners, bubble boxes, captions, danmaku, "
     "UI text, chart labels, watermark, signature, blurry, "
-    "dark gloomy atmosphere, cold color tone, sad despair mood, "
+    "white frame, white border, letterbox, matte, "
+    "dark gloomy atmosphere, sad despair mood, "
     "scary horror elements, rain snow cloudy sky, large dark shadow area"
 )
 
@@ -342,6 +342,21 @@ def tone_check():
                     prompt_map[key] = be.get("prompt", "")
         except Exception as e:
             print(f"警告：分镜读取失败（{e}），报告仅含图像指标。")
+    # Q 版模式：读 storyboard_output 的 emotion 做主题感知检查
+    emo_map = {}
+    out_path = PROJ("input", "storyboard_output.json")
+    if os.path.exists(out_path):
+        try:
+            with open(out_path, encoding="utf-8") as f:
+                out = json.load(f)
+            for sb in out.get("blocks", []):
+                for be in sb.get("beats", []):
+                    emo_map[f"{sb['block_idx']:02d}_"
+                            f"{int(be['beat_idx'])}"] = be.get("emotion", "")
+        except Exception:
+            emo_map = {}
+    chibi_mode = bool(emo_map)
+    risk_words = tone.ABSOLUTE_NEG if chibi_mode else tone.DARK_WORDS
     rows = []
     for fn in sorted(os.listdir(scenes_dir)):
         if not fn.endswith(".png"):
@@ -349,7 +364,11 @@ def tone_check():
         key = fn[:-4]
         stat = tone.analyze_image(os.path.join(scenes_dir, fn))
         reasons = tone.risk_reasons(stat)
-        pw = tone.prompt_risks(prompt_map.get(key, ""))
+        theme = tone.theme_for(emo_map.get(key, ""))
+        if theme == "cool":
+            reasons = [r for r in reasons
+                       if not r.startswith("暖度不足")]
+        pw = tone.prompt_risks(prompt_map.get(key, ""), words=risk_words)
         if pw:
             reasons.append(f"提示词含阴郁词：{'/'.join(pw)}")
         rows.append({"file": fn, "stat": stat, "reasons": reasons})

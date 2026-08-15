@@ -76,6 +76,11 @@ PROJECT=002 python3 pipeline/write_long_copy.py --book 《书名》 --author 作
   字幕与后期）；构图固定主体上 2/3、底部 1/3 字幕安全区。
 - **转场**：块内卡点硬切（Ken Burns 运镜保留），块间 0.3s 方向型 xfade
   （不用 dissolve/fade 家族，避免人脸叠影）。
+- **v2.0 合成层**：画面 1920×1080 全屏铺满（禁白边/相框，底部 15% 半透明
+  渐变遮罩替代实色底条）；字幕思源黑体 Heavy 48px 粗体 + 描边投影 +
+  金额黄色/情绪转折珊瑚红高亮；Ken Burns 5% 轻微缓推（修复 d=1 静止 bug）；
+  情绪主题背景色板（焦虑/困境→冷灰蓝，启发/希望→暖杏金，中性奶油）；
+  收尾 CTA 口播强制绑定核心主角。
 - **语音**：`TTS_SOURCE=piper|edge|azure` 三选一；当前主用 Azure 晓辰
   成熟知性女声（`zh-CN-Xiaochen:DragonHDFlashLatestNeural`），`.env` 配
   `AZURE_SPEECH_KEY` / `AZURE_REGION` / `AZURE_VOICE`。

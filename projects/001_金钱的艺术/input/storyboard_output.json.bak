@@ -1,6 +1,6 @@
 {
   "style_id": "2D_CHIBI_VECTOR_FINANCE",
-  "generated_at": "2026-08-16 00:45:47",
+  "generated_at": "2026-08-16 01:19:29",
   "blocks": [
     {
       "block_idx": 0,
@@ -11,54 +11,54 @@
           "shot": "medium",
           "original_cn": "清晨，年轻人在阳光明亮的卧室醒来，手机屏幕显示工资到账通知，他露出温暖的笑容，房间整洁温馨，暖色晨光充满希望，中景。",
           "character_id": "young_pro",
-          "action_props": "waking up in bright bedroom, looking at phone with warm smile",
-          "emotion": "happy, salary arrival",
-          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright warm lighting, soft golden sunlight, cozy warm color palette, cheerful uplifting mood, clean bright atmosphere, negative emotions wrapped in warm light, not gloomy not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, waking up in bright bedroom, looking at phone with warm smile, medium shot, --ar 16:9"
+          "action_props": "waking up in bright bedroom, smiling at phone showing salary notification",
+          "emotion": "happy, hopeful",
+          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright clean lighting, clear bright atmosphere, not dark, not gloomy, not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, full-bleed edge-to-edge composition, no frame, no border, no margin, warm apricot and light golden background, soft golden sunlight, bright cozy warm palette, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, waking up in bright bedroom, smiling at phone showing salary notification, medium shot, --ar 16:9"
         },
         {
           "beat_idx": 1,
           "shot": "close",
           "original_cn": "年轻人在暖阳下看着手机里的存款数字，神情轻松笃定，背景是整洁的书桌与窗外晨光，温暖积极的氛围，特写。",
           "character_id": "young_pro",
-          "action_props": "looking at phone with relaxed confident expression",
-          "emotion": "calm, confident",
-          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright warm lighting, soft golden sunlight, cozy warm color palette, cheerful uplifting mood, clean bright atmosphere, negative emotions wrapped in warm light, not gloomy not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, looking at phone with relaxed confident expression, close-up shot, --ar 16:9"
+          "action_props": "looking at phone with near-zero balance, anxious expression",
+          "emotion": "anxious, empty",
+          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright clean lighting, clear bright atmosphere, not dark, not gloomy, not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, full-bleed edge-to-edge composition, no frame, no border, no margin, pale cool gray-blue background, muted cyan-gray tones, calm desaturated cool palette, bright but cool, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, looking at phone with near-zero balance, anxious expression, close-up shot, --ar 16:9"
         },
         {
           "beat_idx": 2,
           "shot": "wide",
           "original_cn": "同一人站在高楼落地窗前，俯瞰城市夜景，身后是豪华办公室，但他眉头紧锁，面前玻璃倒映出他焦虑的脸，桌上咖啡杯堆叠，氛围对比强烈：物质丰裕却内心空虚。",
           "character_id": "young_pro",
-          "action_props": "standing at window, furrowed brows, anxious reflection",
-          "emotion": "anxious, empty despite wealth",
-          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright warm lighting, soft golden sunlight, cozy warm color palette, cheerful uplifting mood, clean bright atmosphere, negative emotions wrapped in warm light, not gloomy not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, standing at window, furrowed brows, anxious reflection, wide shot, --ar 16:9"
+          "action_props": "standing at floor-to-ceiling window, frowning, coffee cups piled on desk",
+          "emotion": "anxious, conflicted",
+          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright clean lighting, clear bright atmosphere, not dark, not gloomy, not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, full-bleed edge-to-edge composition, no frame, no border, no margin, pale cool gray-blue background, muted cyan-gray tones, calm desaturated cool palette, bright but cool, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, standing at floor-to-ceiling window, frowning, coffee cups piled on desk, wide shot, --ar 16:9"
         },
         {
           "beat_idx": 3,
           "shot": "medium",
           "original_cn": "同一人坐在豪华轿车后座，窗外城市霓虹掠过，他低头看着手机里的打车账单，神情麻木，指尖轻点屏幕，车内冷气弥漫，暖色路灯透过车窗映在他脸上，氛围疏离而疲惫。",
           "character_id": "young_pro",
-          "action_props": "sitting in car, looking at phone bill, numb expression",
-          "emotion": "numb, fatigued",
-          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright warm lighting, soft golden sunlight, cozy warm color palette, cheerful uplifting mood, clean bright atmosphere, negative emotions wrapped in warm light, not gloomy not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, sitting in car, looking at phone bill, numb expression, medium shot, --ar 16:9"
+          "action_props": "sitting in luxury car, staring at phone with numb expression",
+          "emotion": "numb, weary",
+          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright clean lighting, clear bright atmosphere, not dark, not gloomy, not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, full-bleed edge-to-edge composition, no frame, no border, no margin, pale cool gray-blue background, muted cyan-gray tones, calm desaturated cool palette, bright but cool, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, sitting in luxury car, staring at phone with numb expression, medium shot, --ar 16:9"
         },
         {
           "beat_idx": 4,
           "shot": "close",
           "original_cn": "特写：一只手在计算器上快速按着，旁边手机屏幕显示存款数字几乎没变，另一只手揉着太阳穴，背景模糊的账单和购物袋，氛围焦躁而自嘲。",
           "character_id": "young_pro",
-          "action_props": "pressing calculator, rubbing temple, blurred bills around",
+          "action_props": "pressing calculator, rubbing temple, phone showing unchanged balance",
           "emotion": "anxious, self-mocking",
-          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright warm lighting, soft golden sunlight, cozy warm color palette, cheerful uplifting mood, clean bright atmosphere, negative emotions wrapped in warm light, not gloomy not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, pressing calculator, rubbing temple, blurred bills around, close-up shot, --ar 16:9"
+          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright clean lighting, clear bright atmosphere, not dark, not gloomy, not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, full-bleed edge-to-edge composition, no frame, no border, no margin, pale cool gray-blue background, muted cyan-gray tones, calm desaturated cool palette, bright but cool, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, pressing calculator, rubbing temple, phone showing unchanged balance, close-up shot, --ar 16:9"
         },
         {
           "beat_idx": 5,
           "shot": "medium",
           "original_cn": "一位中年男性作家坐在书房里，手捧一本厚书，书封泛着微光，他抬头直视镜头，神情严肃而睿智，背景书架满墙，氛围启发而权威。",
           "character_id": "author_morgan",
-          "action_props": "holding book, looking at camera with serious wise expression",
-          "emotion": "serious, wise",
-          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright warm lighting, soft golden sunlight, cozy warm color palette, cheerful uplifting mood, clean bright atmosphere, negative emotions wrapped in warm light, not gloomy not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi middle-aged male scholar, neat brown hair, round glasses, brown vest with necktie, holding book, looking at camera with serious wise expression, medium shot, --ar 16:9"
+          "action_props": "sitting in study, holding book, looking at camera with serious wise expression",
+          "emotion": "serious, authoritative",
+          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright clean lighting, clear bright atmosphere, not dark, not gloomy, not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, full-bleed edge-to-edge composition, no frame, no border, no margin, warm apricot and light golden background, soft golden sunlight, bright cozy warm palette, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi middle-aged male scholar, neat brown hair, round glasses, brown vest with necktie, sitting in study, holding book, looking at camera with serious wise expression, medium shot, --ar 16:9"
         },
         {
           "beat_idx": 6,
@@ -66,26 +66,26 @@
           "original_cn": "作家放下书，双手摊开做强调手势，眼神锐利而笃定，背景书架渐虚化为暖光，氛围从权威转向揭示真相的震撼。",
           "character_id": "author_morgan",
           "action_props": "putting down book, making emphatic gesture, sharp gaze",
-          "emotion": "intense, revealing truth",
-          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright warm lighting, soft golden sunlight, cozy warm color palette, cheerful uplifting mood, clean bright atmosphere, negative emotions wrapped in warm light, not gloomy not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi middle-aged male scholar, neat brown hair, round glasses, brown vest with necktie, putting down book, making emphatic gesture, sharp gaze, medium shot, --ar 16:9"
+          "emotion": "revealing, confident",
+          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright clean lighting, clear bright atmosphere, not dark, not gloomy, not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, full-bleed edge-to-edge composition, no frame, no border, no margin, warm apricot and light golden background, soft golden sunlight, bright cozy warm palette, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi middle-aged male scholar, neat brown hair, round glasses, brown vest with necktie, putting down book, making emphatic gesture, sharp gaze, medium shot, --ar 16:9"
         },
         {
           "beat_idx": 7,
           "shot": "wide",
           "original_cn": "两个人物对比：左边一人穿着朴素，在公园长椅上微笑看手机，旁边小花园；右边一人西装革履，却站在豪车前低头看手机，表情焦虑，背景城市街道，氛围反差强烈。",
           "character_id": "none",
-          "action_props": "split scene: frugal person smiling on bench, stressed debtor anxious by car",
-          "emotion": "contrast, calm vs anxious",
-          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright warm lighting, soft golden sunlight, cozy warm color palette, cheerful uplifting mood, clean bright atmosphere, negative emotions wrapped in warm light, not gloomy not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, split scene: frugal person smiling on bench, stressed debtor anxious by car, wide shot, --ar 16:9"
+          "action_props": "split scene: left person smiling on park bench, right person in suit anxious by luxury car",
+          "emotion": "contrast, reflective",
+          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright clean lighting, clear bright atmosphere, not dark, not gloomy, not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, full-bleed edge-to-edge composition, no frame, no border, no margin, pale cool gray-blue background, muted cyan-gray tones, calm desaturated cool palette, bright but cool, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, split scene: left person smiling on park bench, right person in suit anxious by luxury car, wide shot, --ar 16:9"
         },
         {
           "beat_idx": 8,
           "shot": "medium",
           "original_cn": "两人同时抬头，眼神坚定看向前方，背景从分裂场景渐变为温暖阳光的公园小路，氛围温馨明亮，充满期待。",
           "character_id": "none",
-          "action_props": "both looking ahead with determined eyes, warm sunlight",
-          "emotion": "hopeful, determined",
-          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright warm lighting, soft golden sunlight, cozy warm color palette, cheerful uplifting mood, clean bright atmosphere, negative emotions wrapped in warm light, not gloomy not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, both looking ahead with determined eyes, warm sunlight, medium shot, --ar 16:9"
+          "action_props": "two figures looking forward with determined expressions, warm sunlight",
+          "emotion": "hopeful, ready",
+          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright clean lighting, clear bright atmosphere, not dark, not gloomy, not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, full-bleed edge-to-edge composition, no frame, no border, no margin, warm apricot and light golden background, soft golden sunlight, bright cozy warm palette, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, two figures looking forward with determined expressions, warm sunlight, medium shot, --ar 16:9"
         }
       ]
     },
@@ -98,72 +98,72 @@
           "shot": "wide",
           "original_cn": "一个人站在三岔路口，脚下有三个深坑，他低头看着，表情困惑，周围是灰暗的城市背景，气氛压抑，远景。",
           "character_id": "young_pro",
-          "action_props": "standing at three-way fork, looking down at three deep pits, confused expression, dim city background",
+          "action_props": "standing at a three-way fork, looking down at three deep pits with confused expression, dim city background",
           "emotion": "confused, trapped",
-          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright warm lighting, soft golden sunlight, cozy warm color palette, cheerful uplifting mood, clean bright atmosphere, negative emotions wrapped in warm light, not gloomy not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, standing at three-way fork, looking down at three deep pits, confused expression, dim city background, wide shot, --ar 16:9"
+          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright clean lighting, clear bright atmosphere, not dark, not gloomy, not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, full-bleed edge-to-edge composition, no frame, no border, no margin, pale cool gray-blue background, muted cyan-gray tones, calm desaturated cool palette, bright but cool, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, standing at a three-way fork, looking down at three deep pits with confused expression, dim city background, wide shot, --ar 16:9"
         },
         {
           "beat_idx": 1,
           "shot": "medium",
           "original_cn": "暖光下，同一人蹲在坑边，手指轻触坑沿，坑内散落零钱和杂物，表情恍然，背景渐亮，城市轮廓柔和。",
           "character_id": "young_pro",
-          "action_props": "crouching by pit edge, touching pit rim, coins and debris scattered inside, realization on face, warm light",
+          "action_props": "crouching by pit edge, fingers touching rim, coins and debris inside, expression dawning",
           "emotion": "realizing, thoughtful",
-          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright warm lighting, soft golden sunlight, cozy warm color palette, cheerful uplifting mood, clean bright atmosphere, negative emotions wrapped in warm light, not gloomy not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, crouching by pit edge, touching pit rim, coins and debris scattered inside, realization on face, warm light, medium shot, --ar 16:9"
+          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright clean lighting, clear bright atmosphere, not dark, not gloomy, not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, full-bleed edge-to-edge composition, no frame, no border, no margin, warm apricot and light golden background, soft golden sunlight, bright cozy warm palette, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, crouching by pit edge, fingers touching rim, coins and debris inside, expression dawning, medium shot, --ar 16:9"
         },
         {
           "beat_idx": 2,
           "shot": "medium",
           "original_cn": "年轻人坐在沙发上，周围堆满购物袋，手机屏幕显示信用卡额度，他得意地笑，但背景中一个模糊的未来自己正愁眉苦脸地数钱，中景。",
-          "character_id": "stressed_debtor",
-          "action_props": "sitting on sofa surrounded by shopping bags, holding blank credit card, smug smile, blurred future self counting coins in background",
-          "emotion": "smug, overconfident",
-          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright warm lighting, soft golden sunlight, cozy warm color palette, cheerful uplifting mood, clean bright atmosphere, negative emotions wrapped in warm light, not gloomy not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi male office worker, rumpled gray suit, loosened necktie, dark eye circles, sweating, sitting on sofa surrounded by shopping bags, holding blank credit card, smug smile, blurred future self counting coins in background, medium shot, --ar 16:9"
+          "character_id": "young_pro",
+          "action_props": "sitting on sofa surrounded by shopping bags, holding blank phone, smug smile, blurred future self frowning in background",
+          "emotion": "overconfident, deluded",
+          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright clean lighting, clear bright atmosphere, not dark, not gloomy, not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, full-bleed edge-to-edge composition, no frame, no border, no margin, pale cool gray-blue background, muted cyan-gray tones, calm desaturated cool palette, bright but cool, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, sitting on sofa surrounded by shopping bags, holding blank phone, smug smile, blurred future self frowning in background, medium shot, --ar 16:9"
         },
         {
           "beat_idx": 3,
           "shot": "close",
           "original_cn": "年轻人低头沉思，表情从得意转为困惑，沙发周围购物袋依旧，背景中未来自己模糊但更清晰，愁容满面，暖色温馨但带一丝反思氛围。",
-          "character_id": "stressed_debtor",
-          "action_props": "head down in thought, expression shifting from smug to confused, shopping bags around, future self more visible with worried face",
-          "emotion": "confused, reflective",
-          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright warm lighting, soft golden sunlight, cozy warm color palette, cheerful uplifting mood, clean bright atmosphere, negative emotions wrapped in warm light, not gloomy not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi male office worker, rumpled gray suit, loosened necktie, dark eye circles, sweating, head down in thought, expression shifting from smug to confused, shopping bags around, future self more visible with worried face, close-up shot, --ar 16:9"
+          "character_id": "young_pro",
+          "action_props": "head down in thought, expression shifting from smug to puzzled, shopping bags around, future self clearer and worried in background",
+          "emotion": "introspective, guilty",
+          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright clean lighting, clear bright atmosphere, not dark, not gloomy, not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, full-bleed edge-to-edge composition, no frame, no border, no margin, soft cream and light beige background, gentle neutral warm palette, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, head down in thought, expression shifting from smug to puzzled, shopping bags around, future self clearer and worried in background, close-up shot, --ar 16:9"
         },
         {
           "beat_idx": 4,
           "shot": "medium",
           "original_cn": "一个人站在广告牌前，广告牌上显示手表、咖啡、商品，他伸手去拿，但广告牌中映出的是别人眼中的自己，表情迷茫，中景。",
           "character_id": "young_pro",
-          "action_props": "standing before blank billboard with watch, coffee, product silhouettes, reaching out, reflection shows others' view of him, confused",
-          "emotion": "confused, lost",
-          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright warm lighting, soft golden sunlight, cozy warm color palette, cheerful uplifting mood, clean bright atmosphere, negative emotions wrapped in warm light, not gloomy not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, standing before blank billboard with watch, coffee, product silhouettes, reaching out, reflection shows others' view of him, confused, medium shot, --ar 16:9"
+          "action_props": "standing before blank billboard, reaching out, reflection showing others' version of self, confused gaze",
+          "emotion": "lost, manipulated",
+          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright clean lighting, clear bright atmosphere, not dark, not gloomy, not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, full-bleed edge-to-edge composition, no frame, no border, no margin, pale cool gray-blue background, muted cyan-gray tones, calm desaturated cool palette, bright but cool, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, standing before blank billboard, reaching out, reflection showing others' version of self, confused gaze, medium shot, --ar 16:9"
         },
         {
           "beat_idx": 5,
           "shot": "close",
           "original_cn": "同一人站在广告牌前，低头凝视手中倒映的模糊面孔，周围商品虚化，眼神困惑，暖色光晕，特写表情。",
           "character_id": "young_pro",
-          "action_props": "looking down at blurred face in hand, products blurred around, puzzled eyes, warm glow",
-          "emotion": "puzzled, introspective",
-          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright warm lighting, soft golden sunlight, cozy warm color palette, cheerful uplifting mood, clean bright atmosphere, negative emotions wrapped in warm light, not gloomy not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, looking down at blurred face in hand, products blurred around, puzzled eyes, warm glow, close-up shot, --ar 16:9"
+          "action_props": "staring at blurred reflection in hand, surroundings fading, puzzled eyes",
+          "emotion": "questioning, unsettled",
+          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright clean lighting, clear bright atmosphere, not dark, not gloomy, not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, full-bleed edge-to-edge composition, no frame, no border, no margin, soft cream and light beige background, gentle neutral warm palette, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, staring at blurred reflection in hand, surroundings fading, puzzled eyes, close-up shot, --ar 16:9"
         },
         {
           "beat_idx": 6,
           "shot": "close",
           "original_cn": "特写一个人紧锁眉头，耳边有无数声音在低语，周围是模糊的人群，他们都在说“钱是挣出来的”，他捂住耳朵，表情痛苦，特写。",
           "character_id": "young_pro",
-          "action_props": "frowning, hands over ears, blurred crowd whispering, distressed expression",
+          "action_props": "close-up, brows furrowed, hands over ears, blurred crowd whispering around, pained expression",
           "emotion": "distressed, overwhelmed",
-          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright warm lighting, soft golden sunlight, cozy warm color palette, cheerful uplifting mood, clean bright atmosphere, negative emotions wrapped in warm light, not gloomy not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, frowning, hands over ears, blurred crowd whispering, distressed expression, close-up shot, --ar 16:9"
+          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright clean lighting, clear bright atmosphere, not dark, not gloomy, not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, full-bleed edge-to-edge composition, no frame, no border, no margin, pale cool gray-blue background, muted cyan-gray tones, calm desaturated cool palette, bright but cool, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, close-up, brows furrowed, hands over ears, blurred crowd whispering around, pained expression, close-up shot, --ar 16:9"
         },
         {
           "beat_idx": 7,
           "shot": "close",
           "original_cn": "特写同一人，眉头紧锁，双眼无神，双手无力垂下，周围人群模糊，声音化作金色碎片散落，他神情恍惚，画面暗沉，暖光从背后透出，暗示醒悟。",
           "character_id": "young_pro",
-          "action_props": "frowning, eyes vacant, hands hanging limp, blurred crowd, golden fragments falling, warm light from behind",
+          "action_props": "close-up, brows tight, eyes vacant, hands hanging limp, blurred crowd, golden fragments scattering, faint warm light behind",
           "emotion": "dazed, awakening",
-          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright warm lighting, soft golden sunlight, cozy warm color palette, cheerful uplifting mood, clean bright atmosphere, negative emotions wrapped in warm light, not gloomy not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, frowning, eyes vacant, hands hanging limp, blurred crowd, golden fragments falling, warm light from behind, close-up shot, --ar 16:9"
+          "final_image_prompt": "2D cute chibi kawaii anime illustration, flat vector graphic art, bold clean outlines, vibrant pastel colors, simple minimalist studio background, bright clean lighting, clear bright atmosphere, not dark, not gloomy, not oppressive, creamy warm gold color palette, honey-colored soft light, delicate grain, full-bleed edge-to-edge composition, no frame, no border, no margin, pale cool gray-blue background, muted cyan-gray tones, calm desaturated cool palette, bright but cool, clean composition, no text, no UI, no stickers, centered composition, subject in upper two-thirds, clean bottom third reserved for subtitles, no text or props in bottom third, cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie, close-up, brows tight, eyes vacant, hands hanging limp, blurred crowd, golden fragments scattering, faint warm light behind, close-up shot, --ar 16:9"
         }
       ]
     }
