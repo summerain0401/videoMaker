@@ -1,30 +1,37 @@
 {
   "young_pro": {
     "role_name": "核心主角/年轻上班族",
-    "prompt": "cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie"
+    "prompt": "cute 2D chibi 25yo male, messy black hair, round gold glasses, dark navy business suit, red tie",
+    "anchor": "same young office worker throughout, identical messy black hair, round gold glasses and navy suit in every shot"
   },
   "frugal_girl": {
     "role_name": "实操主角/年轻女性",
-    "prompt": "cute 2D chibi 20yo female, high ponytail, pink hair tie, oversized beige knit sweater"
+    "prompt": "cute 2D chibi 20yo female, high ponytail, pink hair tie, oversized beige knit sweater, bold clean outlines, matte flat colors, same bold line-art style as the rest of the series, not glossy anime style",
+    "anchor": "same girl in every shot, identical pink hair tie and beige sweater, bold line-art consistent with the series"
   },
   "author_morgan": {
     "role_name": "智者/财经导师",
-    "prompt": "cute 2D chibi middle-aged male scholar, neat brown hair, round glasses, brown vest with necktie"
+    "prompt": "cute 2D chibi middle-aged male scholar, neat brown hair, round glasses, brown vest with necktie",
+    "anchor": "consistent mature scholarly face, neat brown hair and round glasses always worn, same vest and necktie in every shot"
   },
   "mentor_buffett": {
     "role_name": "长线投资者/老者",
-    "prompt": "cute 2D chibi wise elderly investor, fluffy white hair, round glasses, gentle smile, green knit vest"
+    "prompt": "cute 2D chibi wise elderly investor, fluffy white hair, round glasses, gentle smile, green knit vest",
+    "anchor": "consistent wise elderly face, fluffy white hair and round glasses always worn, green knit vest in every shot"
   },
   "stressed_debtor": {
     "role_name": "过度消费/投机反面角色",
-    "prompt": "cute 2D chibi male office worker, rumpled gray suit, loosened necktie, dark eye circles, sweating"
+    "prompt": "cute 2D chibi male office worker, rumpled gray suit, loosened necktie, dark eye circles, sweating",
+    "anchor": "same rumpled gray suit and loosened necktie throughout, identical face in every shot"
   },
   "stressed_worker": {
     "role_name": "对比方/焦虑打工人",
-    "prompt": "cute 2D chibi male office worker, neat shirt with loosened tie, tired eyes, briefcase in hand, anxious expression"
+    "prompt": "cute 2D chibi male office worker, neat shirt with loosened tie, tired eyes, briefcase in hand, anxious expression",
+    "anchor": "same office worker in every shot, identical neat shirt with loosened tie, bold line-art consistent with the series"
   },
   "none": {
     "role_name": "无主体/纯概念金融道具",
-    "prompt": ""
+    "prompt": "",
+    "anchor": ""
   }
 }

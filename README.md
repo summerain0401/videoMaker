@@ -86,6 +86,11 @@ PROJECT=002 python3 pipeline/write_long_copy.py --book 《书名》 --author 作
   不同角色（`secondary_character_id`，防撞脸）；底部彻底无实条（full-bleed，
   仅渐变遮罩）；运镜统一 1.0→1.08 缓推；关键词音效自动挂载
   （工资到账→金币叮、打车/算账→计算器键音，ffmpeg 合成，`SFX=0` 关闭）。
+- **v4 精修**：字幕 jieba 分词 + 财务词组保护（思维框架/年薪百万等不切断）；
+  高亮统一「白字 + 明黄 #FFD23F」（去红色）；对比拍强制两人二分割（去第三人）；
+  角色锚点 + 全局统一粗描边（面貌不漂移）；运镜锚点上移 (50%,35%) + X 轴
+  2.5% 缓移 + ease-out 入场；高亮词 1.0→1.1→1.0 微弹跳；SFX 新增
+  「真相/揭示」低频冲击音。
 - **语音**：`TTS_SOURCE=piper|edge|azure` 三选一；当前主用 Azure 晓辰
   成熟知性女声（`zh-CN-Xiaochen:DragonHDFlashLatestNeural`），`.env` 配
   `AZURE_SPEECH_KEY` / `AZURE_REGION` / `AZURE_VOICE`。

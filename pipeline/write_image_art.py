@@ -97,6 +97,7 @@ CHIBI_NEGATIVE_PROMPT = (
     "UI text, chart labels, watermark, signature, blurry, "
     "white frame, white border, letterbox, matte, "
     "solid color band at bottom, empty bottom strip, bottom bar, "
+    "third person, crowd, extra people, bystanders, group of people, "
     "dark gloomy atmosphere, sad despair mood, "
     "scary horror elements, rain snow cloudy sky, large dark shadow area"
 )

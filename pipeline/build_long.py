@@ -240,11 +240,16 @@ def make_background(b, idx):
 
 
 def motion_exprs(idx, nframes):
-    """所有拍统一 1.0→1+KENZOOM 居中缓推（避免 pull/pan 静帧观感）。"""
+    """统一 1.0→1+KENZOOM 缓推：锚点上移(50%,35%)对准面部 + X 轴 2.5% 缓移 + ease-out。
+
+    缩放与平移都用 ease-out（1-(1-p)²），切入前 0.5s 明显动态入场、随后缓推；
+    X 向平移 2.5% 在缩放余量内，不露画面边缘。
+    """
     n = max(nframes, 1)
-    cx = "'iw/2-(iw/zoom/2)'"
-    cy = "'ih/2-(ih/zoom/2)'"
-    z = f"1+{KENZOOM}*on/{n}"
+    p = f"(1-pow(1-min(1,on/{n}),2))"
+    z = f"1+{KENZOOM}*({p})"
+    cx = f"'(iw-iw/zoom)*0.5+iw*0.025*({p})'"
+    cy = f"'(ih-ih/zoom)*0.35'"
     return z, cx, cy
 
 
@@ -526,12 +531,65 @@ def subtitle_windows(block, sub):
 CLAUSE_PUNCT = "，。！？、；：…—"
 LEAD_PUNCT = "，。！？、；：…—"
 
+try:
+    import jieba
+    _HAS_JIEBA = True
+except Exception:
+    _HAS_JIEBA = False
+
+PROTECTED_WORDS = [
+    "思维框架", "年薪百万", "金钱心理学", "金钱的艺术", "工资到账",
+    "底层病灶", "核心模型", "实战工具", "哲学升华", "认知差",
+    "存钱陷阱", "复利曲线", "存款数字", "跟钱的关系", "空虚感",
+    "越花钱", "越省钱", "挣得不多", "掏不出", "一夜暴富",
+    "跳槽加薪", "年终奖",
+]
+if _HAS_JIEBA:
+    for _w in PROTECTED_WORDS:
+        jieba.add_word(_w)
+    try:
+        jieba.initialize()
+    except Exception:
+        pass
+
+
+def _pieces_from_tokens(tokens, max_chars):
+    """按 jieba 词元累积成 ≤max_chars 的段，标点并入前段。"""
+    pieces, cur = [], ""
+    for tok in tokens:
+        if not tok.strip():
+            continue
+        if tok in CLAUSE_PUNCT and cur:
+            cur += tok
+            continue
+        if cur and len(cur) + len(tok) > max_chars:
+            pieces.append(cur)
+            cur = tok
+        else:
+            cur += tok
+    if cur:
+        pieces.append(cur)
+    return pieces
+
+
+def _char_split(cl, max_chars):
+    """无 jieba 时按字切分，切后剩余段 ≥3 字。"""
+    i, out = 0, []
+    while len(cl) - i > max_chars:
+        cut = i + max_chars
+        while len(cl) - cut < 3 and cut > i:
+            cut -= 1
+        out.append(cl[i:cut])
+        i = cut
+    out.append(cl[i:])
+    return out
+
 
 def split_subtitle_chunks(text, max_chars=15):
-    """字幕分块：按标点切子句 → 累积 ≤max_chars 字/屏。
+    """字幕分块：按标点切子句 → jieba 分词 → 累积 ≤max_chars 字/屏。
 
-    规则：事件不以标点或单字开头（行首标点并入上一屏）；长子句无标点
-    才按字切，且不把标点/单字留在下一屏行首。
+    规则：固定词组（思维框架/年薪百万/真相）严禁跨屏切断；事件不以标点或
+    单字开头；jieba 缺失时回退子句按字切分。
     """
     clauses, cur = [], ""
     for ch in text:
@@ -541,20 +599,16 @@ def split_subtitle_chunks(text, max_chars=15):
             cur = ""
     if cur:
         clauses.append(cur)
-    # 超长子句按字切，且切后剩余段 ≥3 字（避免行首孤字/短语割裂）
+    # 超长子句按词切（jieba），避免切碎固定词组
     units = []
     for cl in clauses:
         if len(cl) <= max_chars:
             units.append(cl)
             continue
-        i = 0
-        while len(cl) - i > max_chars:
-            cut = i + max_chars
-            while len(cl) - cut < 3 and cut > i:
-                cut -= 1
-            units.append(cl[i:cut])
-            i = cut
-        units.append(cl[i:])
+        if _HAS_JIEBA:
+            units.extend(_pieces_from_tokens(list(jieba.cut(cl)), max_chars))
+        else:
+            units.extend(_char_split(cl, max_chars))
     # 累积到 ≤max_chars 的屏
     out, buf = [], ""
     for u in units:
@@ -599,6 +653,7 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
     deco = PROJ("assets", "layers", f"deco_{idx:02d}.png")
     V.make_deco_layer(idx).save(deco)
     sub_events = []
+    pop_events = []
     for s in sb["subtitles"]:
         ts, te = subtitle_windows(b, s)
         total = max(s["end_char"] - s["start_char"], 1)
@@ -611,6 +666,15 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
                   f"sub_{idx:02d}_{s['id']:02d}_{offset:03d}.png")
             V.make_subtitle_layer(ch).save(p)
             sub_events.append((p, st, et))
+            hl = V.first_highlight_span(ch)
+            if hl:
+                hp = PROJ("assets", "layers",
+                          f"subpop_{idx:02d}_{s['id']:02d}_{offset:03d}.png")
+                himg, hcx, hcy = V.make_subtitle_highlight_layer(ch)
+                himg.save(hp)
+                frac = hl[0] / max(ln, 1)
+                pt = st + frac * (et - st)
+                pop_events.append((hp, pt, hcx, hcy))
             offset += ln
 
     fc = []
@@ -653,6 +717,20 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
         )
         o_prev = f"o{k + 3}"
         bi += 1
+    for k, (hp, pt, hcx, hcy) in enumerate(pop_events):
+        fc.append(
+            f"[{bi}:v]zoompan=z='1+0.1*sin(PI*min(1,on/9))':"
+            f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
+            f"d=10:s={W}x{H}:fps={FPS},format=rgba,"
+            f"setpts=PTS+{pt:.3f}/TB[PP{k}]"
+        )
+        fc.append(
+            f"[{o_prev}][PP{k}]overlay=x='{hcx - W / 2}':"
+            f"y='{hcy - H / 2}':"
+            f"enable='between(t,{pt:.2f},{pt + 0.35:.2f})'[o{bi}]"
+        )
+        o_prev = f"o{bi}"
+        bi += 1
     tail = f"[{o_prev}]vignette=PI/7"
     if first:
         tail += ",fade=t=in:st=0:d=0.5"
@@ -672,6 +750,8 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
     for p, ts, te in sub_events:
         cmd += ["-loop", "1", "-framerate", str(FPS),
                 "-t", f"{sdur:.3f}", "-i", p]
+    for hp, pt, hcx, hcy in pop_events:
+        cmd += ["-i", hp]
     cmd += ["-i", wav, "-filter_complex", ";".join(fc),
             "-map", "[v]", "-map", f"{bi}:a",
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
@@ -714,6 +794,7 @@ def render_frames_narrative(blocks, meta, story):
 SFX_KEYWORDS = {
     "coin": ["工资到账", "到账", "存钱", "入账", "存款到账"],
     "calc": ["打车", "算账", "计算器", "账单", "按键", "按着"],
+    "reveal": ["真相", "揭示", "撕开", "原来", "关键"],
 }
 SFX_ENABLED = os.environ.get("SFX", "1") != "0"
 SFX_MAX_PER_KIND = 3
@@ -730,6 +811,11 @@ def synth_sfx(kind):
         expr = ("0.6*sin(2*PI*(880+880*t/0.35)*t)*exp(-7*t)")
         sh("ffmpeg", "-y", "-f", "lavfi",
            "-i", f"aevalsrc={expr}:s=44100:d=0.35",
+           "-c:a", "pcm_s16le", out)
+    elif kind == "reveal":
+        sh("ffmpeg", "-y", "-f", "lavfi",
+           "-i", "aevalsrc=0.55*sin(2*PI*(180-125*t/0.3)*t)*exp(-6*t):"
+                "s=44100:d=0.3",
            "-c:a", "pcm_s16le", out)
     else:  # calc：单个 1kHz 短 click
         sh("ffmpeg", "-y", "-f", "lavfi",

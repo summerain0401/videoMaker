@@ -21,7 +21,6 @@ INK = (245, 235, 220)
 PARCH_INK = (70, 58, 42)
 SUB_WHITE = (255, 255, 255, 255)
 SUB_YELLOW = (255, 210, 63, 255)
-SUB_CORAL = (231, 29, 54, 255)
 BOOK_DEFAULT = "《金钱的艺术》"
 AUTHOR_DEFAULT = "Morgan Housel"
 HOOK_DEFAULT = "为什么你越花钱，越焦虑？"
@@ -176,7 +175,7 @@ def make_progress_fill():
 
 
 def _subtitle_spans(text):
-    """把字幕文本切成着色段：金额/数字→黄，情绪/转折词→珊瑚红，其余→白。"""
+    """把字幕文本切成着色段：金额/数字、情绪词、转折词统一明黄，其余白。"""
     col = {}
     for m in AMOUNT_RE.finditer(text):
         for i in range(m.start(), m.end()):
@@ -185,18 +184,39 @@ def _subtitle_spans(text):
         i = text.find(w)
         while i != -1:
             for j in range(i, i + len(w)):
-                col[j] = SUB_CORAL
+                col[j] = SUB_YELLOW
             i = text.find(w, i + len(w))
     segs, cur, start = [], None, 0
     for idx, ch in enumerate(text):
         c = col.get(idx, SUB_WHITE)
         if c is not cur:
             if cur is not None:
-                segs.append((text[start:idx], cur))
+                segs.append((text[start:idx], cur, start))
             cur, start = c, idx
     if cur is not None:
-        segs.append((text[start:], cur))
+        segs.append((text[start:], cur, start))
     return segs
+
+
+def first_highlight_span(text):
+    """返回首个高亮 span 的 (start, end) 字符区间；无高亮返回 None。"""
+    for seg, color, start in _subtitle_spans(text):
+        if color != SUB_WHITE:
+            return start, start + len(seg)
+    return None
+
+
+def _subtitle_layout(d, text, f):
+    """计算各 span 的累计 x 中心与总宽。"""
+    segs = _subtitle_spans(text)
+    widths = [d.textlength(s, font=f) for s, _, _ in segs]
+    total = sum(widths)
+    x = W / 2 - total / 2
+    centers = []
+    for w in widths:
+        centers.append(x + w / 2)
+        x += w
+    return segs, centers
 
 
 def make_subtitle_layer(text, max_w=1500, size=48):
@@ -206,27 +226,45 @@ def make_subtitle_layer(text, max_w=1500, size=48):
     f = sub_font(size)
     line_h = int(size * 1.35)
     y_center = H - 56 - line_h / 2  # 底边距画面底部约 56px
-    segs = _subtitle_spans(text)
-    widths = [d.textlength(s, font=f) for s, _ in segs]
-    total = sum(widths)
-    x = W / 2 - total / 2
-    centers = []
-    for w in widths:
-        centers.append(x + w / 2)
-        x += w
+    segs, centers = _subtitle_layout(d, text, f)
     outline = (20, 18, 16, 235)
     shadow = (0, 0, 0, 150)
-    for (s, _c), cx in zip(segs, centers):
+    for (s, _c, _i), cx in zip(segs, centers):
         d.text((cx + 2, y_center + 3), s, font=f, fill=shadow, anchor="mm")
-    for (s, _c), cx in zip(segs, centers):
+    for (s, _c, _i), cx in zip(segs, centers):
         for dx in range(-3, 4):
             for dy in range(-3, 4):
                 if dx or dy:
                     d.text((cx + dx, y_center + dy), s, font=f,
                            fill=outline, anchor="mm")
-    for (s, c), cx in zip(segs, centers):
+    for (s, c, _i), cx in zip(segs, centers):
         d.text((cx, y_center), s, font=f, fill=c, anchor="mm")
     return img
+
+
+def make_subtitle_highlight_layer(text, size=48):
+    """渲染首个高亮 span 到全屏透明层（居中绘制），供缩放弹跳 overlay。
+    返回 (img, center_x, center_y)。"""
+    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    f = sub_font(size)
+    line_h = int(size * 1.35)
+    y_center = H - 56 - line_h / 2
+    segs, centers = _subtitle_layout(d, text, f)
+    outline = (20, 18, 16, 235)
+    shadow = (0, 0, 0, 150)
+    for (s, color, _i), cx in zip(segs, centers):
+        if color == SUB_WHITE:
+            continue
+        d.text((W / 2 + 2, H / 2 + 3), s, font=f, fill=shadow, anchor="mm")
+        for dx in range(-3, 4):
+            for dy in range(-3, 4):
+                if dx or dy:
+                    d.text((W / 2 + dx, H / 2 + dy), s, font=f,
+                           fill=outline, anchor="mm")
+        d.text((W / 2, H / 2), s, font=f, fill=color, anchor="mm")
+        return img, cx, y_center
+    return img, W / 2, y_center
 
 
 def make_bottom_gradient(h_ratio=0.15, peak_alpha=102):

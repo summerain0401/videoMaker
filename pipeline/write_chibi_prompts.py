@@ -48,6 +48,11 @@ COMPOSITION_SAFE_EN = ("full-bleed artwork fills the entire frame, "
                        "no bottom bar, no letterbox")
 FULL_BLEED_EN = ("full-bleed edge-to-edge composition, "
                  "no frame, no border, no margin")
+LINEART_EN = ("uniform bold clean line-art, consistent outline thickness, "
+              "same art style across all characters")
+TWO_PERSON_EN = ("exactly two people, strict two-way split composition, "
+                 "one person on the left, one on the right, "
+                 "no third person, no crowd, no bystanders")
 THEME_BG_EN = {
     "cool": ("pale cool gray-blue background, muted cyan-gray tones, "
              "calm desaturated cool palette, bright but cool"),
@@ -98,7 +103,8 @@ SYSTEM_PROMPT = """你是财商视频分镜翻译与角色指派引擎。用户�
    卡通动物等年龄或身份不符形象；同一角色在连续拍中的外观由角色库保证一致。
    对比拍（口播含「对比/两套人生/挣得少却变富/年薪百万」等）必须输出两个不同角色：
    character_id 为左侧/主体，secondary_character_id 为右侧/对比方
-   （如左 frugal_girl 休闲喝茶、右 stressed_worker 豪车前焦虑），两角色不得相同。
+   （如左 frugal_girl 休闲喝茶、右 stressed_worker 豪车前焦虑），两角色不得相同；
+   对比画面只允许左右两人，禁止第三人、人群、背景路人。
 6. 语种规范：action_props 与 emotion 必须为紧凑英文，action_props ≤200 字符、
     emotion ≤60 字符，越简洁越好。
 7. 输出的 beats 数组必须覆盖该块全部拍（beat_idx 与输入一一对应），
@@ -257,8 +263,6 @@ def validate_parse(raw, expected, char_ids, narrations=None):
             problems.append(f"拍 {idx} character_id 非法：{cid}")
         if sec is not None and sec not in char_ids:
             problems.append(f"拍 {idx} secondary_character_id 非法：{sec}")
-        if sec is not None and sec == cid:
-            problems.append(f"拍 {idx} secondary 与主角色相同")
         if not act:
             problems.append(f"拍 {idx} action_props 缺失")
         elif len(act) > MAX_ACTION:
@@ -288,14 +292,29 @@ def assemble_prompt(be, char_prompt, meta, chars=None):
     sec = be.get("secondary_character_id")
     char_section = char_prompt
     if sec and chars and sec != be.get("character_id"):
-        sec_prompt = (chars.get(sec) or {}).get("prompt", "")
+        sec_meta = chars.get(sec) or {}
+        sec_prompt = sec_meta.get("prompt", "")
+        sec_anchor = sec_meta.get("anchor", "")
+        if sec_anchor:
+            sec_prompt += "，" + sec_anchor
+        if be.get("character_id"):
+            pri_meta = chars.get(be["character_id"]) or {}
+            pri_anchor = pri_meta.get("anchor", "")
+            if pri_anchor:
+                char_prompt += "，" + pri_anchor
         char_section = (f"split composition, left side: {char_prompt}, "
                         f"right side: {sec_prompt}")
+    elif chars and be.get("character_id"):
+        anchor = (chars.get(be["character_id"]) or {}).get("anchor", "")
+        if anchor:
+            char_section += "，" + anchor
     parts = [GLOBAL_2D_STYLE_PREFIX, BRIGHT_BASE_EN, variant_en(meta),
-             FULL_BLEED_EN, THEME_BG_EN[theme],
+             FULL_BLEED_EN, LINEART_EN, THEME_BG_EN[theme],
              CLEAN_NO_TEXT_EN, COMPOSITION_SAFE_EN]
     if char_section:
         parts.append(char_section)
+    if sec and chars and sec != be.get("character_id"):
+        parts.append(TWO_PERSON_EN)
     parts.append(be["action_props"])
     parts.append(SHOT_EN.get(be["shot"], "medium shot"))
     return ", ".join(parts) + ", --ar 16:9"
@@ -382,7 +401,7 @@ def parse_blocks(args, story, chars, meta, out_path):
                     "confident smile, determined look, "
                     "clenching fist with enthusiasm, ready to take action")
                 entry["emotion"] = "confident, ready, hopeful"
-            if sec:
+            if sec and sec != entry["character_id"]:
                 entry["secondary_character_id"] = sec
             char_prompt = (chars.get(entry["character_id"]) or {}).get(
                 "prompt", "")
