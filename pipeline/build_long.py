@@ -48,7 +48,7 @@ def PROJ(*parts):
 
 
 W, H, FPS = 1920, 1080, 30
-KENZOOM = 0.05  # 每镜头 Ken Burns 缩放幅度（3%-5% 轻微档，常量可调）
+KENZOOM = 0.08  # 每镜头 Ken Burns 统一缓推幅度（1.0→1.08，常量可调）
 VOICE = os.environ.get("TTS_VOICE", "Tingting")
 SYSTEM_RATE = int(os.environ.get("TTS_RATE", "190"))
 TTS_SOURCE = os.environ.get("TTS_SOURCE", "piper")
@@ -240,24 +240,11 @@ def make_background(b, idx):
 
 
 def motion_exprs(idx, nframes):
+    """所有拍统一 1.0→1+KENZOOM 居中缓推（避免 pull/pan 静帧观感）。"""
     n = max(nframes, 1)
-    profiles = ["push", "pull", "panl", "panr", "up"]
-    prof = profiles[idx % len(profiles)]
     cx = "'iw/2-(iw/zoom/2)'"
     cy = "'ih/2-(ih/zoom/2)'"
-    if prof == "push":
-        z = f"1+{KENZOOM}*on/{n}"
-    elif prof == "pull":
-        z = f"{1 + KENZOOM}-{KENZOOM}*on/{n}"
-    elif prof == "panl":
-        z = f"{1 + KENZOOM}"
-        cx = f"'+(iw-iw/zoom)*(1-on/{n})'"
-    elif prof == "panr":
-        z = f"{1 + KENZOOM}"
-        cx = f"'+(iw-iw/zoom)*(on/{n})'"
-    else:  # up
-        z = f"{1 + KENZOOM}"
-        cy = f"'+(ih-ih/zoom)*(1-on/{n})'"
+    z = f"1+{KENZOOM}*on/{n}"
     return z, cx, cy
 
 
@@ -351,7 +338,8 @@ def render_scene(blocks, idx, total, first, last, meta=None):
         tail += f",fade=t=out:st={sdur - 0.5:.2f}:d=0.5"
     fc.append(tail + ",format=yuv420p[v]")
 
-    wav = make_scene_audio(b, idx)
+    sfx_events = find_sfx(b["voice"], b["voice_dur"])
+    wav = make_scene_audio(b, idx, sfx_events)
     cmd = ["ffmpeg", "-y",
            "-i", bg,
            "-loop", "1", "-framerate", str(FPS), "-t", f"{sdur:.3f}",
@@ -535,20 +523,65 @@ def subtitle_windows(block, sub):
     return s, e
 
 
-def split_subtitle_chunks(text, max_chars=None):
-    """把句子切成 ≤max_chars 的块（长句拆成连续字幕事件，保持单行）。
-    默认按 48px 粗体估算单行可容纳字数（约 27 字）。"""
-    if max_chars is None:
-        max_chars = max(12, int(1500 / (48 * 1.12)))
-    out, cur = [], ""
+CLAUSE_PUNCT = "，。！？、；：…—"
+LEAD_PUNCT = "，。！？、；：…—"
+
+
+def split_subtitle_chunks(text, max_chars=15):
+    """字幕分块：按标点切子句 → 累积 ≤max_chars 字/屏。
+
+    规则：事件不以标点或单字开头（行首标点并入上一屏）；长子句无标点
+    才按字切，且不把标点/单字留在下一屏行首。
+    """
+    clauses, cur = [], ""
     for ch in text:
         cur += ch
-        if len(cur) >= max_chars:
-            out.append(cur)
+        if ch in CLAUSE_PUNCT:
+            clauses.append(cur)
             cur = ""
     if cur:
-        out.append(cur)
-    return out
+        clauses.append(cur)
+    # 超长子句按字切，且切后剩余段 ≥3 字（避免行首孤字/短语割裂）
+    units = []
+    for cl in clauses:
+        if len(cl) <= max_chars:
+            units.append(cl)
+            continue
+        i = 0
+        while len(cl) - i > max_chars:
+            cut = i + max_chars
+            while len(cl) - cut < 3 and cut > i:
+                cut -= 1
+            units.append(cl[i:cut])
+            i = cut
+        units.append(cl[i:])
+    # 累积到 ≤max_chars 的屏
+    out, buf = [], ""
+    for u in units:
+        if buf and len(buf) + len(u) <= max_chars:
+            buf += u
+        else:
+            if buf:
+                out.append(buf)
+            buf = u
+    if buf:
+        out.append(buf)
+    # 行首标点并入上一屏
+    fixed = []
+    for s in out:
+        while s and s[0] in LEAD_PUNCT and fixed:
+            fixed[-1] += s[0]
+            s = s[1:]
+        if s:
+            fixed.append(s)
+    # 单字屏兜底并入上一屏
+    merged = []
+    for s in fixed:
+        if len(s) == 1 and merged:
+            merged[-1] += s
+        else:
+            merged.append(s)
+    return merged
 
 
 def render_scene_narrative(blocks, idx, total, first, last, meta, story):
@@ -611,14 +644,12 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
     bi += 1
     for k, (p, ts, te) in enumerate(sub_events):
         fc.append(
-            f"[{bi}:v]fade=t=in:st={max(0.0, ts - 0.15):.2f}:d=0.25:alpha=1,"
-            f"fade=t=out:st={max(0.0, te - 0.20):.2f}:d=0.25:alpha=1,"
+            f"[{bi}:v]fade=t=in:st={ts:.2f}:d=0.12:alpha=1,"
             f"format=rgba[S{k}]"
         )
         fc.append(
             f"[{o_prev}][S{k}]overlay=0:0:"
-            f"enable='between(t,{max(0.0, ts - 0.15):.2f},"
-            f"{te + 0.05:.2f})'[o{k + 3}]"
+            f"enable='between(t,{ts:.2f},{te:.2f})'[o{k + 3}]"
         )
         o_prev = f"o{k + 3}"
         bi += 1
@@ -629,7 +660,8 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
         tail += f",fade=t=out:st={sdur - 0.5:.2f}:d=0.5"
     fc.append(tail + ",format=yuv420p[v]")
 
-    wav = make_scene_audio(b, idx)
+    sfx_events = find_sfx(b["voice"], b["voice_dur"])
+    wav = make_scene_audio(b, idx, sfx_events)
     cmd = ["ffmpeg", "-y"]
     for k in range(n):
         cmd += ["-i", bg_paths[k]]
@@ -679,7 +711,78 @@ def render_frames_narrative(blocks, meta, story):
         print(f"nframe {i:02d} {b['type']} done")
 
 
-def make_scene_audio(b, idx):
+SFX_KEYWORDS = {
+    "coin": ["工资到账", "到账", "存钱", "入账", "存款到账"],
+    "calc": ["打车", "算账", "计算器", "账单", "按键", "按着"],
+}
+SFX_ENABLED = os.environ.get("SFX", "1") != "0"
+SFX_MAX_PER_KIND = 3
+
+
+def synth_sfx(kind):
+    """用 ffmpeg lavfi 合成短音效（缓存到项目 audio/tmp/）。"""
+    tmp = PROJ("audio", "tmp")
+    os.makedirs(tmp, exist_ok=True)
+    out = os.path.join(tmp, f"sfx_{kind}.wav")
+    if os.path.exists(out):
+        return out
+    if kind == "coin":
+        expr = ("0.6*sin(2*PI*(880+880*t/0.35)*t)*exp(-7*t)")
+        sh("ffmpeg", "-y", "-f", "lavfi",
+           "-i", f"aevalsrc={expr}:s=44100:d=0.35",
+           "-c:a", "pcm_s16le", out)
+    else:  # calc：单个 1kHz 短 click
+        sh("ffmpeg", "-y", "-f", "lavfi",
+           "-i", "aevalsrc=0.5*sin(2*PI*1000*t)*exp(-60*t):"
+                "s=44100:d=0.08",
+           "-c:a", "pcm_s16le", out)
+    return out
+
+
+def find_sfx(voice, vd):
+    """按关键词在口播中的字符偏移映射到块内时间（毫秒）。"""
+    events = []
+    if not SFX_ENABLED or not voice:
+        return events
+    n = max(len(voice), 1)
+    last_time = {}
+    for kind, words in SFX_KEYWORDS.items():
+        hits = 0
+        for w in words:
+            i = voice.find(w)
+            while i != -1 and hits < SFX_MAX_PER_KIND:
+                ms = int((LEAD + i / n * vd) * 1000)
+                if ms - last_time.get(kind, -10000) >= 600:
+                    events.append((kind, ms))
+                    last_time[kind] = ms
+                    hits += 1
+                i = voice.find(w, i + len(w))
+    return events
+
+
+def mix_sfx(block_wav, events, out):
+    """把 SFX 按时间点混入块配音（adelay + volume 0.35 + amix）。"""
+    inputs = ["-i", block_wav]
+    fc, amix_in = [], ["[0:a]"]
+    in_idx = 1
+    for i, (kind, ms) in enumerate(events):
+        sfx = synth_sfx(kind)
+        inputs += ["-i", sfx]
+        delays = [ms] if kind == "coin" else [ms, ms + 120, ms + 240]
+        for j, d in enumerate(delays):
+            lab = f"s{i}_{j}"
+            fc.append(f"[{in_idx}:a]adelay={d}|{d},volume=0.35[{lab}]")
+            amix_in.append(f"[{lab}]")
+        in_idx += 1
+    fc.append("".join(amix_in) +
+              f"amix=inputs={len(amix_in)}:duration=first:"
+              f"dropout_transition=0,alimiter[a]")
+    sh("ffmpeg", "-y", *inputs, "-filter_complex", ";".join(fc),
+       "-map", "[a]", "-ar", "44100", "-ac", "1", out)
+    return out
+
+
+def make_scene_audio(b, idx, sfx_events=None):
     tmp = PROJ("audio", "tmp")
     os.makedirs(tmp, exist_ok=True)
     if NO_TTS or b["type"] == "PHASE":
@@ -706,6 +809,9 @@ def make_scene_audio(b, idx):
     out = PROJ("audio", "tmp", f"vs2_{idx:02d}.wav")
     sh("ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", lst,
        "-c:a", "pcm_s16le", out)
+    if sfx_events:
+        out = mix_sfx(out, sfx_events,
+                      PROJ("audio", "tmp", f"vs2_{idx:02d}_sfx.wav"))
     return out
 
 

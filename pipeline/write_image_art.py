@@ -96,6 +96,7 @@ CHIBI_NEGATIVE_PROMPT = (
     "badges, stickers, banners, bubble boxes, captions, danmaku, "
     "UI text, chart labels, watermark, signature, blurry, "
     "white frame, white border, letterbox, matte, "
+    "solid color band at bottom, empty bottom strip, bottom bar, "
     "dark gloomy atmosphere, sad despair mood, "
     "scary horror elements, rain snow cloudy sky, large dark shadow area"
 )

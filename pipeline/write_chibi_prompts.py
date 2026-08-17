@@ -42,9 +42,10 @@ STYLE_ID = "2D_CHIBI_VECTOR_FINANCE"
 SHOT_EN = {"wide": "wide shot", "medium": "medium shot",
            "close": "close-up shot"}
 CLEAN_NO_TEXT_EN = "clean composition, no text, no UI, no stickers"
-COMPOSITION_SAFE_EN = ("centered composition, subject in upper two-thirds, "
-                       "clean bottom third reserved for subtitles, "
-                       "no text or props in bottom third")
+COMPOSITION_SAFE_EN = ("full-bleed artwork fills the entire frame, "
+                       "continue illustration to the bottom edge, "
+                       "no solid color band, no empty strip, "
+                       "no bottom bar, no letterbox")
 FULL_BLEED_EN = ("full-bleed edge-to-edge composition, "
                  "no frame, no border, no margin")
 THEME_BG_EN = {
@@ -95,14 +96,20 @@ SYSTEM_PROMPT = """你是财商视频分镜翻译与角色指派引擎。用户�
    - 觉醒/希望/转机 → hopeful expression, sunrise or warm breakthrough light
 5. 主题一致性：本片为职场青年/都市成人财商主题；禁止出现儿童、小学生、学生背包、
    卡通动物等年龄或身份不符形象；同一角色在连续拍中的外观由角色库保证一致。
+   对比拍（口播含「对比/两套人生/挣得少却变富/年薪百万」等）必须输出两个不同角色：
+   character_id 为左侧/主体，secondary_character_id 为右侧/对比方
+   （如左 frugal_girl 休闲喝茶、右 stressed_worker 豪车前焦虑），两角色不得相同。
 6. 语种规范：action_props 与 emotion 必须为紧凑英文，action_props ≤200 字符、
-   emotion ≤60 字符，越简洁越好。
+    emotion ≤60 字符，越简洁越好。
 7. 输出的 beats 数组必须覆盖该块全部拍（beat_idx 与输入一一对应），
    不得遗漏、不得新增、不得重复。
 8. 背景色跟随情绪（action_props 中不要写死背景颜色，交给装配层决定）：
    - 焦虑/困境/反思 → 冷灰蓝/淡青灰背景，明亮但不压抑；
    - 认知/启发/希望 → 暖杏色/淡金黄背景；
    - 其余 → 中性奶油/米色背景。
+9. CTA 收尾拍（口播含「咱们开始/准备好了吗/关注/点赞/收藏/谢谢大家」）必须
+   积极自信、蓄势待发：confident smile, determined look, clenching fist
+   with enthusiasm, ready to take action。
 
 候选角色列表：
 {character_list}
@@ -110,7 +117,8 @@ SYSTEM_PROMPT = """你是财商视频分镜翻译与角色指派引擎。用户�
 【输出格式（只输出 JSON，不要解释，不要 Markdown 代码块）】
 {"beats": [{"beat_idx": 0, "character_id": "young_pro",
   "action_props": "looking at empty wallet on desk with anxious expression",
-  "emotion": "anxious, empty wallet"}]}"""
+  "emotion": "anxious, empty wallet",
+  "secondary_character_id": ""}]}"""
 
 
 def P(*parts):
@@ -244,8 +252,13 @@ def validate_parse(raw, expected, char_ids, narrations=None):
         cid = b.get("character_id")
         act = (b.get("action_props") or "").strip()
         emo = (b.get("emotion") or "").strip()
+        sec = (b.get("secondary_character_id") or "").strip() or None
         if cid not in char_ids:
             problems.append(f"拍 {idx} character_id 非法：{cid}")
+        if sec is not None and sec not in char_ids:
+            problems.append(f"拍 {idx} secondary_character_id 非法：{sec}")
+        if sec is not None and sec == cid:
+            problems.append(f"拍 {idx} secondary 与主角色相同")
         if not act:
             problems.append(f"拍 {idx} action_props 缺失")
         elif len(act) > MAX_ACTION:
@@ -265,18 +278,24 @@ def validate_parse(raw, expected, char_ids, narrations=None):
                 any(w in act.lower() for w in BRIGHT_ACT):
             problems.append(f"拍 {idx} 情绪与口播冲突：口播含消极语义，"
                             f"但动作含积极表达（{act[:40]}）")
-        out[idx] = (cid, act, emo)
+        out[idx] = (cid, act, emo, sec)
     return problems, out if not problems else None
 
 
-def assemble_prompt(be, char_prompt, meta):
+def assemble_prompt(be, char_prompt, meta, chars=None):
     """装配公式：全局 2D 底模 + 暖色底线 + 项目变体 + 角色 + 动作 + 景别 + 16:9。"""
     theme = tone.theme_for(be.get("emotion", ""))
+    sec = be.get("secondary_character_id")
+    char_section = char_prompt
+    if sec and chars and sec != be.get("character_id"):
+        sec_prompt = (chars.get(sec) or {}).get("prompt", "")
+        char_section = (f"split composition, left side: {char_prompt}, "
+                        f"right side: {sec_prompt}")
     parts = [GLOBAL_2D_STYLE_PREFIX, BRIGHT_BASE_EN, variant_en(meta),
              FULL_BLEED_EN, THEME_BG_EN[theme],
              CLEAN_NO_TEXT_EN, COMPOSITION_SAFE_EN]
-    if char_prompt:
-        parts.append(char_prompt)
+    if char_section:
+        parts.append(char_section)
     parts.append(be["action_props"])
     parts.append(SHOT_EN.get(be["shot"], "medium shot"))
     return ", ".join(parts) + ", --ar 16:9"
@@ -345,7 +364,7 @@ def parse_blocks(args, story, chars, meta, out_path):
         out_beats = []
         for be in beats:
             idx = int(be["beat_idx"])
-            cid, act, emo = result[idx]
+            cid, act, emo, sec = result[idx]
             entry = {
                 "beat_idx": idx,
                 "shot": be.get("shot", "medium"),
@@ -354,12 +373,21 @@ def parse_blocks(args, story, chars, meta, out_path):
                 "action_props": act,
                 "emotion": emo,
             }
+            narration = narrations.get(idx, "")
             entry["character_id"] = assign_character_safety_guard(
-                entry, narrations.get(idx, ""))
+                entry, narration)
+            if any(cta in (entry.get("original_cn", "") + " " + narration)
+                   for cta in CTA_WORDS):
+                entry["action_props"] = (
+                    "confident smile, determined look, "
+                    "clenching fist with enthusiasm, ready to take action")
+                entry["emotion"] = "confident, ready, hopeful"
+            if sec:
+                entry["secondary_character_id"] = sec
             char_prompt = (chars.get(entry["character_id"]) or {}).get(
                 "prompt", "")
             entry["final_image_prompt"] = assemble_prompt(
-                entry, char_prompt, meta)
+                entry, char_prompt, meta, chars)
             out_beats.append(entry)
             total_beats += 1
         print(f"块 {bi}：{len(out_beats)} 拍已解析装配。")
@@ -412,6 +440,14 @@ def validate_final(output, story, chars, full=True):
                 problems.append(f"块 {bi} 拍 {idx} emotion 缺失")
             elif len(be["emotion"]) > 60:
                 problems.append(f"块 {bi} 拍 {idx} emotion 超长")
+            sec = be.get("secondary_character_id")
+            if sec:
+                if sec not in char_ids:
+                    problems.append(
+                        f"块 {bi} 拍 {idx} secondary_character_id 非法")
+                if sec == be.get("character_id"):
+                    problems.append(
+                        f"块 {bi} 拍 {idx} secondary 与主角色相同")
             if not (be.get("final_image_prompt") or "").strip():
                 problems.append(f"块 {bi} 拍 {idx} final_image_prompt 缺失")
     print(f"共校验 {total} 拍。")
@@ -437,7 +473,8 @@ def reassemble(args, chars, meta, out_path):
         for be in sb.get("beats", []):
             char_prompt = (chars.get(be.get("character_id")) or {}).get(
                 "prompt", "")
-            be["final_image_prompt"] = assemble_prompt(be, char_prompt, meta)
+            be["final_image_prompt"] = assemble_prompt(
+                be, char_prompt, meta, chars)
     save(output, out_path)
     print(f"重装配完成：{out_path}")
 

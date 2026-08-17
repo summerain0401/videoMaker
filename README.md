@@ -81,6 +81,11 @@ PROJECT=002 python3 pipeline/write_long_copy.py --book 《书名》 --author 作
   金额黄色/情绪转折珊瑚红高亮；Ken Burns 5% 轻微缓推（修复 d=1 静止 bug）；
   情绪主题背景色板（焦虑/困境→冷灰蓝，启发/希望→暖杏金，中性奶油）；
   收尾 CTA 口播强制绑定核心主角。
+- **v3 精修**：字幕按标点切句 + 避头尾法则 + 单屏 ≤15 字直接切屏 + 事件
+  硬切换（无淡出重叠）；CTA 收尾强制积极自信蓄势待发表情；对比拍强制两套
+  不同角色（`secondary_character_id`，防撞脸）；底部彻底无实条（full-bleed，
+  仅渐变遮罩）；运镜统一 1.0→1.08 缓推；关键词音效自动挂载
+  （工资到账→金币叮、打车/算账→计算器键音，ffmpeg 合成，`SFX=0` 关闭）。
 - **语音**：`TTS_SOURCE=piper|edge|azure` 三选一；当前主用 Azure 晓辰
   成熟知性女声（`zh-CN-Xiaochen:DragonHDFlashLatestNeural`），`.env` 配
   `AZURE_SPEECH_KEY` / `AZURE_REGION` / `AZURE_VOICE`。
