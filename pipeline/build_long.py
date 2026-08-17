@@ -901,13 +901,85 @@ def make_scene_audio(b, idx, sfx_events=None):
     return out
 
 
-def find_music():
+def find_music(seg=None):
+    """按段查找背景乐：优先 music_seg{N}.{ext}，缺失回退 music.wav。"""
     for ext in ("mp3", "wav", "m4a", "flac", "aac"):
+        if seg:
+            p = PROJ("audio", f"music_seg{seg}.{ext}")
+            if os.path.exists(p):
+                return p
         for name in (f"user_music.{ext}", f"music.{ext}"):
             p = PROJ("audio", name)
             if os.path.exists(p):
                 return p
     return None
+
+
+def compute_segments(blocks, story):
+    """按拍 segment（hook/insight/action）计算三段时间区间（最终时间轴）。
+    返回 [seg1_start, seg2_start, seg3_start, total]；无标签拍继承前段。"""
+    durs = [scene_time(b) for b in blocks]
+    starts = [sum(durs[:i]) - i * XD for i in range(len(durs))]
+    total = sum(durs) - XD * (len(blocks) - 1)
+    sb_map = {sb["block_idx"]: sb for sb in story["blocks"]} \
+        if story else {}
+    seq = {"hook": 1, "insight": 2, "action": 3}
+    seg_starts = {1: None, 2: None, 3: None}
+    last_seg = 3
+    for i, b in enumerate(blocks):
+        sb = sb_map.get(i)
+        if sb:
+            beat_durs = beat_durations(scene_time(b), sb["beats"])
+        else:
+            beat_durs = [scene_time(b)]
+        t = starts[i]
+        for k, bd in enumerate(beat_durs):
+            seg = _beat_segment(sb, k) if sb and k < len(sb["beats"]) \
+                else None
+            if seg in seq:
+                last_seg = seq[seg]
+            if seg_starts[last_seg] is None:
+                seg_starts[last_seg] = t
+            t += bd
+    points = [seg_starts[1], seg_starts[2], seg_starts[3], total]
+    # 空缺段用后一边界补齐，保证单调
+    prev = 0.0
+    for i in range(3):
+        if points[i] is None or points[i] < prev:
+            points[i] = prev
+        prev = points[i]
+    return points
+
+
+CTA_CUES = ["咱们开始", "准备好了吗", "关注", "点赞", "收藏", "谢谢大家",
+            "听完你就明白", "拆给你", "十几分钟"]
+INSIGHT_CUES = ["摩根", "豪泽尔", "作者", "这本书", "《", "大师", "真相",
+                "关系", "思维框架"]
+HOOK_CUES = ["扎心", "焦虑", "空虚", "月底", "余额", "没钱", "负债",
+             "欲望", "熬夜", "账单", "存款没多", "快乐没多", "翻倍"]
+
+
+def _beat_segment(sb, k):
+    """拍 segment：优先 LLM 标签，缺失时按旁白关键词 + 位置兜底。"""
+    be = sb["beats"][k]
+    seg = be.get("segment")
+    if seg in ("hook", "insight", "action"):
+        return seg
+    sub_map = {s["id"]: s["text"] for s in sb.get("subtitles", [])}
+    text = " ".join(sub_map[i] for i in be.get("sentence_ids", [])
+                    if i in sub_map)
+    if any(c in text for c in CTA_CUES):
+        return "action"
+    if any(c in text for c in INSIGHT_CUES):
+        return "insight"
+    if any(c in text for c in HOOK_CUES):
+        return "hook"
+    frac = k / max(1, len(sb["beats"]))
+    if frac < 0.5:
+        return "hook"
+    if frac < 0.8:
+        return "insight"
+    return "action"
 
 
 def transition_for(b, k):
@@ -928,19 +1000,27 @@ def transition_for(b, k):
     return "wipeup"
 
 
-def finalize(blocks, out_name):
-    """xfade 视频转场 + acrossfade 音频 + 可选用户音乐 + 全局响度。"""
+def finalize(blocks, out_name, seg_points=None):
+    """xfade 视频转场 + acrossfade 音频 + 三段 BGM（Ducking/EQ）+ 全局响度。"""
     scenes = [PROJ("output", f"vs2_{i:02d}.mp4")
               for i in range(len(blocks))]
     durs = [scene_time(b) for b in blocks]
     n = len(scenes)
-    music = find_music()
+    if seg_points is None:
+        t_total = sum(durs) - XD * (n - 1)
+        seg_points = [0.0, t_total / 3, 2 * t_total / 3, t_total]
+    music_paths = [find_music(i + 1) for i in range(3)]
+    has_music = any(music_paths)
     cmd = ["ffmpeg", "-y"]
     for s in scenes:
         cmd += ["-i", s]
-    if music:
-        cmd += ["-stream_loop", "-1", "-i", music,
-                "-t", f"{sum(durs) - XD * (n - 1):.2f}"]
+    seg_durs = [max(0.05, seg_points[i + 1] - seg_points[i])
+                for i in range(3)]
+    total = seg_points[3]
+    if has_music:
+        for i, mp in enumerate(music_paths):
+            cmd += ["-stream_loop", "-1", "-t", f"{seg_durs[i]:.2f}",
+                    "-i", mp]
 
     fc = []
     prev = "0:v"
@@ -959,13 +1039,31 @@ def finalize(blocks, out_name):
         out = f"ax{k}"
         fc.append(f"[{a_prev}][{k + 1}:a]acrossfade=d={XD}[{out}]")
         a_prev = out
-    if music:
+    if has_music:
         mi = n
         fc.append(f"[{a_prev}]volume=1.0[a0]")
-        fc.append(f"[{mi}:a]volume=0.25,aformat=sample_rates=44100:"
-                  f"channel_layouts=stereo[m]")
-        fc.append("[a0][m]amix=inputs=2:duration=first:dropout_transition=0,"
-                  "loudnorm=I=-14:TP=-1.5:LRA=11[a]")
+        bgm_in = []
+        for i in range(3):
+            start_ms = int(seg_points[i] * 1000)
+            fc.append(
+                f"[{mi + i}:a]volume=0.16,"
+                f"equalizer=f=1500:t=q:w=1.2:g=-2.5,"
+                f"equalizer=f=2500:t=q:w=1.5:g=-2.5,"
+                f"lowpass=f=8000,"
+                f"afade=t=in:st=0:d=0.3,"
+                f"afade=t=out:st={max(0.0, seg_durs[i] - 0.3):.2f}:d=0.3,"
+                f"aformat=sample_rates=44100:channel_layouts=stereo,"
+                f"adelay={start_ms}|{start_ms},"
+                f"atrim=0:{total:.2f}[bgm{i}]")
+            bgm_in.append(f"[bgm{i}]")
+        fc.append("".join(bgm_in) +
+                  f"amix=inputs=3:duration=longest:"
+                  f"dropout_transition=0[bgm_mix]")
+        fc.append(f"[bgm_mix][a0]sidechaincompress="
+                  f"threshold=0.1:ratio=3:attack=60:release=800[bgm_duck]")
+        fc.append(f"[a0][bgm_duck]amix=inputs=2:duration=first:"
+                  f"dropout_transition=0,"
+                  f"loudnorm=I=-14:TP=-1.5:LRA=11[a]")
     else:
         fc.append(f"[{a_prev}]loudnorm=I=-14:TP=-1.5:LRA=11[a]")
 
@@ -974,6 +1072,7 @@ def finalize(blocks, out_name):
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
             "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
             "-ar", "44100", "-movflags", "+faststart",
+            "-t", f"{total:.2f}",
             PROJ("output", out_name)]
     sh(*cmd)
     return PROJ("output", out_name)
@@ -1090,7 +1189,8 @@ def main():
         out_name = "long_money_v2_pilot.mp4"
     else:
         out_name = "long_money_v2.mp4"
-    out = finalize(blocks, out_name)
+    out = finalize(blocks, out_name,
+                   compute_segments(blocks, story) if story else None)
     dur = probe_dur(out)
     preview_frames(dur, out_name)
     write_reports(blocks, dur, out_name)

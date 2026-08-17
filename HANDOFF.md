@@ -19,6 +19,7 @@
 - ✅ **v2.0 合成层（本轮）**：全屏铺满（禁白边 + 底部 15% 渐变遮罩替代实色底条）；字幕思源黑体 Heavy 48px 粗体描边 + 金额黄/情绪珊瑚红高亮；Ken Burns 5% 轻微档（修复 `zoompan d=1` 静止 bug，t1→t5 帧差 10.36 已验证）；情绪主题背景色板（冷灰蓝/暖杏金/中性，warm 6:cool 11 分布）；收尾 CTA 口播兜底强制 young_pro。
 - ✅ **v3 精修（本轮）**：字幕按标点切句 + 避头尾 + ≤15 字/屏 + 事件硬切换（无重影）；CTA 强制积极蓄势表情；对比拍双角色（`secondary_character_id`，frugal_girl+stressed_worker）；底部实条彻底移除（full-bleed + 仅渐变遮罩）；运镜统一 1.0→1.08（帧差 22.39）；关键词 SFX 自动挂载（coin/calc，ffmpeg 合成，`SFX=0` 关闭）。
 - ✅ **v4 精修（本轮）**：jieba 分词 + 财务词组保护（思维框架/年薪百万不切断）；高亮统一明黄 #FFD23F（去红）；对比拍二人二分割（负面词禁第三人）；角色 anchor 锚点 + 统一粗描边；运镜锚点 (50%,35%) + X 轴 2.5% pan + ease-out（入场帧差 86）；高亮词 1.0→1.1→1.0 弹跳；SFX 新增 reveal（真相/揭示→低频冲击音）。
+- ✅ **v5 BGM 三段式 + 智能混音（本轮）**：素材 `music_seg{1,2,3}`（缺失回退 music.wav）；段边界按拍 segment（hook/insight/action，LLM 精标 + 关键词兜底，样片 ≈0/31/48s）；混音 BGM 基准 -16dB、sidechaincompress ducking 6–9dB（threshold 0.1/ratio 3/release 0.8s，离线验证 6.4dB）、EQ 1k–3.5k -2.5dB + lowpass 8k、段间 afade 0.3s；块 0–1 重渲染 65.87s。
 - ✅ **封面移除（本轮）**：封面工具与素材已全部移除，封面由独立 Agent 负责（本仓库不再包含封面相关代码/产物）。
 - ⏳ **待办**：001 暖化重绘（待你从 tone_report.md 勾选，推荐至少 09_0/07_0/00_6）；渲染更长样片/全片；补全剩余卡点画面（约 58 拍未生成）；主角一致性（参考图图生图）；节奏对齐/提示音效。
 
@@ -66,6 +67,7 @@ PROJECT=002 python3 pipeline/write_long_copy.py --book 《书名》 --author 作
 - 字幕字体：`assets/fonts/SourceHanSansCN-Heavy.otf`（思源黑体 Heavy，OFL 免费商用；缺失回退 Hiragino W6）。
 - 音效：`audio/tmp/sfx_coin.wav` / `sfx_calc.wav`（ffmpeg lavfi 合成缓存，可删重建）。
 - 依赖：jieba 已装入捆绑 Python（字幕分词，缺失自动回退子句切分）。
+- BGM：`music_seg{1,2,3}` 三段素材约定；DeepSeek 余额不足时 segment 用关键词兜底（充值后 LLM 精标自动接管）。
 - 画面命名：项目 `assets/scenes/{块:02d}_{拍}.png`；阶段页用「后续内容块首张卡点画面」做背景；项目 `assets/art/` 为历史底图存档，渲染不再引用。
 - 封面：由独立 Agent 负责，本仓库不包含封面工具与素材。
 - 背景乐：`music.wav`（或 mp3/m4a）放项目 `audio/` 自动混音（0.25 音量 + loudnorm -14 LUFS）。
@@ -106,6 +108,7 @@ PROJECT=002 python3 pipeline/write_long_copy.py --book 《书名》 --author 作
 - v2.0：底部 15% 渐变遮罩（0→0.4）替代字幕灰条；字幕 48px Heavy + 关键词高亮；Ken Burns 5%（`KENZOOM` 可调）；情绪主题背景色板（`tone.theme_for`）；CTA 收尾兜底。
 - v3：字幕按标点切句/避头尾/≤15字/硬切换；CTA 积极表情；对比双角色；full-bleed 无底部实条；运镜 1.0→1.08；关键词 SFX（coin/calc）。
 - v4：jieba 分词 + 词组保护；高亮统一明黄；对比二人制；角色锚点 + 统一描边；运镜锚点/pan/ease；高亮词弹跳；SFX reveal。
+- v5：三段 BGM（hook/insight/action 段边界）+ ducking（-16 基准、人声避让 6–9dB）+ EQ 频段避让 + 段间淡入淡出。
 - 目录：项目制（数字前缀 + 中文名），输入/中间产物/产出分层；短视频移出本仓库另开项目。
 - 封面：由独立 Agent 负责，本仓库不包含封面工具与素材。
 - 运营：标题公式/灵魂提问已入文案结构（标题公式参考 report.pdf）。

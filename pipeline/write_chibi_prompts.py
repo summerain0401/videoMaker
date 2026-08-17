@@ -116,6 +116,11 @@ SYSTEM_PROMPT = """你是财商视频分镜翻译与角色指派引擎。用户�
 9. CTA 收尾拍（口播含「咱们开始/准备好了吗/关注/点赞/收藏/谢谢大家」）必须
    积极自信、蓄势待发：confident smile, determined look, clenching fist
    with enthusiasm, ready to take action。
+10. 每拍必须输出 segment 标签（用于 BGM 三段式编排）：
+    - 旁白为痛点/困境/扎心拷问 → "hook"（开场共情）
+    - 作者背书/金句/认知重塑/大师讲解 → "insight"（理论升华）
+    - 行动号召/总结/收尾 → "action"（总结行动）
+    - 其余按上下文就近归类。
 
 候选角色列表：
 {character_list}
@@ -124,7 +129,7 @@ SYSTEM_PROMPT = """你是财商视频分镜翻译与角色指派引擎。用户�
 {"beats": [{"beat_idx": 0, "character_id": "young_pro",
   "action_props": "looking at empty wallet on desk with anxious expression",
   "emotion": "anxious, empty wallet",
-  "secondary_character_id": ""}]}"""
+  "secondary_character_id": "", "segment": "hook"}]}"""
 
 
 def P(*parts):
@@ -259,10 +264,13 @@ def validate_parse(raw, expected, char_ids, narrations=None):
         act = (b.get("action_props") or "").strip()
         emo = (b.get("emotion") or "").strip()
         sec = (b.get("secondary_character_id") or "").strip() or None
+        seg = (b.get("segment") or "").strip()
         if cid not in char_ids:
             problems.append(f"拍 {idx} character_id 非法：{cid}")
         if sec is not None and sec not in char_ids:
             problems.append(f"拍 {idx} secondary_character_id 非法：{sec}")
+        if seg not in ("hook", "insight", "action"):
+            problems.append(f"拍 {idx} segment 非法：{seg}")
         if not act:
             problems.append(f"拍 {idx} action_props 缺失")
         elif len(act) > MAX_ACTION:
@@ -282,7 +290,7 @@ def validate_parse(raw, expected, char_ids, narrations=None):
                 any(w in act.lower() for w in BRIGHT_ACT):
             problems.append(f"拍 {idx} 情绪与口播冲突：口播含消极语义，"
                             f"但动作含积极表达（{act[:40]}）")
-        out[idx] = (cid, act, emo, sec)
+        out[idx] = (cid, act, emo, sec, seg)
     return problems, out if not problems else None
 
 
@@ -383,7 +391,7 @@ def parse_blocks(args, story, chars, meta, out_path):
         out_beats = []
         for be in beats:
             idx = int(be["beat_idx"])
-            cid, act, emo, sec = result[idx]
+            cid, act, emo, sec, seg = result[idx]
             entry = {
                 "beat_idx": idx,
                 "shot": be.get("shot", "medium"),
@@ -391,6 +399,7 @@ def parse_blocks(args, story, chars, meta, out_path):
                 "character_id": cid,
                 "action_props": act,
                 "emotion": emo,
+                "segment": seg,
             }
             narration = narrations.get(idx, "")
             entry["character_id"] = assign_character_safety_guard(
@@ -467,6 +476,8 @@ def validate_final(output, story, chars, full=True):
                 if sec == be.get("character_id"):
                     problems.append(
                         f"块 {bi} 拍 {idx} secondary 与主角色相同")
+            if be.get("segment") not in ("hook", "insight", "action"):
+                problems.append(f"块 {bi} 拍 {idx} segment 非法")
             if not (be.get("final_image_prompt") or "").strip():
                 problems.append(f"块 {bi} 拍 {idx} final_image_prompt 缺失")
     print(f"共校验 {total} 拍。")

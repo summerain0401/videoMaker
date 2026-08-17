@@ -91,6 +91,11 @@ PROJECT=002 python3 pipeline/write_long_copy.py --book 《书名》 --author 作
   角色锚点 + 全局统一粗描边（面貌不漂移）；运镜锚点上移 (50%,35%) + X 轴
   2.5% 缓移 + ease-out 入场；高亮词 1.0→1.1→1.0 微弹跳；SFX 新增
   「真相/揭示」低频冲击音。
+- **v5 BGM 三段式 + 智能混音**：素材约定 `audio/music_seg{1,2,3}.{mp3,wav}`（开场
+  Lofi / 理论新古典 / 总结原声，缺失段回退 `music.wav`）；段边界按拍 segment
+  （hook/insight/action，LLM 精标 + 关键词兜底）自动计算；混音——BGM 基准
+  -16dB、人声段 sidechaincompress 避让 6–9dB（release 0.8s 平滑回升）、
+  EQ 1k–3.5k 下压 2.5dB + lowpass 8k、段间 0.3s 淡入淡出。
 - **语音**：`TTS_SOURCE=piper|edge|azure` 三选一；当前主用 Azure 晓辰
   成熟知性女声（`zh-CN-Xiaochen:DragonHDFlashLatestNeural`），`.env` 配
   `AZURE_SPEECH_KEY` / `AZURE_REGION` / `AZURE_VOICE`。
