@@ -1,29 +1,27 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""暖色基调检测：阴郁词典 + 图像亮度/暖度/暗部指标。
+"""画面可读性检测：阴郁词典 + 图像亮度/暗部指标。
 
-供 write_image_art.py（--tone-check / 重绘暖化）与
+供 write_image_art.py（--tone-check / 重绘清晰度）与
 write_storyboard.py（--warm 提示词暖化）共用。
 
 阈值（默认）：
   THRESH_LUM   平均亮度 < 150       视为偏暗
-  THRESH_WARM  暖度(R-B) < 10       视为偏冷
   THRESH_DARK  暗部(lum<60)占比 >25% 视为大面积暗部
 """
 
 from PIL import Image, ImageStat
 
 THRESH_LUM = 150.0
-THRESH_WARM = 10.0
 THRESH_DARK = 0.25
 
-# 情绪主题背景：冷色主题（焦虑/困境/反思）与暖色主题（认知/启发/希望）
+# 情绪主题背景：可按情绪使用冷色、明亮色或中性色；不构成暖色限制。
 COOL_EMO_KEYS = [
     "anxious", "empty", "numb", "confused", "doubt", "lost", "distress",
     "dazed", "trapped", "stressed", "frustrat", "detached", "struggl",
     "reflect", "sad", "overconfident",
 ]
-WARM_EMO_KEYS = [
+BRIGHT_EMO_KEYS = [
     "happy", "hopeful", "confident", "calm", "salary", "content", "realiz",
     "reveal", "ready", "inspired", "authoritative", "wise", "awaken",
     "relieved", "comfortable",
@@ -31,12 +29,12 @@ WARM_EMO_KEYS = [
 
 
 def theme_for(emotion):
-    """按 emotion 关键词返回背景主题：cool / warm / neutral。"""
+    """按 emotion 关键词返回背景主题：cool / bright / neutral。"""
     e = (emotion or "").lower()
     if any(k in e for k in COOL_EMO_KEYS):
         return "cool"
-    if any(k in e for k in WARM_EMO_KEYS):
-        return "warm"
+    if any(k in e for k in BRIGHT_EMO_KEYS):
+        return "bright"
     return "neutral"
 
 # 阴郁/消极词典（命中即提示风险，重写时优先处理）
@@ -56,7 +54,7 @@ ABSOLUTE_NEG = [
 
 
 def analyze_image(path):
-    """返回 {luminance, warmth, dark_ratio}；读取失败返回 None。"""
+    """返回 {luminance, dark_ratio}；读取失败返回 None。"""
     try:
         im = Image.open(path).convert("RGB").resize((160, 90))
         s = ImageStat.Stat(im)
@@ -67,8 +65,7 @@ def analyze_image(path):
     px = list(im.getdata())
     dark = sum(1 for p in px
                if 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2] < 60)
-    return {"luminance": round(lum, 1), "warmth": round(r - b, 1),
-            "dark_ratio": round(dark / len(px), 3)}
+    return {"luminance": round(lum, 1), "dark_ratio": round(dark / len(px), 3)}
 
 
 def risk_reasons(stat):
@@ -78,8 +75,6 @@ def risk_reasons(stat):
     reasons = []
     if stat["luminance"] < THRESH_LUM:
         reasons.append(f"亮度偏低 {stat['luminance']}（<{THRESH_LUM:.0f}）")
-    if stat["warmth"] < THRESH_WARM:
-        reasons.append(f"暖度不足 {stat['warmth']:+.0f}（<{THRESH_WARM:.0f}）")
     if stat["dark_ratio"] > THRESH_DARK:
         reasons.append(f"暗部占比 {stat['dark_ratio'] * 100:.0f}%"
                        f"（>{THRESH_DARK * 100:.0f}%）")

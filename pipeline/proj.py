@@ -9,7 +9,7 @@
     input/      文案与分镜（brief.md、script.txt、storyboard_narrative.json…）
     assets/     卡点画面（scenes/）、历史底图（art/）、渲染中间层（layers/）
     audio/      配音缓存（voice/）、背景乐、合成中间（tmp/）
-    output/     成片、分块（vs2_*）、抽帧（preview/）、报告
+    output/     成片（long_{id}*.mp4）、分块（vs2_*）、抽帧（preview/）、报告
 
 规则：
   - 项目 id 来自环境变量 PROJECT（默认 "001"），各脚本的 --project 参数

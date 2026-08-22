@@ -278,11 +278,6 @@ def make_bottom_gradient(h_ratio=0.15, peak_alpha=102):
     return img
 
 
-def make_narrative_base(block, idx, total, meta=None):
-    """叙事模式叠层：已移除进度条与阶段徽章（空透明层，保留接口占位）。"""
-    return Image.new("RGBA", (W, H), (0, 0, 0, 0))
-
-
 def make_sweep_layer():
     """阶段页金色斜向光带（透明底），渲染时从左向右扫过。"""
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))

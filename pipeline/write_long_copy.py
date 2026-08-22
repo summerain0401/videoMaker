@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""长视频文案 AI 起草（五段式标记格式 -> 人工定稿）。
+"""长视频文案 DeepSeek API 后备起草（五段式标记格式 -> 人工定稿）。
 
 项目制路径：默认读写 projects/001_金钱的艺术/input/（环境变量 PROJECT
 可换项目，--project 参数可覆盖）。流程：项目 input/brief.md 需求单 ->
@@ -333,7 +333,7 @@ def accept(path):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="长视频文案 AI 起草（五段式标记格式）")
+    ap = argparse.ArgumentParser(description="长视频文案 DeepSeek API 后备起草（五段式标记格式）")
     ap.add_argument("--project", default=None,
                     help="项目 id（默认取环境变量 PROJECT，缺省 001）")
     ap.add_argument("--provider", choices=list(PROVIDERS), default="deepseek",
@@ -342,8 +342,8 @@ def main():
     ap.add_argument("--author", help="作者，覆盖需求单")
     ap.add_argument("--brief-file", help="需求单路径，默认项目 input/brief.md")
     ap.add_argument("--model", help="覆盖默认模型名")
-    ap.add_argument("--accept", action="store_true",
-                    help="把最新草稿定稿到项目 input/script.txt")
+    ap.add_argument("--accept", nargs="?", const="auto", metavar="FILE",
+                    help="把最新草稿或指定 FILE 定稿到项目 input/script.txt")
     ap.add_argument("--check", metavar="FILE",
                     help="离线结构校验指定文案文件，不调 API")
     args = ap.parse_args()
@@ -372,12 +372,19 @@ def main():
         return
 
     if args.accept:
-        drafts = sorted(f for f in os.listdir(PROJ("input"))
-                        if f.startswith("draft_") and f.endswith(".txt"))
-        if not drafts:
-            print("项目 input/ 下没有草稿，请先运行起草。")
+        if args.accept == "auto":
+            drafts = sorted(f for f in os.listdir(PROJ("input"))
+                            if f.startswith("draft_") and f.endswith(".txt"))
+            if not drafts:
+                print("项目 input/ 下没有草稿，请先运行起草。")
+                sys.exit(4)
+            path = PROJ("input", drafts[-1])
+        else:
+            path = args.accept
+        if not os.path.exists(path):
+            print(f"未找到待定稿文案：{path}")
             sys.exit(4)
-        accept(PROJ("input", drafts[-1]))
+        accept(path)
         return
 
     user_prompt = read_brief(args.book, args.author, args.brief_file)

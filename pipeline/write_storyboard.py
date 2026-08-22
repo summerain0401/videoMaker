@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""长视频叙事分镜生成：DeepSeek 把每块口播切成 3-5 个卡点并写画面提示词。
+"""长视频叙事分镜 DeepSeek API 后备生成。
 
 项目制路径：默认读写 projects/001_金钱的艺术/input/（环境变量 PROJECT
 可换项目，--project 参数可覆盖）。流程：项目 input/script.txt ->
@@ -462,7 +462,7 @@ def missing_beats(story):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="长视频叙事分镜生成（DeepSeek）")
+    ap = argparse.ArgumentParser(description="长视频叙事分镜 DeepSeek API 后备生成")
     ap.add_argument("--project", default=None,
                     help="项目 id（默认取环境变量 PROJECT，缺省 001）")
     ap.add_argument("--provider", choices=list(PROVIDERS), default="deepseek")

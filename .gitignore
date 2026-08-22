@@ -8,6 +8,9 @@ projects/*/audio/tmp/
 projects/*/audio/music.wav
 projects/*/output/*.mp4
 projects/*/output/preview/
+projects/*/output/codex_jobs/
+projects/*/input/candidates/
+projects/*/assets/scenes/candidates/
 
 # Python 字节码 / 系统垃圾
 __pycache__/

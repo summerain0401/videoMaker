@@ -2,8 +2,8 @@
 
 ## Project Structure & Module Organization
 
-- `pipeline/` — 共享构建脚本：`proj.py`（项目制路径解析）、`build_long.py`（16:9 长视频 V2 主引擎）、`long_visuals.py`（画面元素库）、`tts_piper.py`（本地神经 TTS）、`tts_edge.py`（微软 Edge 在线 TTS，免费无密钥）、`tts_azure.py`（Azure 正式语音，需密钥）、`write_long_copy.py`（长视频文案起草）、`write_storyboard.py`（叙事分镜）、`write_image_art.py`（通义万相插画生成）。
-- `projects/{id}_书名/` — 单个长视频项目：`input/`（brief.md、script.txt、draft_*.txt、storyboard_narrative.json）、`assets/`（scenes/ 卡点画面、art/ 历史底图存档、cover.png、layers/ 渲染中间层）、`audio/`（voice/ 配音缓存、music.wav、tmp/）、`output/`（成片、vs2_* 分块、preview/ 抽帧、报告）。
+- `pipeline/` — 共享构建脚本：`proj.py`（项目制路径解析）、`codex_jobs.py`（Codex 原生任务状态/候选资产/提升）、`build_long.py`（16:9 长视频 V5 主引擎）、`long_visuals.py`（画面元素库）、`tts_piper.py`（本地神经 TTS）、`tts_edge.py`（微软 Edge 在线 TTS，免费无密钥）、`tts_azure.py`（Azure 正式语音，需密钥）、`write_long_copy.py`（DeepSeek API 后备文案起草）、`write_storyboard.py`（DeepSeek API 后备叙事分镜）、`write_image_art.py`（万相 API 后备生图）。
+- `projects/{id}_书名/` — 单个长视频项目：`input/`（brief、script、叙事/输出分镜、候选资产）、`assets/`（scenes/ 卡点画面、art/ 历史底图、layers/ 渲染中间层）、`audio/`（voice/ 配音缓存、背景乐、tmp/）、`output/`（成片、vs2_* 分块、preview/ 抽帧、报告与 Codex run 状态）。
 - `assets/piper/` — 共享 Piper 模型（运行时依赖，不入库）。
 - `docs/` — 工作流文档（`docs/长视频工作流.md`）。
 - 文档：`PROJECT_PLAN.md`（规划）、`HANDOFF.md`（交接）、`report.pdf`（频道分析）。
@@ -15,6 +15,9 @@
 
 ```bash
 # 项目切换：PROJECT=002 … 或 --project 002（默认 001_金钱的艺术）
+
+# 默认：Codex 中使用 $video-maker-production；此命令只创建本地可恢复 run，不调用 API
+python3 pipeline/codex_jobs.py init
 
 # 长视频全片 / 样段（必须提权运行：Piper 的 PyTorch 共享内存被沙盒限制）
 python3 pipeline/build_long.py
@@ -69,5 +72,5 @@ python3 -m py_compile pipeline/*.py
 
 - API 密钥只走环境变量（`DEEPSEEK_API_KEY`、`DASHSCOPE_API_KEY` 等）或项目根 `.env`（已被 `.gitignore` 排除），绝不写入仓库或提交。
 - `.env`、项目 `audio/voice/`、`audio/tmp/`、`assets/layers/`、成片 mp4、preview 均由 `.gitignore` 排除；提交前检查 `git status` 确认无混入。
-- 外部服务调用前需用户授权；`piper`/`say` 必须提权运行。
+- 默认 Codex 制作使用内置文本与 ImageGen，不配置 `OPENAI_API_KEY`，不调用 API；候选资产仅在用户明确确认后执行 `codex_jobs.py promote`。DeepSeek / 万相 / Azure 等外部服务调用前仍需用户授权；`piper`/`say` 必须提权运行。
 - 模型与拼音数据已本地化（`assets/piper/`），首次安装依赖需联网授权一次。

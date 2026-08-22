@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""2D Q 版插画分镜生成流水线（docs/插画Prompts.md 三层架构）。
+"""最终输出分镜装配器（docs/插画Prompts.md 三层架构）。
 
-流程：项目 input/storyboard_narrative.json（中文拍）→ DeepSeek 按块批量
-解析为 character_id + action_props_en → 装配引擎按「全局 2D 底模 + 暖色
+默认 Codex 流程：项目 input/storyboard_narrative.json（中文拍）→ Codex 产出
+本地 --from-plan 的 character_id + action_props_en → 装配引擎按「全局 2D 底模 + 暖色
 底线/项目变体 + 角色预设 + 动作 + 景别 + 16:9」拼装英文 final_image_prompt
 → 写入项目 input/storyboard_output.json → pipeline/write_image_art.py
 --chibi 生成卡点画面。
+
+不带 --from-plan 时才会走 DeepSeek API 后备路径，供用户明确选择 API 后备时使用。
 
 角色库：全局 assets/characters.json（默认）+ 项目 input/characters.json
 （可选，覆盖/追加，项目优先）。角色定义仅含外观服装标志物，不含动作情绪。
@@ -17,6 +19,7 @@
   python3 pipeline/write_chibi_prompts.py --beats 00_0 00_1
   python3 pipeline/write_chibi_prompts.py --check    # 离线校验
   python3 pipeline/write_chibi_prompts.py --assemble-only  # 改变体后重装配
+  python3 pipeline/write_chibi_prompts.py --from-plan output_plan.json --out candidate.json
 
 密钥：环境变量 DEEPSEEK_API_KEY 或项目根 .env（已 gitignore）。
 """
@@ -56,10 +59,10 @@ TWO_PERSON_EN = ("exactly two people, strict two-way split composition, "
 THEME_BG_EN = {
     "cool": ("pale cool gray-blue background, muted cyan-gray tones, "
              "calm desaturated cool palette, bright but cool"),
-    "warm": ("warm apricot and light golden background, "
-             "soft golden sunlight, bright cozy warm palette"),
+    "bright": ("clear daylight or a bright practical interior, "
+               "balanced expressive palette"),
     "neutral": ("soft cream and light beige background, "
-                "gentle neutral warm palette"),
+                "gentle neutral balanced palette"),
 }
 MAX_RETRY = 2
 MAX_ACTION = 200
@@ -295,7 +298,7 @@ def validate_parse(raw, expected, char_ids, narrations=None):
 
 
 def assemble_prompt(be, char_prompt, meta, chars=None):
-    """装配公式：全局 2D 底模 + 暖色底线 + 项目变体 + 角色 + 动作 + 景别 + 16:9。"""
+    """装配公式：全局 2D 底模 + 清晰度底线 + 项目变体 + 角色 + 动作 + 景别 + 16:9。"""
     theme = tone.theme_for(be.get("emotion", ""))
     sec = be.get("secondary_character_id")
     char_section = char_prompt
@@ -427,6 +430,74 @@ def parse_blocks(args, story, chars, meta, out_path):
             "blocks": output_blocks}
 
 
+def parse_codex_plan(plan_path, story, chars, meta):
+    """把 Codex 写出的本地语义计划装配成最终输出分镜，不调用任何模型或网络。"""
+    with open(plan_path, encoding="utf-8") as f:
+        plan = json.load(f)
+    plan_by_key = {}
+    for block in plan.get("blocks", []):
+        bi = int(block["block_idx"])
+        for beat in block.get("beats", []):
+            key = (bi, int(beat["beat_idx"]))
+            if key in plan_by_key:
+                raise ValueError(f"Codex 输出计划拍号重复：{bi:02d}_{key[1]}")
+            plan_by_key[key] = beat
+
+    output_blocks = []
+    for sb in story["blocks"]:
+        bi = int(sb["block_idx"])
+        out_beats = []
+        sub_map = {s["id"]: s["text"] for s in sb.get("subtitles", [])}
+        for be in sb.get("beats", []):
+            if not (be.get("prompt") or "").strip():
+                continue
+            idx = int(be["beat_idx"])
+            raw = plan_by_key.pop((bi, idx), None)
+            if raw is None:
+                raise ValueError(f"Codex 输出计划缺少拍：{bi:02d}_{idx}")
+            cid = (raw.get("character_id") or "").strip()
+            action = (raw.get("action_props") or "").strip()
+            emotion = (raw.get("emotion") or "").strip()
+            segment = (raw.get("segment") or "").strip()
+            sec = (raw.get("secondary_character_id") or "").strip()
+            if cid not in chars:
+                raise ValueError(f"{bi:02d}_{idx} character_id 非法：{cid}")
+            if sec and sec not in chars:
+                raise ValueError(f"{bi:02d}_{idx} secondary_character_id 非法：{sec}")
+            if not action or re.search(r"[\u4e00-\u9fff]", action) or len(action) > MAX_ACTION:
+                raise ValueError(f"{bi:02d}_{idx} action_props 必须为不超过 {MAX_ACTION} 字符的英文")
+            if not emotion or re.search(r"[\u4e00-\u9fff]", emotion) or len(emotion) > 60:
+                raise ValueError(f"{bi:02d}_{idx} emotion 必须为不超过 60 字符的英文")
+            if segment not in ("hook", "insight", "action"):
+                raise ValueError(f"{bi:02d}_{idx} segment 非法：{segment}")
+            entry = {
+                "beat_idx": idx,
+                "shot": be.get("shot", "medium"),
+                "original_cn": be["prompt"].strip(),
+                "character_id": cid,
+                "action_props": action,
+                "emotion": emotion,
+                "segment": segment,
+            }
+            narration = " ｜ ".join(sub_map[i] for i in be.get("sentence_ids", [])
+                                    if i in sub_map)
+            entry["character_id"] = assign_character_safety_guard(entry, narration)
+            if sec and sec != entry["character_id"]:
+                entry["secondary_character_id"] = sec
+            char_prompt = (chars.get(entry["character_id"]) or {}).get("prompt", "")
+            entry["final_image_prompt"] = assemble_prompt(entry, char_prompt, meta, chars)
+            out_beats.append(entry)
+        if out_beats:
+            output_blocks.append({"block_idx": bi, "head": sb["head"], "beats": out_beats})
+    if plan_by_key:
+        extras = " ".join(f"{bi:02d}_{idx}" for bi, idx in sorted(plan_by_key))
+        raise ValueError("Codex 输出计划含叙事分镜中不存在的拍：" + extras)
+    return {"style_id": STYLE_ID,
+            "generated_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "source": "codex-local-plan",
+            "blocks": output_blocks}
+
+
 def validate_final(output, story, chars, full=True):
     """离线校验 storyboard_output.json，返回问题列表。
 
@@ -521,6 +592,8 @@ def main():
                     help="离线校验 storyboard_output.json（默认项目 input/）")
     ap.add_argument("--assemble-only", action="store_true",
                     help="仅按当前常量重装配 final prompt（不调 LLM）")
+    ap.add_argument("--from-plan", metavar="FILE",
+                    help="读取 Codex 本地语义计划并装配最终输出分镜（不调 API）")
     ap.add_argument("--out", default=None, help="输出 JSON 路径")
     ap.add_argument("--model", default=None, help="覆盖默认模型名")
     args = ap.parse_args()
@@ -550,6 +623,21 @@ def main():
 
     if args.assemble_only:
         reassemble(args, chars, meta, out_path)
+        return
+
+    if args.from_plan:
+        story = load_story()
+        output = parse_codex_plan(args.from_plan, story, chars, meta)
+        problems = validate_final(output, story, chars)
+        if problems:
+            print("拼装后校验未通过：")
+            for p in problems:
+                print(" -", p)
+            sys.exit(4)
+        path = save(output, out_path)
+        total = sum(len(b["beats"]) for b in output["blocks"])
+        print(f"Codex 最终输出分镜已保存：{path}")
+        print(f"共 {len(output['blocks'])} 块、{total} 拍；可运行 --check 复核。")
         return
 
     story = load_story()

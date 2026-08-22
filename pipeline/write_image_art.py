@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""长视频 AI 插画生成（阿里云百炼 wan2.7-image）。
+"""长视频插画万相 API 后备生成（阿里云百炼 wan2.7-image）。
 
 项目制路径：默认读写 projects/001_金钱的艺术/（环境变量 PROJECT 可换项目，
 --project 参数可覆盖）：
@@ -10,8 +10,8 @@
                （art/ 为历史底图存档，渲染不再引用）
   --tone-check 扫描项目 scenes/ 输出阴郁风险报告到 output/tone_report.md
 
-基调控制：提示词 = 拍提示词 + WARM_BASE（不变底线）+ 项目 visual_style
-变体（防视频间雷同）+ 负面清单；--force 重绘时自动追加提亮暖化指令。
+基调控制：提示词 = 拍提示词 + VISUAL_BASE（清晰可读）+ 项目 visual_style
+变体（防视频间雷同）+ 负面清单；--force 重绘时只追加清晰度指令。
 
 环境变量（均可放项目根 .env，已 gitignore）：
   DASHSCOPE_API_KEY   必填，百炼 API Key
@@ -55,39 +55,36 @@ SLOTS = ["TITLE", "END", "S1", "S2", "S3", "S4", "S5"]
 DEFAULT_BASE = "https://dashscope.aliyuncs.com"
 DEFAULT_MODEL = "wan2.7-image"
 
-STYLE = ("暖色调温馨明亮的抽象知识感数字插画，奶油色与暖黄为主，柔和阳光"
-         "与暖色光晕、细腻颗粒质感、微光几何线条，画面干净通透不阴暗，"
+STYLE = ("明亮清晰的抽象知识感数字插画，色彩与光线服务具体叙事，"
+         "细腻颗粒质感、微光几何线条，画面干净通透不过度压暗，"
          "电影感柔光布光，16:9 横构图，画面中央与左侧预留大面积留白空间"
          "以便叠加文字卡片，画面中不要出现任何文字、字母、人脸或人物。")
 
-# 不变底线：所有项目/所有拍共同遵守，优先于拍提示词中的氛围描述
-WARM_BASE = ("插画叙事风格：手绘电影感插画，人物形象自然、动作与情绪真实，"
-             "场景有故事感。画面基调必须温暖温馨、明亮通透，以暖黄、奶油色、"
-             "蜜色光为主色调，柔和阳光或暖色灯光为光源，画面干净明亮；"
-             "不允许冷色调、灰暗天空、昏暗房间或大面积暗部；即使表达疲惫、"
-             "焦虑或对比情绪，人物与环境也必须被暖色光线包裹，"
-             "保持治愈而不压抑。电影感构图与柔光布光，16:9 横构图，"
+# 不变底线：所有项目/所有拍共同遵守，但不强制色温或固定色板。
+VISUAL_BASE = ("插画叙事风格：手绘电影感插画，人物形象自然、动作与情绪真实，"
+               "场景有故事感。色彩、天气与光线必须服务当前叙事和情绪，"
+               "画面保持主体清楚、层次可读、曝光均衡，避免无意的大面积死黑；"
+               "允许冷暖、中性、日景或夜景等不同色调。电影感构图与柔光布光，16:9 横构图，"
              "画面中不要出现任何文字、字母、图表、标语或水印，"
              "底部 15% 区域保持简洁以预留给字幕。")
 
-# 负面清单：显式排除，兜底模型理解
-NEGATIVE = ("画面中禁止出现：冷色调、灰暗天空、昏暗房间、大面积阴影、"
-            "阴郁压抑氛围、恐怖惊悚元素、雨雪阴天、哭泣绝望等消极画面；"
-            "所有场景必须以暖色光照明亮呈现。")
+# 负面清单：只排除影响可用性与叙事的元素，不限制色温。
+NEGATIVE = ("画面中禁止出现：文字、字母、数字、图表、标语、水印、恐怖惊悚元素、"
+            "无叙事理由的大面积死黑、主体不可辨识或压抑到无法阅读的画面。")
 
-# 重绘暖化指令：--force 重绘时自动追加
-WARM_BOOST = ("请把画面整体提亮，以暖色灯光与阳光为主要光源，"
-              "消除所有冷色、灰暗与大面积暗部，让情绪即使紧张也被暖光包裹。")
+# 重绘清晰度指令：--force 重绘时自动追加，不改变既定色彩叙事。
+CLARITY_BOOST = ("请提升主体可读性、画面层次与曝光平衡；保留该拍需要的色彩和情绪，"
+                 "避免无意的大面积死黑或主体丢失。")
 
-# 2D Q 版流水线常量（docs/插画Prompts.md）：全局底模 + 暖色底线 + 负面词
+# 2D Q 版流水线常量（docs/插画Prompts.md）：全局底模 + 清晰度底线 + 负面词
 GLOBAL_2D_STYLE_PREFIX = (
     "2D cute chibi kawaii anime illustration, flat vector graphic art, "
     "bold clean outlines, vibrant pastel colors, "
     "simple minimalist studio background"
 )
 BRIGHT_BASE_EN = (
-    "bright clean lighting, clear bright atmosphere, "
-    "not dark, not gloomy, not oppressive"
+    "clear legible lighting, balanced contrast, "
+    "color and atmosphere match the narrative emotion"
 )
 CHIBI_NEGATIVE_PROMPT = (
     "photorealistic, realistic, 3D render, dark gritty shadows, "
@@ -102,7 +99,7 @@ CHIBI_NEGATIVE_PROMPT = (
     "scary horror elements, rain snow cloudy sky, large dark shadow area"
 )
 
-# 项目风格变体表：共同底线不变，变体不同（防视频间雷同）
+# 项目风格变体表：变体描述画风，不作为全局色温限制。
 VARIANT_STYLES = {
     "奶油暖金·手绘电影感": {
         "zh": "主色奶油色与暖金黄，蜜色柔光，手绘电影感插画质感，细腻颗粒与柔光光晕",
@@ -111,6 +108,10 @@ VARIANT_STYLES = {
     "焦糖蜜橙·水彩": {
         "zh": "主色焦糖棕与蜜橙，暖橙阳光，水彩晕染质感，通透淡雅",
         "en": "caramel brown and honey orange color palette, warm orange sunlight, watercolor texture",
+    },
+    "都市均衡·水彩": {
+        "zh": "都市水彩晕染与清晰线稿，颜色随场景与情绪自然变化，通透克制",
+        "en": "urban watercolor texture, clear line art, narrative color grading that shifts naturally with scene and emotion",
     },
     "蜜桃粉·扁平治愈": {
         "zh": "主色蜜桃粉与奶白，柔和粉金光线，扁平治愈系插画质感，简洁明快",
@@ -125,7 +126,7 @@ VARIANT_STYLES = {
         "en": "amber brown and ochre color palette, warm yellow lamp light, vintage print line texture",
     },
 }
-DEFAULT_VARIANT = "奶油暖金·手绘电影感"
+DEFAULT_VARIANT = "都市均衡·水彩"
 
 PROMPTS = {
     "TITLE": "一本微微发光的书放在暖色书桌上，金色光点与环形钟表齿轮的"
@@ -152,7 +153,7 @@ def style_suffix(meta):
     vs = (meta or {}).get("visual_style") or {}
     variant = vs.get("variant") or DEFAULT_VARIANT
     desc = VARIANT_STYLES.get(variant, VARIANT_STYLES[DEFAULT_VARIANT])["zh"]
-    return " " + WARM_BASE + " " + desc + " " + NEGATIVE
+    return " " + VISUAL_BASE + " " + desc + " " + NEGATIVE
 
 
 def variant_en(meta):
@@ -254,7 +255,7 @@ def run_story(args, model, base, thinking):
         story = json.load(f)
     meta = PJ.read_meta()
     suffix = style_suffix(meta)
-    boost = WARM_BOOST if args.force else ""
+    boost = CLARITY_BOOST if args.force else ""
     want = set(args.beats or [])
     failed = 0
     for sb in story["blocks"]:
@@ -326,9 +327,9 @@ def run_chibi(args, model, base, thinking):
     print(f"2D Q 版卡点画面完成：{made} 张。")
 
 
-def tone_check():
-    """扫描项目 scenes/ 与分镜提示词，输出阴郁风险报告（不调 API）。"""
-    scenes_dir = PROJ("assets", "scenes")
+def tone_check(scenes_dir=None, report_path=None):
+    """扫描指定 scenes/ 与正式分镜提示词，输出阴郁风险报告（不调 API）。"""
+    scenes_dir = scenes_dir or PROJ("assets", "scenes")
     if not os.path.isdir(scenes_dir):
         print(f"未找到卡点画面目录：{scenes_dir}")
         sys.exit(1)
@@ -366,40 +367,36 @@ def tone_check():
         key = fn[:-4]
         stat = tone.analyze_image(os.path.join(scenes_dir, fn))
         reasons = tone.risk_reasons(stat)
-        theme = tone.theme_for(emo_map.get(key, ""))
-        if theme == "cool":
-            reasons = [r for r in reasons
-                       if not r.startswith("暖度不足")]
         pw = tone.prompt_risks(prompt_map.get(key, ""), words=risk_words)
         if pw:
             reasons.append(f"提示词含阴郁词：{'/'.join(pw)}")
         rows.append({"file": fn, "stat": stat, "reasons": reasons})
     risk_rows = [r for r in rows if r["reasons"]]
-    out = PROJ("output", "tone_report.md")
-    lines = ["# 色调风险报告", "",
+    out = report_path or PROJ("output", "tone_report.md")
+    os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
+    lines = ["# 画面可读性风险报告", "",
              f"阈值：亮度 <{tone.THRESH_LUM:.0f} / "
-             f"暖度 <{tone.THRESH_WARM:.0f} / "
              f"暗部占比 >{tone.THRESH_DARK * 100:.0f}%",
              "", f"共 {len(rows)} 张，风险 {len(risk_rows)} 张。", "",
-             "| 文件 | 亮度 | 暖度 | 暗部占比 | 风险原因 |", "|---|---|---|---|---|"]
+             "| 文件 | 亮度 | 暗部占比 | 风险原因 |", "|---|---|---|---|"]
     for r in rows:
         st = r["stat"] or {}
         lines.append(f"| {r['file']} | {st.get('luminance', '-')} | "
-                     f"{st.get('warmth', '-')} | {st.get('dark_ratio', '-')} | "
+                     f"{st.get('dark_ratio', '-')} | "
                      f"{'；'.join(r['reasons']) or '达标'} |")
     with open(out, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
     print(f"色调检查完成：{len(rows)} 张，风险 {len(risk_rows)} 张。"
           f"报告：{out}")
     if risk_rows:
-        print("风险图（建议暖化重绘）：")
+        print("风险图（建议按叙事调整后重绘）：")
         for r in risk_rows:
             print(" -", r["file"], "；".join(r["reasons"]))
     return risk_rows
 
 
 def main():
-    ap = argparse.ArgumentParser(description="长视频 AI 插画底图生成（通义万相）")
+    ap = argparse.ArgumentParser(description="长视频插画万相 API 后备生成")
     ap.add_argument("--project", default=None,
                     help="项目 id（默认取环境变量 PROJECT，缺省 001）")
     ap.add_argument("--force", action="store_true", help="覆盖已存在的图片")
@@ -415,6 +412,10 @@ def main():
                     help="--story 模式下只生成指定拍，如 00_0 02_1")
     ap.add_argument("--tone-check", action="store_true",
                     help="扫描项目 scenes/ 输出阴郁风险报告（不调 API）")
+    ap.add_argument("--scene-dir",
+                    help="--tone-check 指定待检图片目录（默认 assets/scenes/）")
+    ap.add_argument("--tone-report",
+                    help="--tone-check 指定报告路径（默认 output/tone_report.md）")
     ap.add_argument("--model", default=None, help="覆盖 IMAGE_MODEL")
     ap.add_argument("--base", default=None, help="覆盖 DASHSCOPE_BASE_URL")
     args = ap.parse_args()
@@ -427,7 +428,7 @@ def main():
     base = args.base or os.environ.get("DASHSCOPE_BASE_URL", DEFAULT_BASE)
     thinking = os.environ.get("IMAGE_THINKING", "1") != "0"
     if args.tone_check:
-        tone_check()
+        tone_check(args.scene_dir, args.tone_report)
         return
     if args.chibi:
         run_chibi(args, model, base, thinking)

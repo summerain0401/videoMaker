@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""长视频 V2 引擎：Piper 本地神经配音 + 全程运镜 + 视差 + 丰富元素 + xfade 转场。
+"""长视频 V5 引擎：叙事画面 + 多 TTS + 字幕/SFX + 三段 BGM 智能混音。
 
 项目制路径：默认渲染 projects/001_金钱的艺术（环境变量 PROJECT 可换项目），
 文案/分镜在项目 input/，画面在项目 assets/，配音缓存与背景乐在项目 audio/，
@@ -65,6 +65,11 @@ AUTHOR = "Morgan Housel"
 def story_path():
     """当前项目分镜 JSON 路径（--project 覆盖后需动态解析）。"""
     return PROJ("input", "storyboard_narrative.json")
+
+
+def output_story_path():
+    """最终输出分镜路径；V5 从中读取经确认的 BGM segment 标签。"""
+    return PROJ("input", "storyboard_output.json")
 
 PALETTES = {
     "TITLE": ["0x2B2436", "0x3D3152", "0x574B79"],
@@ -179,8 +184,9 @@ def make_audio(blocks):
     os.makedirs(PROJ("audio", "voice"), exist_ok=True)
     os.makedirs(PROJ("audio", "tmp"), exist_ok=True)
     for i, b in enumerate(blocks):
+        source_idx = b.get("_source_idx", i)
         if b["voice"]:
-            stem = voice_stem(i, b["voice"])
+            stem = voice_stem(source_idx, b["voice"])
             raw = PROJ("audio", "voice", stem + "_raw.wav")
             pp = PROJ("audio", "voice", stem + ".wav")
             if not (os.path.exists(raw) and os.path.exists(pp)):
@@ -220,15 +226,6 @@ def palette_for(b):
         return PALETTES["TITLE"]
     key = phase_num(b["phase"]) or "01"
     return PALETTES.get(key, PALETTES["01"])
-
-
-def art_key(b):
-    if b["type"] == "TITLE":
-        return "TITLE"
-    if b["type"] == "END":
-        return "END"
-    num = phase_num(b["phase"])
-    return f"S{int(num)}" if num and num.isdigit() else "S1"
 
 
 def make_background(b, idx):
@@ -471,17 +468,37 @@ def render_frames(blocks, meta):
 
 
 def load_storyboard():
-    """读取叙事分镜 JSON；不存在则返回 None（回退卡片模式）。"""
-    if os.path.exists(story_path()):
-        with open(story_path(), encoding="utf-8") as f:
-            return json.load(f)
-    return None
+    """读取叙事分镜，并叠加最终输出分镜中经确认的 V5 segment 标签。"""
+    if not os.path.exists(story_path()):
+        return None
+    with open(story_path(), encoding="utf-8") as f:
+        story = json.load(f)
+    if not os.path.exists(output_story_path()):
+        return story
+    try:
+        with open(output_story_path(), encoding="utf-8") as f:
+            output_story = json.load(f)
+    except (OSError, ValueError, TypeError):
+        return story
+    segment_map = {
+        (sb.get("block_idx"), beat.get("beat_idx")): beat.get("segment")
+        for sb in output_story.get("blocks", [])
+        for beat in sb.get("beats", [])
+        if beat.get("segment") in ("hook", "insight", "action")
+    }
+    for sb in story.get("blocks", []):
+        for beat in sb.get("beats", []):
+            key = (sb.get("block_idx"), beat.get("beat_idx"))
+            if key in segment_map:
+                beat["segment"] = segment_map[key]
+    return story
 
 
 def phase_art_path(blocks, idx):
     """阶段页背景：后续第一个有卡点图的内容块首拍画面（保持故事连续）。"""
     for j in range(idx + 1, len(blocks)):
-        p = PROJ("assets", "scenes", f"{j:02d}_0.png")
+        source_idx = blocks[j].get("_source_idx", j)
+        p = PROJ("assets", "scenes", f"{source_idx:02d}_0.png")
         if os.path.exists(p):
             return p
     return None
@@ -489,7 +506,8 @@ def phase_art_path(blocks, idx):
 
 def beat_art_path(b, idx, beat_idx, blocks=None):
     """卡点画面：优先 scenes/{idx}_{beat}.png；PHASE 用后续内容块首拍；否则 None。"""
-    p = PROJ("assets", "scenes", f"{idx:02d}_{beat_idx}.png")
+    source_idx = b.get("_source_idx", idx)
+    p = PROJ("assets", "scenes", f"{source_idx:02d}_{beat_idx}.png")
     if os.path.exists(p):
         return p
     if b["type"] == "PHASE" and blocks is not None:
@@ -642,14 +660,17 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
     """叙事模式：卡点画面 zoompan 硬切拼接 + 字幕叠层。"""
     b = blocks[idx]
     sdur = scene_time(b)
-    sb = story["blocks"][idx]
+    source_idx = b.get("_source_idx", idx)
+    sb_map = {item["block_idx"]: item for item in story["blocks"]}
+    sb = sb_map[source_idx]
     beats = sb["beats"]
     durs = beat_durations(sdur, beats)
     n = len(beats)
     bg_paths = []
-    for k in range(n):
-        bg_paths.append(make_beat_bg(b, idx, k,
-                                     beat_art_path(b, idx, k, blocks)))
+    for beat in beats:
+        beat_idx = beat["beat_idx"]
+        bg_paths.append(make_beat_bg(
+            b, idx, beat_idx, beat_art_path(b, idx, beat_idx, blocks)))
     deco = PROJ("assets", "layers", f"deco_{idx:02d}.png")
     V.make_deco_layer(idx).save(deco)
     sub_events = []
@@ -766,9 +787,12 @@ def render_frames_narrative(blocks, meta, story):
     outdir = PROJ("output", "preview")
     os.makedirs(outdir, exist_ok=True)
     for i, b in enumerate(blocks):
-        sb = story["blocks"][i]
-        for k, be in enumerate(sb["beats"]):
-            art = beat_art_path(b, i, k, blocks)
+        source_idx = b.get("_source_idx", i)
+        sb_map = {item["block_idx"]: item for item in story["blocks"]}
+        sb = sb_map[source_idx]
+        for be in sb["beats"]:
+            beat_idx = be["beat_idx"]
+            art = beat_art_path(b, i, beat_idx, blocks)
             if art and os.path.exists(art):
                 img = Image.open(art).convert("RGB")
             else:
@@ -779,16 +803,20 @@ def render_frames_narrative(blocks, meta, story):
             y0 = (img.height - H) // 2
             img = img.crop((x0, y0, x0 + W, y0 + H)).convert("RGBA")
             img.convert("RGB").save(
-                os.path.join(outdir, f"m3n_{i:02d}_{k:02d}.jpg"), quality=88)
+                os.path.join(outdir,
+                             f"m3n_{source_idx:02d}_{beat_idx:02d}.jpg"),
+                quality=88)
             if sb["subtitles"]:
                 img2 = Image.alpha_composite(
                     img, V.make_subtitle_layer(
                         split_subtitle_chunks(
                             sb["subtitles"][0]["text"])[0]))
                 img2.convert("RGB").save(
-                    os.path.join(outdir, f"m3n_{i:02d}_{k:02d}_s.jpg"),
+                    os.path.join(
+                        outdir,
+                        f"m3n_{source_idx:02d}_{beat_idx:02d}_s.jpg"),
                     quality=88)
-        print(f"nframe {i:02d} {b['type']} done")
+        print(f"nframe {source_idx:02d} {b['type']} done")
 
 
 SFX_KEYWORDS = {
@@ -885,8 +913,9 @@ def make_scene_audio(b, idx, sfx_events=None):
         return path
 
     segs.append(silence(scene_lead(b), f"vs2_{idx:02d}_lead.wav"))
+    source_idx = b.get("_source_idx", idx)
     segs.append(PROJ("audio", "voice",
-                  voice_stem(idx, b["voice"]) + ".wav"))
+                  voice_stem(source_idx, b["voice"]) + ".wav"))
     segs.append(silence(TAIL, f"vs2_{idx:02d}_tail.wav"))
     lst = os.path.join(tmp, f"vs2_{idx:02d}_list.txt")
     with open(lst, "w", encoding="utf-8") as f:
@@ -927,7 +956,8 @@ def compute_segments(blocks, story):
     seg_starts = {1: None, 2: None, 3: None}
     last_seg = 3
     for i, b in enumerate(blocks):
-        sb = sb_map.get(i)
+        source_idx = b.get("_source_idx", i)
+        sb = sb_map.get(source_idx)
         if sb:
             beat_durs = beat_durations(scene_time(b), sb["beats"])
         else:
@@ -1117,7 +1147,7 @@ def write_reports(blocks, total, out_name):
 
 def main():
     global NO_TTS
-    ap = argparse.ArgumentParser(description="长视频 V2 渲染引擎")
+    ap = argparse.ArgumentParser(description="长视频 V5 渲染引擎")
     ap.add_argument("--project", default=None,
                     help="项目 id（默认取环境变量 PROJECT，缺省 001）")
     ap.add_argument("--pilot", action="store_true", help="只渲染前 5 个块")
@@ -1132,6 +1162,8 @@ def main():
     if args.project:
         PJ.CURRENT_ID = args.project
     blocks = parse_script()
+    for i, block in enumerate(blocks):
+        block["_source_idx"] = i
     meta = book_meta(blocks)
     PJ.project_dir(title=meta[0], author=meta[2])
     story = load_storyboard()
@@ -1141,22 +1173,6 @@ def main():
         if story:
             sb_map = {sb["block_idx"]: sb for sb in story["blocks"]}
             kept_sb = [sb_map[i] for i in kept if i in sb_map]
-            have = set(os.listdir(PROJ("assets", "scenes")))
-            for sb in kept_sb:
-                keep_beats = []
-                for be in sb["beats"]:
-                    fn = f"{sb['block_idx']:02d}_{be['beat_idx']}.png"
-                    if not be.get("prompt") or fn in have:
-                        keep_beats.append(be)
-                sb["beats"] = keep_beats
-                if keep_beats:
-                    lo = keep_beats[0]["start_char"]
-                    hi = keep_beats[-1]["end_char"]
-                    sb["subtitles"] = [s for s in sb["subtitles"]
-                                       if lo <= s["start_char"]
-                                       and s["end_char"] <= hi]
-                else:
-                    sb["subtitles"] = []
             story = {"blocks": kept_sb}
     if args.frames:
         if story:
@@ -1183,12 +1199,13 @@ def main():
         else:
             render_scene(blocks, i, total, first=(i == 0),
                          last=(i == total - 1), meta=meta)
+    output_stem = f"long_{PJ.CURRENT_ID}"
     if args.blocks:
-        out_name = "long_money_v2_visual_sample.mp4"
+        out_name = output_stem + "_visual_sample.mp4"
     elif args.pilot:
-        out_name = "long_money_v2_pilot.mp4"
+        out_name = output_stem + "_pilot.mp4"
     else:
-        out_name = "long_money_v2.mp4"
+        out_name = output_stem + ".mp4"
     out = finalize(blocks, out_name,
                    compute_segments(blocks, story) if story else None)
     dur = probe_dur(out)
