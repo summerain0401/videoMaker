@@ -8,13 +8,13 @@ projects/*/audio/tmp/
 projects/*/audio/music.wav
 projects/*/output/*.mp4
 projects/*/output/preview/
-projects/*/output/codex_jobs/
+projects/*/output/long_summary.json
+projects/*/output/storyboard_long.csv
+projects/*/output/tone_report.md
 projects/*/input/candidates/
 projects/*/assets/scenes/candidates/
+projects/*/workflow/runs/
 
 # Python 字节码 / 系统垃圾
 __pycache__/
 .DS_Store
-
-# Piper 本地模型（运行时依赖，体积大，不入库）
-assets/piper/

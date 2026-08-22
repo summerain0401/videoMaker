@@ -8,5 +8,19 @@
     "variant": "都市均衡·水彩",
     "palette": "由场景与情绪决定的均衡叙事色彩",
     "art_direction": "清晰通透的手绘水彩插画；都市创业与选择主题，允许冷暖与中性色随情绪变化"
+  },
+  "providers": {
+    "llm": {
+      "name": "codex",
+      "model": null
+    },
+    "image": {
+      "name": "imagegen",
+      "model": null
+    },
+    "speech": {
+      "name": "azure",
+      "voice": "zh-CN-Xiaochen:DragonHDFlashLatestNeural"
+    }
   }
 }

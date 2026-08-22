@@ -8,5 +8,19 @@
     "variant": "奶油暖金·手绘电影感",
     "palette": "奶油色、暖金黄、蜜色光",
     "art_direction": "手绘电影感插画，柔光布光"
+  },
+  "providers": {
+    "llm": {
+      "name": "codex",
+      "model": null
+    },
+    "image": {
+      "name": "imagegen",
+      "model": null
+    },
+    "speech": {
+      "name": "azure",
+      "voice": "zh-CN-Xiaochen:DragonHDFlashLatestNeural"
+    }
   }
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""长视频 V5 引擎：叙事画面 + 多 TTS + 字幕/SFX + 三段 BGM 智能混音。
+"""长视频公共生产引擎：语义分镜 + Azure 配音 + 字幕/SFX/BGM/渲染。
 
 项目制路径：默认渲染 projects/001_金钱的艺术（环境变量 PROJECT 可换项目），
 文案/分镜在项目 input/，画面在项目 assets/，配音缓存与背景乐在项目 audio/，
@@ -13,10 +13,7 @@
 
 环境变量：
   PROJECT=001              项目 id（默认 001；--project 参数可覆盖）
-  TTS_SOURCE=piper|edge|azure|system  默认 piper（本地男声）；edge 为微软
-                                      在线（免费无密钥）；azure 为正式 API
-                                      （需 AZURE_SPEECH_KEY）；system 为系统音色
-  PIPER_LENGTH_SCALE       语速（默认 1.0，越大越慢）
+  AZURE_SPEECH_KEY/REGION  Azure 凭据；音色从 project.json/run 快照读取
   在项目 audio/ 放入用户音乐文件（music.wav/mp3/m4a…）自动混音，否则纯人声
 """
 
@@ -49,27 +46,19 @@ def PROJ(*parts):
 
 W, H, FPS = 1920, 1080, 30
 KENZOOM = 0.08  # 每镜头 Ken Burns 统一缓推幅度（1.0→1.08，常量可调）
-VOICE = os.environ.get("TTS_VOICE", "Tingting")
-SYSTEM_RATE = int(os.environ.get("TTS_RATE", "190"))
-TTS_SOURCE = os.environ.get("TTS_SOURCE", "piper")
-PIPER_LS = float(os.environ.get("PIPER_LENGTH_SCALE", "1.15"))
 LEAD, TAIL = 0.4, 0.6
 QUOTE_LEAD = 1.0
 PHASE_DUR = 4.0
 XD = 0.3  # 块间转场时长（方向型快速转场，不用 dissolve 家族）
 NO_TTS = False  # --no-tts：跳过配音合成，音轨静音
+RUN_AZURE_VOICE = None  # workflow run 的 provider 快照；非用户可选项
 BOOK = "《金钱的艺术》"
 AUTHOR = "Morgan Housel"
 
 
 def story_path():
-    """当前项目分镜 JSON 路径（--project 覆盖后需动态解析）。"""
-    return PROJ("input", "storyboard_narrative.json")
-
-
-def output_story_path():
-    """最终输出分镜路径；V5 从中读取经确认的 BGM segment 标签。"""
-    return PROJ("input", "storyboard_output.json")
+    """当前项目唯一语义分镜路径（--project 覆盖后需动态解析）。"""
+    return PROJ("input", "storyboard.json")
 
 PALETTES = {
     "TITLE": ["0x2B2436", "0x3D3152", "0x574B79"],
@@ -148,34 +137,27 @@ def book_meta(blocks):
     return book, hook, author
 
 
+def azure_voice():
+    """从 run 快照或项目配置读取正式音色；不接受环境变量覆盖。"""
+    if RUN_AZURE_VOICE:
+        return RUN_AZURE_VOICE
+    speech = PJ.read_meta().get("providers", {}).get("speech", {})
+    if speech.get("name") != "azure":
+        raise RuntimeError("project.json 的 providers.speech.name 必须为 azure")
+    voice = speech.get("voice")
+    if not isinstance(voice, str) or not voice.strip():
+        raise RuntimeError("project.json 缺少 providers.speech.voice")
+    return voice.strip()
+
+
 def synth_line(text, wav):
-    if TTS_SOURCE == "piper":
-        import tts_piper
-        tts_piper.synthesize(text, wav, length_scale=PIPER_LS)
-    elif TTS_SOURCE == "edge":
-        import tts_edge
-        tts_edge.synthesize(text, wav)
-    elif TTS_SOURCE == "azure":
-        import tts_azure
-        tts_azure.synthesize(text, wav)
-    else:
-        aiff = wav + ".aiff"
-        sh("say", "-v", VOICE, "-r", str(SYSTEM_RATE), "-o", aiff, text)
-        sh("ffmpeg", "-y", "-i", aiff, "-ar", "44100", "-ac", "1", wav)
+    import tts_azure
+    tts_azure.synthesize(text, wav, voice=azure_voice())
 
 
 def voice_stem(idx, text=""):
-    if TTS_SOURCE == "piper":
-        cfg = f"piperls{PIPER_LS}"
-    elif TTS_SOURCE == "edge":
-        import tts_edge
-        cfg = "edge" + tts_edge.VOICE
-    elif TTS_SOURCE == "azure":
-        import tts_azure
-        cfg = "azure" + tts_azure._cfg("AZURE_VOICE",
-                                       "zh-CN-YunyangNeural")
-    else:
-        cfg = f"{VOICE}{SYSTEM_RATE}"
+    cfg = "azure" + "".join(
+        ch if ch.isalnum() or ch in "-_" else "-" for ch in azure_voice())
     h = hashlib.md5((text or "").encode("utf-8")).hexdigest()[:8]
     return f"blk{idx:02d}_{cfg}_{h}"
 
@@ -228,14 +210,6 @@ def palette_for(b):
     return PALETTES.get(key, PALETTES["01"])
 
 
-def make_background(b, idx):
-    """卡片模式底图：程序化质感渐变（不再使用 art/ 插画底图）。"""
-    out = PROJ("assets", "layers", f"bg_{idx:02d}.png")
-    c0, c1, c2 = palette_for(b)
-    V.procedural_bg(c0, c1, c2, 2 * W, 2 * H).save(out)
-    return out
-
-
 def motion_exprs(idx, nframes):
     """统一 1.0→1+KENZOOM 缓推：锚点上移(50%,35%)对准面部 + X 轴 2.5% 缓移 + ease-out。
 
@@ -250,248 +224,12 @@ def motion_exprs(idx, nframes):
     return z, cx, cy
 
 
-def scene_dur_estimate(b):
-    """无 voice_dur 时的时长估算（--frames 预览模式用）。"""
-    if "voice_dur" in b:
-        return scene_time(b)
-    if b["type"] == "PHASE":
-        return PHASE_DUR
-    return scene_lead(b) + len(b["voice"] or "") / 4.0 + TAIL
-
-
-def _timeline(blocks):
-    """每块在成片时间轴上的起始时间 + 全片时长（含 xfade 重叠）。"""
-    durs = [scene_dur_estimate(b) for b in blocks]
-    starts = [sum(durs[:i]) - i * XD for i in range(len(durs))]
-    total = sum(durs) - XD * (len(blocks) - 1)
-    return starts, total
-
-
-def render_scene(blocks, idx, total, first, last, meta=None):
-    b = blocks[idx]
-    sdur = scene_time(b)
-    nframes = int(sdur * FPS)
-    bg = make_background(b, idx)
-    deco = PROJ("assets", "layers", f"deco_{idx:02d}.png")
-    V.make_deco_layer(idx).save(deco)
-    base = PROJ("assets", "layers", f"base_{idx:02d}.png")
-    V.make_base(b, idx, total, meta).save(base)
-    layers = V.make_line_layers(b, idx)
-    layer_paths = []
-    for k, lay in enumerate(layers):
-        p = PROJ("assets", "layers", f"ln_{idx:02d}_{k}.png")
-        lay.save(p)
-        layer_paths.append(p)
-    prog = PROJ("assets", "layers", f"prog_{idx:02d}.png")
-    V.make_progress_fill().save(prog)
-    sweep = None
-    if b["type"] == "PHASE":
-        sweep = PROJ("assets", "layers", f"sweep_{idx:02d}.png")
-        V.make_sweep_layer().save(sweep)
-
-    starts, total_dur = _timeline(blocks)
-    z, cx, cy = motion_exprs(idx, nframes)
-    dx, dy = "14*sin(t/4)", "11*cos(t/4)"   # 前景层反向微漂移（视差）
-    fc = [
-        f"[0:v]scale={2 * W}:{2 * H},"
-        f"zoompan=z='{z}':x={cx}:y={cy}:d={nframes}:s={W}x{H}:fps={FPS},"
-        f"format=yuv420p[bg0]",
-        f"[bg0][1:v]overlay=x='34*sin(t/4)':y='22*cos(t/3.5)'[bgd2]",
-        f"[bgd2][2:v]overlay=x='{dx}':y='{dy}'[o0]",
-    ]
-    o_prev = "o0"
-    next_in = 3
-    if sweep:
-        fc.append(f"[o0][3:v]overlay=x='(t/{sdur:.2f})*{3 * W}-{W}':y=0[s0]")
-        o_prev = "s0"
-        next_in = 4
-    fc.append(
-        f"[{next_in}:v]crop=w='if(lt({starts[idx]:.2f}+t,{total_dur:.2f}),"
-        f"{W}*({starts[idx]:.2f}+t)/{total_dur:.2f},{W})':h={H}:x=0:y=0,"
-        f"format=rgba[p0]"
-    )
-    fc.append(f"[{o_prev}][p0]overlay=x='{dx}':y='{dy}'[o1]")
-    o_prev = "o1"
-    next_in += 1
-
-    lead = scene_lead(b)
-    n = len(layers)
-    win = min(b["voice_dur"], 12.0) if b["type"] == "TITLE" \
-        else b["voice_dur"]
-    for k in range(n):
-        s = lead + k * (win / max(n, 1)) + 0.05
-        e = lead + (k + 1) * (win / max(n, 1)) + 0.30
-        ease = f"1-pow(1-min(1,max(0,(t-{s:.2f})/0.40)),3)"
-        fc.append(
-            f"[{next_in}:v]fade=t=in:st={s:.2f}:d=0.40:alpha=1,"
-            f"format=rgba[L{k}]"
-        )
-        fc.append(
-            f"[{o_prev}][L{k}]overlay=x='{dx}':y='{dy}+56-56*({ease})':"
-            f"enable='between(t,{s:.2f},{e:.2f})'[o{k + 1}]"
-        )
-        o_prev = f"o{k + 1}"
-        next_in += 1
-
-    tail = f"[{o_prev}]vignette=PI/7"
-    if first:
-        tail += ",fade=t=in:st=0:d=0.5"
-    if last:
-        tail += f",fade=t=out:st={sdur - 0.5:.2f}:d=0.5"
-    fc.append(tail + ",format=yuv420p[v]")
-
-    sfx_events = find_sfx(b["voice"], b["voice_dur"])
-    wav = make_scene_audio(b, idx, sfx_events)
-    cmd = ["ffmpeg", "-y",
-           "-i", bg,
-           "-loop", "1", "-framerate", str(FPS), "-t", f"{sdur:.3f}",
-           "-i", deco,
-           "-loop", "1", "-framerate", str(FPS),
-           "-i", base]
-    if sweep:
-        cmd += ["-loop", "1", "-framerate", str(FPS),
-                "-t", f"{sdur:.3f}", "-i", sweep]
-    for lp in layer_paths:
-        cmd += ["-loop", "1", "-framerate", str(FPS), "-i", lp]
-    cmd += ["-loop", "1", "-framerate", str(FPS),
-            "-t", f"{sdur:.3f}", "-i", prog,
-            "-i", wav, "-filter_complex", ";".join(fc),
-            "-map", "[v]", "-map", f"{next_in}:a",
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
-            "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
-            "-ar", "44100", "-ac", "1", "-r", str(FPS),
-            "-t", f"{sdur:.3f}", PROJ("output", f"vs2_{idx:02d}.mp4")]
-    sh(*cmd)
-
-
-def render_frames(blocks, meta):
-    """快速抽帧：每块渲染 2 秒 960x540 无声片段并抽 3 帧，供风格验收。"""
-    outdir = PROJ("output", "preview")
-    os.makedirs(outdir, exist_ok=True)
-    FW, FH, FFPS = 960, 540, 15
-    FDUR = 2.0
-    nframes = int(FDUR * FFPS)
-    starts, total_dur = _timeline(blocks)
-    for i, b in enumerate(blocks):
-        bg = make_background(b, i)
-        deco = PROJ("assets", "layers", f"deco_{i:02d}.png")
-        V.make_deco_layer(i).save(deco)
-        base = PROJ("assets", "layers", f"base_{i:02d}.png")
-        V.make_base(b, i, len(blocks), meta).save(base)
-        layers = V.make_line_layers(b, i)
-        layer_paths = []
-        for k, lay in enumerate(layers):
-            p = PROJ("assets", "layers", f"ln_{i:02d}_{k}.png")
-            lay.save(p)
-            layer_paths.append(p)
-        prog = PROJ("assets", "layers", f"prog_{i:02d}.png")
-        V.make_progress_fill().save(prog)
-        sweep = None
-        if b["type"] == "PHASE":
-            sweep = PROJ("assets", "layers", f"sweep_{i:02d}.png")
-            V.make_sweep_layer().save(sweep)
-
-        z, cx, cy = motion_exprs(i, nframes)
-        dx, dy = "8*sin(t/5)", "5.5*cos(t/4)"
-        fc = [
-            f"[0:v]scale=1920x1080,"
-            f"zoompan=z='{z}':x={cx}:y={cy}:d={nframes}:"
-            f"s={FW}x{FH}:fps={FFPS},"
-            f"format=yuv420p[bg0]",
-            f"[1:v]scale={FW}:{FH},format=rgba[d0]",
-            f"[bg0][d0]overlay=x='17*sin(t/4)':y='11*cos(t/3.5)'[bgd2]",
-            f"[2:v]scale={FW}:{FH},format=rgba[b0]",
-            f"[bgd2][b0]overlay=x='{dx}':y='{dy}'[o0]",
-        ]
-        o_prev = "o0"
-        next_in = 3
-        if sweep:
-            fc.append(f"[3:v]scale={FW}:{FH},format=rgba[s0v]")
-            fc.append(f"[o0][s0v]overlay=x='(t/{FDUR:.2f})*{3 * FW}-{FW}':"
-                      f"y=0[s0]")
-            o_prev = "s0"
-            next_in = 4
-        fc.append(
-            f"[{next_in}:v]scale={FW}:{FH},"
-            f"crop=w='if(lt({starts[i]:.2f}+t,{total_dur:.2f}),"
-            f"{FW}*({starts[i]:.2f}+t)/{total_dur:.2f},{FW})':h={FH}:x=0:y=0,"
-            f"format=rgba[p0]"
-        )
-        fc.append(f"[{o_prev}][p0]overlay=x='{dx}':y='{dy}'[o1]")
-        o_prev = "o1"
-        next_in += 1
-
-        vd = b.get("voice_dur") or FDUR
-        win = min(vd, 12.0) if b["type"] == "TITLE" else vd
-        lead = scene_lead(b)
-        n = len(layers)
-        for k in range(n):
-            s = lead + k * (win / max(n, 1)) + 0.05
-            e = lead + (k + 1) * (win / max(n, 1)) + 0.30
-            ease = f"1-pow(1-min(1,max(0,(t-{s:.2f})/0.40)),3)"
-            fc.append(
-                f"[{next_in}:v]scale={FW}:{FH},fade=t=in:st={s:.2f}:"
-                f"d=0.40:alpha=1,format=rgba[L{k}]"
-            )
-            fc.append(
-                f"[{o_prev}][L{k}]overlay=x='{dx}':y='{dy}+28-28*({ease})':"
-                f"enable='between(t,{s:.2f},{e:.2f})'[o{k + 1}]"
-            )
-            o_prev = f"o{k + 1}"
-            next_in += 1
-        fc.append(f"[{o_prev}]vignette=PI/7,format=yuv420p[v]")
-
-        clip = os.path.join(outdir, f"m3_{i:02d}.mp4")
-        cmd = ["ffmpeg", "-y",
-               "-i", bg,
-               "-loop", "1", "-framerate", str(FFPS), "-t", f"{FDUR:.2f}",
-               "-i", deco,
-               "-loop", "1", "-framerate", str(FFPS), "-t", f"{FDUR:.2f}",
-               "-i", base]
-        if sweep:
-            cmd += ["-loop", "1", "-framerate", str(FFPS),
-                    "-t", f"{FDUR:.2f}", "-i", sweep]
-        for lp in layer_paths:
-            cmd += ["-loop", "1", "-framerate", str(FFPS),
-                    "-t", f"{FDUR:.2f}", "-i", lp]
-        cmd += ["-loop", "1", "-framerate", str(FFPS),
-                "-t", f"{FDUR:.2f}", "-i", prog,
-                "-filter_complex", ";".join(fc), "-map", "[v]",
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
-                "-pix_fmt", "yuv420p", "-r", str(FFPS), clip]
-        sh(*cmd)
-        for tag, ts in (("a", 0.4), ("b", 1.2), ("c", 1.8)):
-            sh("ffmpeg", "-y", "-ss", str(ts), "-i", clip,
-               "-frames:v", "1", "-update", "1",
-               os.path.join(outdir, f"m3_{i:02d}_{tag}.jpg"))
-        print(f"frame {i:02d} {b['type']} done")
-
-
 def load_storyboard():
-    """读取叙事分镜，并叠加最终输出分镜中经确认的 V5 segment 标签。"""
+    """读取唯一、已提升的语义分镜。"""
     if not os.path.exists(story_path()):
-        return None
+        raise FileNotFoundError(f"缺少正式语义分镜：{story_path()}")
     with open(story_path(), encoding="utf-8") as f:
-        story = json.load(f)
-    if not os.path.exists(output_story_path()):
-        return story
-    try:
-        with open(output_story_path(), encoding="utf-8") as f:
-            output_story = json.load(f)
-    except (OSError, ValueError, TypeError):
-        return story
-    segment_map = {
-        (sb.get("block_idx"), beat.get("beat_idx")): beat.get("segment")
-        for sb in output_story.get("blocks", [])
-        for beat in sb.get("beats", [])
-        if beat.get("segment") in ("hook", "insight", "action")
-    }
-    for sb in story.get("blocks", []):
-        for beat in sb.get("beats", []):
-            key = (sb.get("block_idx"), beat.get("beat_idx"))
-            if key in segment_map:
-                beat["segment"] = segment_map[key]
-    return story
+        return json.load(f)
 
 
 def phase_art_path(blocks, idx):
@@ -1116,7 +854,7 @@ def preview_frames(total, out_name):
         t = total * (k + 0.5) / n
         sh("ffmpeg", "-y", "-ss", f"{t:.2f}",
            "-i", PROJ("output", out_name), "-frames:v", "1",
-           "-vf", "scale=960:540",
+           "-vf", "scale=960:540", "-update", "1",
            os.path.join(outdir, f"{out_name[:-4]}_{k:02d}.jpg"))
 
 
@@ -1138,15 +876,14 @@ def write_reports(blocks, total, out_name):
         w.writerows(rows)
     with open(PROJ("output", "long_summary.json"),
               "w", encoding="utf-8") as f:
-        json.dump({"tts": TTS_SOURCE, "voice": VOICE,
-                   "piper_length_scale": PIPER_LS,
+        json.dump({"tts": "azure", "voice": azure_voice(),
                    "total_duration": round(total, 2),
                    "file": out_name, "blocks": rows},
                   f, ensure_ascii=False, indent=2)
 
 
 def main():
-    global NO_TTS
+    global NO_TTS, RUN_AZURE_VOICE
     ap = argparse.ArgumentParser(description="长视频 V5 渲染引擎")
     ap.add_argument("--project", default=None,
                     help="项目 id（默认取环境变量 PROJECT，缺省 001）")
@@ -1157,10 +894,23 @@ def main():
                     help="只渲染指定块（逗号分隔序号），如 0,1,2,3,4,7,8,9,12,13")
     ap.add_argument("--no-tts", action="store_true",
                     help="跳过配音合成：音轨静音，时长按字数估算")
+    ap.add_argument("--workflow-run", default=None, help=argparse.SUPPRESS)
     args = ap.parse_args()
 
     if args.project:
         PJ.CURRENT_ID = args.project
+    if args.workflow_run:
+        state_path = PROJ("workflow", "runs", args.workflow_run, "state.json")
+        if not os.path.exists(state_path):
+            raise FileNotFoundError(f"缺少 workflow run 快照：{state_path}")
+        with open(state_path, encoding="utf-8") as handle:
+            run_state = json.load(handle)
+        if str(run_state.get("project_id")) != str(PJ.CURRENT_ID):
+            raise RuntimeError("workflow run 与项目 id 不一致")
+        speech = run_state.get("providers", {}).get("speech", {})
+        if speech.get("name") != "azure" or not speech.get("voice"):
+            raise RuntimeError("workflow run 的 speech 快照无效")
+        RUN_AZURE_VOICE = speech["voice"]
     blocks = parse_script()
     for i, block in enumerate(blocks):
         block["_source_idx"] = i
@@ -1175,12 +925,8 @@ def main():
             kept_sb = [sb_map[i] for i in kept if i in sb_map]
             story = {"blocks": kept_sb}
     if args.frames:
-        if story:
-            render_frames_narrative(blocks, meta, story)
-            print(f"FRAMES DONE 见 {PROJ('output', 'preview')}/m3n_*.jpg")
-        else:
-            render_frames(blocks, meta)
-            print(f"FRAMES DONE 见 {PROJ('output', 'preview')}/m3_*.jpg")
+        render_frames_narrative(blocks, meta, story)
+        print(f"FRAMES DONE 见 {PROJ('output', 'preview')}/m3n_*.jpg")
         return
     if args.pilot:
         blocks = blocks[:5]
@@ -1192,13 +938,9 @@ def main():
         make_audio(blocks)
     total = len(blocks)
     for i, b in enumerate(blocks):
-        if story:
-            render_scene_narrative(blocks, i, total, first=(i == 0),
-                                   last=(i == total - 1), meta=meta,
-                                   story=story)
-        else:
-            render_scene(blocks, i, total, first=(i == 0),
-                         last=(i == total - 1), meta=meta)
+        render_scene_narrative(blocks, i, total, first=(i == 0),
+                               last=(i == total - 1), meta=meta,
+                               story=story)
     output_stem = f"long_{PJ.CURRENT_ID}"
     if args.blocks:
         out_name = output_stem + "_visual_sample.mp4"
@@ -1207,7 +949,7 @@ def main():
     else:
         out_name = output_stem + ".mp4"
     out = finalize(blocks, out_name,
-                   compute_segments(blocks, story) if story else None)
+                   compute_segments(blocks, story))
     dur = probe_dur(out)
     preview_frames(dur, out_name)
     write_reports(blocks, dur, out_name)

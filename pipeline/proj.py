@@ -6,7 +6,8 @@
 `001_金钱的艺术`），内部按「输入 / 中间产物 / 产出」分层：
 
   projects/{id}_书名/
-    input/      文案与分镜（brief.md、script.txt、storyboard_narrative.json…）
+    input/      已提升的四阶段产物与统一语义分镜
+    workflow/   run 状态、候选文件与交互式任务包
     assets/     卡点画面（scenes/）、历史底图（art/）、渲染中间层（layers/）
     audio/      配音缓存（voice/）、背景乐、合成中间（tmp/）
     output/     成片（long_{id}*.mp4）、分块（vs2_*）、抽帧（preview/）、报告
@@ -17,8 +18,7 @@
   - 目录按 projects/{id}_* 前缀匹配：唯一命中即用；零命中自动创建
     projects/{id}_新项目（含子目录与 project.json）并提示可改名；
     多命中视为配置错误，列出候选后退出。
-  - project.json 为静态元数据（id/title/author/status），仅在目录首次创建
-    时写入，运行期间不自动改写，避免弄脏工作区。
+  - project.json 为元数据与提供商配置的唯一事实源；run 创建时完整快照。
 """
 
 import datetime
@@ -32,7 +32,7 @@ CURRENT_ID = os.environ.get("PROJECT") or DEFAULT_ID
 _CACHE = {}
 
 SUBDIRS = ("input", "assets/scenes", "assets/art", "assets/layers",
-           "audio/voice", "audio/tmp", "output")
+           "audio/voice", "audio/tmp", "output", "workflow/runs")
 
 
 def P(*parts):
@@ -72,6 +72,14 @@ def _write_project_json(proj_dir, pid, title, author):
         "author": author,
         "status": "进行中",
         "created_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "providers": {
+            "llm": {"name": "codex", "model": None},
+            "image": {"name": "imagegen", "model": None},
+            "speech": {
+                "name": "azure",
+                "voice": "zh-CN-Xiaochen:DragonHDFlashLatestNeural",
+            },
+        },
     }
     with open(path, "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)

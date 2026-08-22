@@ -1,0 +1,10 @@
+{
+  "id": "migration-1",
+  "book_title": "金钱的艺术",
+  "author": "Morgan Housel",
+  "angle": "为什么收入涨了，快乐和存款却没涨；越花钱越焦虑",
+  "audience_promise": "25-45 岁有财务焦虑的职场白领 / 创业者 / 终身学习者",
+  "video_title": "为什么你越努力存钱，越存不下钱；越花钱，越焦虑？",
+  "rationale": "由 V5 brief 与正式剧本确定性回填，未重新调用 LLM。",
+  "source": "migration"
+}
