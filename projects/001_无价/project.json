@@ -1,14 +1,9 @@
 {
   "id": "001",
-  "title": "金钱的艺术",
-  "author": "Morgan Housel",
+  "title": "无价",
+  "author": "威廉·庞德斯通",
   "status": "进行中",
-  "created_at": "2026-08-13 00:00:00",
-  "visual_style": {
-    "variant": "奶油暖金·手绘电影感",
-    "palette": "奶油色、暖金黄、蜜色光",
-    "art_direction": "手绘电影感插画，柔光布光"
-  },
+  "created_at": "2026-08-23 23:49:56",
   "providers": {
     "llm": {
       "name": "codex",

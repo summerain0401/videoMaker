@@ -1,0 +1,1919 @@
+{
+  "version": 1,
+  "blocks": [
+    {
+      "block_idx": 0,
+      "type": "TITLE",
+      "head": "TITLE",
+      "voice_chars": 357,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "假设你走进一家餐厅，菜单第一页放着一份六百八十八元的豪华套餐。",
+          "start_char": 0,
+          "end_char": 31
+        },
+        {
+          "id": 1,
+          "text": "你当然不会点。",
+          "start_char": 31,
+          "end_char": 38
+        },
+        {
+          "id": 2,
+          "text": "接着往下看，一百九十八元的双人餐，突然顺眼多了。",
+          "start_char": 38,
+          "end_char": 62
+        },
+        {
+          "id": 3,
+          "text": "问题是，如果没有前面那份六百八十八元的套餐，你还会觉得一百九十八元划算吗？",
+          "start_char": 62,
+          "end_char": 99
+        },
+        {
+          "id": 4,
+          "text": "再换个场景。",
+          "start_char": 99,
+          "end_char": 105
+        },
+        {
+          "id": 5,
+          "text": "一件衣服先写原价一千二，今天限时四百九十九。",
+          "start_char": 105,
+          "end_char": 127
+        },
+        {
+          "id": 6,
+          "text": "你还没摸到面料，还没看清版型，大脑已经替你算出“省了七百多”。",
+          "start_char": 127,
+          "end_char": 158
+        },
+        {
+          "id": 7,
+          "text": "我们总以为自己先判断价值，再决定价格能不能接受。",
+          "start_char": 158,
+          "end_char": 182
+        },
+        {
+          "id": 8,
+          "text": "可很多时候，顺序正好相反：第一个出现的数字，先替你画好了贵与便宜的坐标轴。",
+          "start_char": 182,
+          "end_char": 219
+        },
+        {
+          "id": 9,
+          "text": "今天我们用威廉·庞德斯通的《无价》，拆开价格背后的锚定效应。",
+          "start_char": 219,
+          "end_char": 249
+        },
+        {
+          "id": 10,
+          "text": "你会看见菜单、促销、订阅和谈判里的数字怎样改变判断，也会拿到一套付款前重设参照系的方法。",
+          "start_char": 249,
+          "end_char": 293
+        },
+        {
+          "id": 11,
+          "text": "重点不是教你怀疑所有商家，更不是说高价都在骗人，而是帮你分清：眼前这个价格，到底来自真实价值，还是来自别人为你安排好的比较方式。",
+          "start_char": 293,
+          "end_char": 357
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "餐厅全景，年轻上班族翻开菜单，远处奢华套餐与面前普通双人餐形成强烈反差。",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 62,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "curious",
+          "segment": "hook"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "年轻上班族看向未被选择的豪华套餐，再低头审视普通套餐，表情从笃定转为疑惑。",
+          "sentence_ids": [
+            3,
+            4,
+            5
+          ],
+          "start_char": 62,
+          "end_char": 127,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "curious",
+          "segment": "hook"
+        },
+        {
+          "beat_idx": 2,
+          "shot": "close",
+          "visual_description": "服装卖场中同一件衣服被醒目的旧价标签和促销氛围包围，人物尚未触摸商品就开始心算。",
+          "sentence_ids": [
+            6,
+            7
+          ],
+          "start_char": 127,
+          "end_char": 182,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "curious",
+          "segment": "hook"
+        },
+        {
+          "beat_idx": 3,
+          "shot": "medium",
+          "visual_description": "分屏呈现同一商品置于不同价格参照环境，人物对它产生截然不同的贵贱感受。",
+          "sentence_ids": [
+            8,
+            9
+          ],
+          "start_char": 182,
+          "end_char": 249,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "curious",
+          "segment": "hook"
+        },
+        {
+          "beat_idx": 4,
+          "shot": "wide",
+          "visual_description": "漂浮数字逐渐组成一把倾斜的尺子，年轻上班族发现自己的判断坐标被外部数字牵引。",
+          "sentence_ids": [
+            10
+          ],
+          "start_char": 249,
+          "end_char": 293,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "curious",
+          "segment": "hook"
+        },
+        {
+          "beat_idx": 5,
+          "shot": "close",
+          "visual_description": "餐厅、促销页、订阅档位与谈判桌组成四联场景，人物举起自己的需求清单作为新的尺度。",
+          "sentence_ids": [
+            11
+          ],
+          "start_char": 293,
+          "end_char": 357,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "curious",
+          "segment": "hook"
+        }
+      ]
+    },
+    {
+      "block_idx": 1,
+      "type": "PHASE",
+      "head": "PHASE 01 · 第一个数字已经进场",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "年轻上班族走入由巨大价格标签构成的长廊，第一个数字抢先落在道路中央。",
+          "sentence_ids": [],
+          "start_char": 0,
+          "end_char": 0,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "alert",
+          "segment": "hook"
+        }
+      ]
+    },
+    {
+      "block_idx": 2,
+      "type": "CARD",
+      "head": "CARD 贵和便宜，从来不是孤立的感觉",
+      "voice_chars": 284,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "先做一个小测试。",
+          "start_char": 0,
+          "end_char": 8
+        },
+        {
+          "id": 1,
+          "text": "现在不查手机，你觉得一把适合办公的人体工学椅应该卖多少钱？",
+          "start_char": 8,
+          "end_char": 37
+        },
+        {
+          "id": 2,
+          "text": "八百、两千，还是五千？",
+          "start_char": 37,
+          "end_char": 48
+        },
+        {
+          "id": 3,
+          "text": "如果你从没研究过椅子的结构、材料和售后，你很难凭空给出答案。",
+          "start_char": 48,
+          "end_char": 78
+        },
+        {
+          "id": 4,
+          "text": "可只要购物页面先摆出一个九千元的旗舰款，三千元就可能显得克制；如果页面先出现五百元的入门款，同样的三千元又会显得昂贵。",
+          "start_char": 78,
+          "end_char": 137
+        },
+        {
+          "id": 5,
+          "text": "商品没变，数字没变，变的是你用来比较的起点。",
+          "start_char": 137,
+          "end_char": 159
+        },
+        {
+          "id": 6,
+          "text": "锚点最厉害的地方，不是逼你买最贵的那个，而是让它站在那里，替旁边的价格改变气氛。",
+          "start_char": 159,
+          "end_char": 199
+        },
+        {
+          "id": 7,
+          "text": "它可以是一份几乎没人点的天价菜，也可以是促销页上被划掉的原价，还可以是销售开口时先报出的数字。",
+          "start_char": 199,
+          "end_char": 246
+        },
+        {
+          "id": 8,
+          "text": "它甚至不需要真实成交，只要先进入你的视线，就可能成为后续判断绕不开的参照物。",
+          "start_char": 246,
+          "end_char": 284
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "空白展厅里只有一把人体工学椅，年轻上班族无法判断它应有的价格。",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 78,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "uncertain",
+          "segment": "hook"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "高端座椅与入门座椅分列两端，同一把中档座椅在两种参照下呈现不同心理重量。",
+          "sentence_ids": [
+            4,
+            5
+          ],
+          "start_char": 78,
+          "end_char": 159,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "uncertain",
+          "segment": "hook"
+        },
+        {
+          "beat_idx": 2,
+          "shot": "close",
+          "visual_description": "同一商品保持不变，背景刻度却左右移动，人物的贵贱判断随刻度改变。",
+          "sentence_ids": [
+            6,
+            7
+          ],
+          "start_char": 159,
+          "end_char": 246,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "uncertain",
+          "segment": "hook"
+        },
+        {
+          "beat_idx": 3,
+          "shot": "medium",
+          "visual_description": "天价菜、划线价与首次报价化成三个路标，指向人物接下来的比较方向。",
+          "sentence_ids": [
+            8
+          ],
+          "start_char": 246,
+          "end_char": 284,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "uncertain",
+          "segment": "hook"
+        }
+      ]
+    },
+    {
+      "block_idx": 3,
+      "type": "QUOTE",
+      "head": "QUOTE",
+      "voice_chars": 187,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "这就是为什么“我又没买最贵的，怎么会被影响”并不是一个有效反驳。",
+          "start_char": 0,
+          "end_char": 32
+        },
+        {
+          "id": 1,
+          "text": "锚点完成任务的标志，未必是你选中它，而是你开始用它解释其他选项。",
+          "start_char": 32,
+          "end_char": 64
+        },
+        {
+          "id": 2,
+          "text": "一百九十八元到底值不值，本来应该看份量、品质、服务和你的需要。",
+          "start_char": 64,
+          "end_char": 95
+        },
+        {
+          "id": 3,
+          "text": "可当六百八十八元先出现，你的大脑很容易把问题改写成：它比六百八十八元便宜多少。",
+          "start_char": 95,
+          "end_char": 134
+        },
+        {
+          "id": 4,
+          "text": "注意，便宜是相对关系，值得才是你的决定。",
+          "start_char": 134,
+          "end_char": 154
+        },
+        {
+          "id": 5,
+          "text": "只回答前一个问题，你可能省下了标价，却买回了一个根本不需要的东西。",
+          "start_char": 154,
+          "end_char": 187
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "年轻上班族绕过最贵选项，却发现自己的视线仍被它与其他商品之间的连线牵住。",
+          "sentence_ids": [
+            0,
+            1
+          ],
+          "start_char": 0,
+          "end_char": 64,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "reflective",
+          "segment": "hook"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "餐桌上的份量、品质、服务和个人需求化作四枚砝码，与单纯差价进行对照。",
+          "sentence_ids": [
+            2,
+            3,
+            4
+          ],
+          "start_char": 64,
+          "end_char": 154,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "reflective",
+          "segment": "hook"
+        },
+        {
+          "beat_idx": 2,
+          "shot": "close",
+          "visual_description": "人物抱着并不需要的购物袋离开，身后巨大的折扣符号逐渐消散。",
+          "sentence_ids": [
+            5
+          ],
+          "start_char": 154,
+          "end_char": 187,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "reflective",
+          "segment": "hook"
+        }
+      ]
+    },
+    {
+      "block_idx": 4,
+      "type": "PHASE",
+      "head": "PHASE 02 · 锚点怎样改变价值感",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "雾中道路只有第一盏路灯最醒目，年轻上班族从这盏灯开始辨认方向。",
+          "sentence_ids": [],
+          "start_char": 0,
+          "end_char": 0,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "analytical",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 5,
+      "type": "CARD",
+      "head": "CARD 判断不确定时，大脑会借一个数字起步",
+      "voice_chars": 299,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "特沃斯基和卡尼曼在研究不确定条件下的判断时，把“从锚点出发再进行调整”列为一种常见的思维捷径。",
+          "start_char": 0,
+          "end_char": 47
+        },
+        {
+          "id": 1,
+          "text": "它并不荒唐。",
+          "start_char": 47,
+          "end_char": 53
+        },
+        {
+          "id": 2,
+          "text": "现实里信息不完整、时间有限，我们不可能每次买东西都做一篇论文，于是大脑先抓住一个现成数字，再在它附近修正。",
+          "start_char": 53,
+          "end_char": 106
+        },
+        {
+          "id": 3,
+          "text": "问题在于，修正往往没有我们想象得那么彻底。",
+          "start_char": 106,
+          "end_char": 127
+        },
+        {
+          "id": 4,
+          "text": "就像你在雾里走路，第一盏路灯会决定你从哪里开始辨认方向。",
+          "start_char": 127,
+          "end_char": 155
+        },
+        {
+          "id": 5,
+          "text": "一个数字一旦被当成起点，后面的高、低、合理、离谱，就容易围绕它展开。",
+          "start_char": 155,
+          "end_char": 189
+        },
+        {
+          "id": 6,
+          "text": "但锚定不是催眠术，也不是任何人都无法抵抗的控制按钮。",
+          "start_char": 189,
+          "end_char": 215
+        },
+        {
+          "id": 7,
+          "text": "你越了解商品，越清楚成本、替代方案和自己的需求，现场给出的数字就越难垄断你的坐标系。",
+          "start_char": 215,
+          "end_char": 257
+        },
+        {
+          "id": 8,
+          "text": "真正的防守不是假装自己绝对理性，而是承认大脑需要参照物，然后主动给它更可靠的参照物。",
+          "start_char": 257,
+          "end_char": 299
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "抽象实验空间里，多个不确定选项漂浮在迷雾中，一个数字标记成为最先可见的起点。",
+          "sentence_ids": [
+            0,
+            1
+          ],
+          "start_char": 0,
+          "end_char": 53,
+          "character_ids": [
+            "none"
+          ],
+          "emotion": "analytical",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "人物从起点沿刻度移动，但脚踝仍被一根弹性绳拉向最初标记。",
+          "sentence_ids": [
+            2,
+            3
+          ],
+          "start_char": 53,
+          "end_char": 127,
+          "character_ids": [
+            "none"
+          ],
+          "emotion": "analytical",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 2,
+          "shot": "close",
+          "visual_description": "高低数字围成倾斜坐标轴，合理与离谱的区域随起点一起移动。",
+          "sentence_ids": [
+            4,
+            5,
+            6
+          ],
+          "start_char": 127,
+          "end_char": 215,
+          "character_ids": [
+            "none"
+          ],
+          "emotion": "analytical",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 3,
+          "shot": "medium",
+          "visual_description": "成本、替代方案和实际需求化作三束灯光，照亮新的独立参照系。",
+          "sentence_ids": [
+            7,
+            8
+          ],
+          "start_char": 215,
+          "end_char": 299,
+          "character_ids": [
+            "none"
+          ],
+          "emotion": "analytical",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 6,
+      "type": "TABLE",
+      "head": "TABLE 锚点 | 价值证据",
+      "voice_chars": 247,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "把锚点和价值证据分开，你会立刻看清很多交易。",
+          "start_char": 0,
+          "end_char": 22
+        },
+        {
+          "id": 1,
+          "text": "锚点擅长抢先：醒目的原价、推荐档、首轮报价，都在争夺第一个位置。",
+          "start_char": 22,
+          "end_char": 54
+        },
+        {
+          "id": 2,
+          "text": "价值证据却通常很安静，它藏在规格、保修、合同期限、使用频率和替代方案里。",
+          "start_char": 54,
+          "end_char": 90
+        },
+        {
+          "id": 3,
+          "text": "锚点告诉你“别人想卖多少”，价值证据回答“你到底能得到什么”。",
+          "start_char": 90,
+          "end_char": 121
+        },
+        {
+          "id": 4,
+          "text": "锚点让你盯着省了多少钱，价值证据要求你计算总共要付多少钱。",
+          "start_char": 121,
+          "end_char": 150
+        },
+        {
+          "id": 5,
+          "text": "最重要的是，锚点希望你留在它设置的坐标轴上，价值证据允许你退出页面、换一家店、问一个懂行的人，再回来重新判断。",
+          "start_char": 150,
+          "end_char": 205
+        },
+        {
+          "id": 6,
+          "text": "以后看到巨大折扣时，先别兴奋，先问：除了这两个价格，我还知道哪些能够证明价值的事实？",
+          "start_char": 205,
+          "end_char": 247
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "桌面被分成锚点与价值证据两侧，醒目标签抢占前景，规格与合同资料安静放在后方。",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 90,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "人物拨开原价、推荐和首报价组成的噪声，找到保修、频率与替代方案图标。",
+          "sentence_ids": [
+            3,
+            4
+          ],
+          "start_char": 90,
+          "end_char": 150,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 2,
+          "shot": "close",
+          "visual_description": "折扣差额与完整总成本分别放上天平，总成本一侧逐渐显露隐藏项目。",
+          "sentence_ids": [
+            5
+          ],
+          "start_char": 150,
+          "end_char": 205,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 3,
+          "shot": "medium",
+          "visual_description": "年轻上班族离开购物页面，在多家商店与独立资料之间重新建立比较。",
+          "sentence_ids": [
+            6
+          ],
+          "start_char": 205,
+          "end_char": 247,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 7,
+      "type": "QUOTE",
+      "head": "QUOTE",
+      "voice_chars": 157,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "钱真正付出去之前，锚定已经完成了第一步：它改变了你衡量价格的尺子。",
+          "start_char": 0,
+          "end_char": 33
+        },
+        {
+          "id": 1,
+          "text": "高锚可能让普通价格显得温和，低锚也可能让合理报价显得难以接受。",
+          "start_char": 33,
+          "end_char": 64
+        },
+        {
+          "id": 2,
+          "text": "所以不要只防“卖贵了”。",
+          "start_char": 64,
+          "end_char": 76
+        },
+        {
+          "id": 3,
+          "text": "当你因为一个过低的参照价，错过更可靠的服务、更耐用的产品，锚定同样影响了你。",
+          "start_char": 76,
+          "end_char": 114
+        },
+        {
+          "id": 4,
+          "text": "目标不是永远选最便宜，而是让比较尺度来自自己的任务，而不是来自对方最想让你记住的数字。",
+          "start_char": 114,
+          "end_char": 157
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "一把价格尺在付款前弯曲变形，人物及时停手，改用需求清单重新测量。",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 76,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "cautious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "低价但不可靠的产品与价格更高却符合任务的产品并列，人物根据使用场景而非标签选择。",
+          "sentence_ids": [
+            3,
+            4
+          ],
+          "start_char": 76,
+          "end_char": 157,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "cautious",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 8,
+      "type": "PHASE",
+      "head": "PHASE 03 · 生活中的三类价格锚",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "城市十字路口通向促销卖场、订阅页面和谈判办公室，两位消费者准备逐一识别锚点。",
+          "sentence_ids": [],
+          "start_char": 0,
+          "end_char": 0,
+          "character_ids": [
+            "young_pro",
+            "frugal_girl"
+          ],
+          "emotion": "alert",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 9,
+      "type": "CARD",
+      "head": "CARD 第一类：促销锚，让你只看省了多少",
+      "voice_chars": 281,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "第一类最常见，叫促销锚。",
+          "start_char": 0,
+          "end_char": 12
+        },
+        {
+          "id": 1,
+          "text": "页面把原价放大、划掉，再用鲜艳颜色写出现价，顺手加一个倒计时。",
+          "start_char": 12,
+          "end_char": 43
+        },
+        {
+          "id": 2,
+          "text": "你的注意力会自然落在差额上：原来这么贵，现在便宜这么多。",
+          "start_char": 43,
+          "end_char": 71
+        },
+        {
+          "id": 3,
+          "text": "可这里至少有三个问题没有回答。",
+          "start_char": 71,
+          "end_char": 86
+        },
+        {
+          "id": 4,
+          "text": "第一，原价是否具有真实的比较意义？",
+          "start_char": 86,
+          "end_char": 103
+        },
+        {
+          "id": 5,
+          "text": "第二，同规格商品在其他渠道卖多少？",
+          "start_char": 103,
+          "end_char": 120
+        },
+        {
+          "id": 6,
+          "text": "第三，就算现价真的更低，这件东西是不是你本来就需要？",
+          "start_char": 120,
+          "end_char": 146
+        },
+        {
+          "id": 7,
+          "text": "折扣只描述两个标签之间的距离，不会自动证明品质，也不会替你创造需求。",
+          "start_char": 146,
+          "end_char": 180
+        },
+        {
+          "id": 8,
+          "text": "一个原本不打算买的东西，从一千元降到五百元，不等于你赚了五百元；如果买回家闲置，你只是花了五百元。",
+          "start_char": 180,
+          "end_char": 229
+        },
+        {
+          "id": 9,
+          "text": "破解方法很简单：暂时遮住原价，只看现价和商品本身，然后问，如果它从来没有打过折，我还会为现在的价格买吗？",
+          "start_char": 229,
+          "end_char": 281
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "购物页面上旧价、现价和倒计时同时放大，年轻女性的注意力被差额吸走。",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 86,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "tempted",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "原价依据、跨店同规格价格和真实需求化成三个问号，挡在付款按钮之前。",
+          "sentence_ids": [
+            4,
+            5,
+            6
+          ],
+          "start_char": 86,
+          "end_char": 146,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "tempted",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 2,
+          "shot": "close",
+          "visual_description": "折扣商品被买回后闲置在角落，人物看着未拆封包装意识到省钱幻觉。",
+          "sentence_ids": [
+            7,
+            8
+          ],
+          "start_char": 146,
+          "end_char": 229,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "tempted",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 3,
+          "shot": "medium",
+          "visual_description": "年轻女性遮住旧价，只留下商品、现价与自己的需求清单重新判断。",
+          "sentence_ids": [
+            9
+          ],
+          "start_char": 229,
+          "end_char": 281,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "tempted",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 10,
+      "type": "CARD",
+      "head": "CARD 第二类：选择锚，让推荐档看起来刚刚好",
+      "voice_chars": 265,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "第二类藏在套餐和订阅里。",
+          "start_char": 0,
+          "end_char": 12
+        },
+        {
+          "id": 1,
+          "text": "基础版、推荐版、旗舰版一字排开，旗舰版价格很高，推荐版被加上醒目的标签。",
+          "start_char": 12,
+          "end_char": 48
+        },
+        {
+          "id": 2,
+          "text": "很多人会想，基础版怕不够用，旗舰版又太贵，中间这一档最稳妥。",
+          "start_char": 48,
+          "end_char": 78
+        },
+        {
+          "id": 3,
+          "text": "问题是，“中间”只是页面位置，不是你的需求。",
+          "start_char": 78,
+          "end_char": 100
+        },
+        {
+          "id": 4,
+          "text": "高端档位可能提供真实的额外价值，也可能主要负责抬高参照，让目标档显得划算。",
+          "start_char": 100,
+          "end_char": 137
+        },
+        {
+          "id": 5,
+          "text": "你不需要猜商家的动机，只要换一个顺序：先遮住价格，列出自己必须使用的功能；再恢复价格，计算每月、每年以及退出时的总成本；最后加入页面之外的替代方案。",
+          "start_char": 137,
+          "end_char": 211
+        },
+        {
+          "id": 6,
+          "text": "只要比较集合从“商家给的三档”扩展成“所有能解决问题的办法”，那个被设计成刚刚好的选项，就必须重新接受检验。",
+          "start_char": 211,
+          "end_char": 265
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "基础、推荐与旗舰三个订阅入口并排，最昂贵入口在远处制造强烈背景。",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 78,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "hesitant",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "年轻上班族站在中间入口前犹豫，页面位置像无形箭头推着他向前。",
+          "sentence_ids": [
+            3,
+            4
+          ],
+          "start_char": 78,
+          "end_char": 137,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "hesitant",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 2,
+          "shot": "close",
+          "visual_description": "人物先关闭价格层，只按真实工作场景勾选必需功能，再计算年度总成本。",
+          "sentence_ids": [
+            5
+          ],
+          "start_char": 137,
+          "end_char": 211,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "hesitant",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 3,
+          "shot": "medium",
+          "visual_description": "三档套餐之外出现其他品牌与不购买方案，原本封闭的选择集合被打开。",
+          "sentence_ids": [
+            6
+          ],
+          "start_char": 211,
+          "end_char": 265,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "hesitant",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 11,
+      "type": "CARD",
+      "head": "CARD 第三类：谈判锚，让所有讨论围着首报价转",
+      "voice_chars": 270,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "第三类发生在谈薪、租房、二手交易和服务报价里。",
+          "start_char": 0,
+          "end_char": 23
+        },
+        {
+          "id": 1,
+          "text": "对方先说一个数字，你的第一反应通常是接受、拒绝，或者在它附近还价。",
+          "start_char": 23,
+          "end_char": 56
+        },
+        {
+          "id": 2,
+          "text": "哪怕你觉得自己砍得很狠，讨论仍可能被锁在对方划出的区间里。",
+          "start_char": 56,
+          "end_char": 85
+        },
+        {
+          "id": 3,
+          "text": "真正有效的准备发生在听到报价之前。",
+          "start_char": 85,
+          "end_char": 102
+        },
+        {
+          "id": 4,
+          "text": "谈薪时，先整理岗位职责、经验要求、地区行情和自己能解决的问题；买二手物品时，先看同型号、同成色、同保修条件的成交信息；找服务商时，先把交付范围、修改次数和隐藏成本写清楚。",
+          "start_char": 102,
+          "end_char": 187
+        },
+        {
+          "id": 5,
+          "text": "然后形成自己的合理区间和退出方案。",
+          "start_char": 187,
+          "end_char": 204
+        },
+        {
+          "id": 6,
+          "text": "这样面对首报价，你不是被动地从对方数字上减一点，而是能说明为什么你的区间更有依据。",
+          "start_char": 204,
+          "end_char": 245
+        },
+        {
+          "id": 7,
+          "text": "谈判不是谁先喊得响，而是谁能把数字重新连接到证据。",
+          "start_char": 245,
+          "end_char": 270
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "谈判桌两端相对而坐，首个报价像巨大边界落在焦虑职场人面前。",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 85,
+          "character_ids": [
+            "stressed_worker"
+          ],
+          "emotion": "determined",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "人物在首报价附近反复移动，发现自己的还价仍被锁在对方划出的狭窄区间。",
+          "sentence_ids": [
+            3
+          ],
+          "start_char": 85,
+          "end_char": 102,
+          "character_ids": [
+            "stressed_worker"
+          ],
+          "emotion": "determined",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 2,
+          "shot": "close",
+          "visual_description": "岗位职责、市场区间、可比交易与交付范围铺满桌面，形成有依据的独立报价带。",
+          "sentence_ids": [
+            4
+          ],
+          "start_char": 102,
+          "end_char": 187,
+          "character_ids": [
+            "stressed_worker"
+          ],
+          "emotion": "determined",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 3,
+          "shot": "medium",
+          "visual_description": "职场人平静提出自己的区间和退出方案，双方数字重新连接到可比较的证据。",
+          "sentence_ids": [
+            5,
+            6,
+            7
+          ],
+          "start_char": 187,
+          "end_char": 270,
+          "character_ids": [
+            "stressed_worker"
+          ],
+          "emotion": "determined",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 12,
+      "type": "PHASE",
+      "head": "PHASE 04 · 别把所有高价都当骗局",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "价格心理与真实品质之间架起一座桥，两位消费者从怀疑一切走向核对证据。",
+          "sentence_ids": [],
+          "start_char": 0,
+          "end_char": 0,
+          "character_ids": [
+            "young_pro",
+            "frugal_girl"
+          ],
+          "emotion": "balanced",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 13,
+      "type": "CARD",
+      "head": "CARD 价格技巧存在，真实价值差异也存在",
+      "voice_chars": 300,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "讲到这里，很容易滑向另一个陷阱：既然价格会影响心理，那所有高价都是骗局，所有升级都是智商税。",
+          "start_char": 0,
+          "end_char": 46
+        },
+        {
+          "id": 1,
+          "text": "这个结论同样偷懒。",
+          "start_char": 46,
+          "end_char": 55
+        },
+        {
+          "id": 2,
+          "text": "更好的材料、更稳定的性能、更长的保修、更低的故障风险和更及时的服务，都可能构成真实成本，也可能对你有真实价值。",
+          "start_char": 55,
+          "end_char": 110
+        },
+        {
+          "id": 3,
+          "text": "关键不在于价格高不高，而在于多付的钱换来了什么，而且那些东西是不是你需要的。",
+          "start_char": 110,
+          "end_char": 148
+        },
+        {
+          "id": 4,
+          "text": "同一把更耐用的工具，天天使用的人可能愿意为可靠性付费，一年只用两次的人就未必需要。",
+          "start_char": 148,
+          "end_char": 189
+        },
+        {
+          "id": 5,
+          "text": "同一个灵活订阅，单月看起来更贵，却可能让不确定需求的人避开长期合约。",
+          "start_char": 189,
+          "end_char": 223
+        },
+        {
+          "id": 6,
+          "text": "你不必判断商家是不是故意操控，只需要要求溢价拿出证据。",
+          "start_char": 223,
+          "end_char": 250
+        },
+        {
+          "id": 7,
+          "text": "能被规格、体验、风险和长期成本说明的，进入价值表；只能用身份、稀缺感和倒计时解释的，先放进待核实区。",
+          "start_char": 250,
+          "end_char": 300
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "年轻女性面对一排高价商品保持审慎，拒绝把所有溢价简单盖上骗局印章。",
+          "sentence_ids": [
+            0,
+            1
+          ],
+          "start_char": 0,
+          "end_char": 55,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "discerning",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "产品剖面展示材料、稳定性、保修与服务等可验证差异，价格标签退到背景。",
+          "sentence_ids": [
+            2
+          ],
+          "start_char": 55,
+          "end_char": 110,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "discerning",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 2,
+          "shot": "close",
+          "visual_description": "同一件耐用工具分别交给高频用户和低频用户，两人的实际价值明显不同。",
+          "sentence_ids": [
+            3,
+            4
+          ],
+          "start_char": 110,
+          "end_char": 189,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "discerning",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 3,
+          "shot": "medium",
+          "visual_description": "灵活月付与长期低月费合约展开为完整时间轴，隐藏的退出成本被看见。",
+          "sentence_ids": [
+            5,
+            6
+          ],
+          "start_char": 189,
+          "end_char": 250,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "discerning",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 4,
+          "shot": "wide",
+          "visual_description": "规格、体验、风险和长期成本组成筛网，只有有证据的溢价通过筛选。",
+          "sentence_ids": [
+            7
+          ],
+          "start_char": 250,
+          "end_char": 300,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "discerning",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 14,
+      "type": "TABLE",
+      "head": "TABLE 价格标签 | 你的价值表",
+      "voice_chars": 231,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "下一次准备买一件非日常商品，拿张纸画两列。",
+          "start_char": 0,
+          "end_char": 21
+        },
+        {
+          "id": 1,
+          "text": "左边只抄页面最想让你看的东西：原价、折扣、推荐、限量、旗舰。",
+          "start_char": 21,
+          "end_char": 51
+        },
+        {
+          "id": 2,
+          "text": "右边写与你有关的事实：我必须解决什么问题，一周会用几次，哪些功能不可替代，品质怎样验证，坏了有什么损失，整个使用周期一共要付多少。",
+          "start_char": 51,
+          "end_char": 116
+        },
+        {
+          "id": 3,
+          "text": "你会发现，左边越热闹，右边未必越充实。",
+          "start_char": 116,
+          "end_char": 135
+        },
+        {
+          "id": 4,
+          "text": "真正值得的溢价，应该能从左边跨到右边，变成具体收益；跨不过去的标签，不必立刻否定，但也没有资格直接拿走你的预算。",
+          "start_char": 135,
+          "end_char": 191
+        },
+        {
+          "id": 5,
+          "text": "这个动作把“它看起来很值”改写成“它对我有什么值”，你的尺度就开始回到自己手里。",
+          "start_char": 191,
+          "end_char": 231
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "年轻女性在纸上画出价格标签与个人价值两列，准备把营销信息和需求事实分开。",
+          "sentence_ids": [
+            0,
+            1
+          ],
+          "start_char": 0,
+          "end_char": 51,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "左侧原价、折扣、推荐与限量标签喧闹堆叠，右侧必需功能和使用频率清晰排列。",
+          "sentence_ids": [
+            2,
+            3
+          ],
+          "start_char": 51,
+          "end_char": 135,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 2,
+          "shot": "close",
+          "visual_description": "品质验证、故障损失与全周期成本补入右栏，价值表逐渐完整。",
+          "sentence_ids": [
+            4
+          ],
+          "start_char": 135,
+          "end_char": 191,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 3,
+          "shot": "medium",
+          "visual_description": "有证据的溢价跨过中线变成具体收益，其余标签停留在待核实区域。",
+          "sentence_ids": [
+            5
+          ],
+          "start_char": 191,
+          "end_char": 231,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 15,
+      "type": "PHASE",
+      "head": "PHASE 05 · 在看标价前重设自己的锚",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "年轻上班族和年轻女性共同举起一把由需求、预算与证据组成的新尺子。",
+          "sentence_ids": [],
+          "start_char": 0,
+          "end_char": 0,
+          "character_ids": [
+            "young_pro",
+            "frugal_girl"
+          ],
+          "emotion": "empowered",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 16,
+      "type": "STEPS",
+      "head": "STEPS 五步价格检查法",
+      "voice_chars": 349,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "最后，把整期内容变成一套可以直接执行的五步检查法。",
+          "start_char": 0,
+          "end_char": 25
+        },
+        {
+          "id": 1,
+          "text": "第一步，先定义问题。",
+          "start_char": 25,
+          "end_char": 35
+        },
+        {
+          "id": 2,
+          "text": "不要写“我要买一把高级椅子”，写“我要缓解长时间办公的不适，而且房间空间有限”。",
+          "start_char": 35,
+          "end_char": 75
+        },
+        {
+          "id": 3,
+          "text": "问题越清楚，营销标签越难替你改写需求。",
+          "start_char": 75,
+          "end_char": 94
+        },
+        {
+          "id": 4,
+          "text": "第二步，在看价格前写下预算区间。",
+          "start_char": 94,
+          "end_char": 110
+        },
+        {
+          "id": 5,
+          "text": "预算来自收入、使用频率和机会成本，不来自页面上被标成推荐的那一档。",
+          "start_char": 110,
+          "end_char": 143
+        },
+        {
+          "id": 6,
+          "text": "第三步，统一比较口径。",
+          "start_char": 143,
+          "end_char": 154
+        },
+        {
+          "id": 7,
+          "text": "同样的规格、同样的服务范围、同样的合同期限，再比较单位价格和总拥有成本。",
+          "start_char": 154,
+          "end_char": 190
+        },
+        {
+          "id": 8,
+          "text": "第四步，加入外部参照。",
+          "start_char": 190,
+          "end_char": 201
+        },
+        {
+          "id": 9,
+          "text": "至少找一个其他品牌、一种不购买的解决办法，或者一组可比市场数据。",
+          "start_char": 201,
+          "end_char": 233
+        },
+        {
+          "id": 10,
+          "text": "商家给你的选项，不等于世界上所有选项。",
+          "start_char": 233,
+          "end_char": 252
+        },
+        {
+          "id": 11,
+          "text": "第五步，制造时间距离。",
+          "start_char": 252,
+          "end_char": 263
+        },
+        {
+          "id": 12,
+          "text": "非紧急消费先离开页面，关掉倒计时带来的紧迫感，过一晚再重新回答：我仍然需要它吗？",
+          "start_char": 263,
+          "end_char": 303
+        },
+        {
+          "id": 13,
+          "text": "如果五步走完答案仍然是买，那就安心付款。",
+          "start_char": 303,
+          "end_char": 323
+        },
+        {
+          "id": 14,
+          "text": "反锚定不是永远不消费，而是让购买重新服务于你的生活。",
+          "start_char": 323,
+          "end_char": 349
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "年轻女性先写下要解决的办公不适与空间限制，商品图片被暂时放在一旁。",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 75,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "practical",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "她在打开购物页面前根据收入、频率和机会成本画出预算区间。",
+          "sentence_ids": [
+            3,
+            4,
+            5,
+            6
+          ],
+          "start_char": 75,
+          "end_char": 154,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "practical",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 2,
+          "shot": "close",
+          "visual_description": "多个方案被统一成相同规格、服务期限和总拥有成本后放在同一张比较表上。",
+          "sentence_ids": [
+            7,
+            8,
+            9
+          ],
+          "start_char": 154,
+          "end_char": 233,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "practical",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 3,
+          "shot": "medium",
+          "visual_description": "其他品牌、维修旧物和暂不购买三种外部替代方案加入原有选择集合。",
+          "sentence_ids": [
+            10,
+            11,
+            12,
+            13
+          ],
+          "start_char": 233,
+          "end_char": 323,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "practical",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 4,
+          "shot": "wide",
+          "visual_description": "人物关闭倒计时页面，隔夜后带着清晰需求重新回来，平静做出是否购买的决定。",
+          "sentence_ids": [
+            14
+          ],
+          "start_char": 323,
+          "end_char": 349,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "practical",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 17,
+      "type": "QUOTE",
+      "head": "QUOTE",
+      "voice_chars": 316,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "《无价》真正有用的地方，不是让你背下一串心理学名词，而是提醒你：价格从来不会空着手走进大脑，它总会带着一个比较框架。",
+          "start_char": 0,
+          "end_char": 58
+        },
+        {
+          "id": 1,
+          "text": "你无法阻止所有锚点出现，却可以决定谁来提供更可靠的起点。",
+          "start_char": 58,
+          "end_char": 86
+        },
+        {
+          "id": 2,
+          "text": "先写需求，再定预算；先找证据，再看差价；先算总成本，再谈折扣。",
+          "start_char": 86,
+          "end_char": 117
+        },
+        {
+          "id": 3,
+          "text": "做到这些，你不一定每次都买到全网最低价，但会更少因为一个醒目的数字，买下原本不属于自己的需求。",
+          "start_char": 117,
+          "end_char": 164
+        },
+        {
+          "id": 4,
+          "text": "还有一个容易忽略的原则：别为了证明自己没有被营销影响，故意选择最低档，或者拒绝本来有价值的升级。",
+          "start_char": 164,
+          "end_char": 212
+        },
+        {
+          "id": 5,
+          "text": "那仍然是在围着对方的坐标行动。",
+          "start_char": 212,
+          "end_char": 227
+        },
+        {
+          "id": 6,
+          "text": "真正拿回主动，是即使没人看见你的选择，你也能用同一套证据说明为什么买、为什么不买，以及什么条件改变时你会重新决定。",
+          "start_char": 227,
+          "end_char": 284
+        },
+        {
+          "id": 7,
+          "text": "答案可以是贵的，也可以是便宜的，关键是结论不再由第一个数字独占。",
+          "start_char": 284,
+          "end_char": 316
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "《无价》的核心概念化作多个比较框架围绕人物，他主动选择更可靠的起点。",
+          "sentence_ids": [
+            0,
+            1
+          ],
+          "start_char": 0,
+          "end_char": 86,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "confident",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "人物没有为了反抗营销而盲选最低档，而是同时检查低档与升级选项的实际证据。",
+          "sentence_ids": [
+            2,
+            3
+          ],
+          "start_char": 86,
+          "end_char": 164,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "confident",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 2,
+          "shot": "close",
+          "visual_description": "购买与不购买两条道路并列，人物都能用同一套需求和成本依据说明决定。",
+          "sentence_ids": [
+            4,
+            5
+          ],
+          "start_char": 164,
+          "end_char": 227,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "confident",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 3,
+          "shot": "medium",
+          "visual_description": "稳定罗盘指向需求、预算、证据和总成本，醒目价格数字不再独占方向。",
+          "sentence_ids": [
+            6,
+            7
+          ],
+          "start_char": 227,
+          "end_char": 316,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "confident",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 18,
+      "type": "CARD",
+      "head": "CARD 价格可以被设计，你的尺度也可以",
+      "voice_chars": 289,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "现在回到开头那份六百八十八元的套餐。",
+          "start_char": 0,
+          "end_char": 18
+        },
+        {
+          "id": 1,
+          "text": "看完这期，你不需要证明它是诱饵，也不需要嘲笑点它的人。",
+          "start_char": 18,
+          "end_char": 45
+        },
+        {
+          "id": 2,
+          "text": "你只要把菜单暂时放下，问自己：我今天和谁吃饭，需要多少份量，在意什么体验，愿意为这顿饭付出多少？",
+          "start_char": 45,
+          "end_char": 93
+        },
+        {
+          "id": 3,
+          "text": "当这些问题先有答案，一百九十八元就不再因为“比六百八十八元便宜”而自动合理，它必须证明自己真的适合你。",
+          "start_char": 93,
+          "end_char": 144
+        },
+        {
+          "id": 4,
+          "text": "价格当然可以被设计，但你的尺度也可以。",
+          "start_char": 144,
+          "end_char": 163
+        },
+        {
+          "id": 5,
+          "text": "下一次看到划线原价、推荐档位或对方的第一口报价，先停三秒，找出那个最先出现的数字，再用需求、预算、口径、外部参照和时间距离重新估值。",
+          "start_char": 163,
+          "end_char": 229
+        },
+        {
+          "id": 6,
+          "text": "你不是要战胜大脑，而是给大脑一把更可靠的尺子。",
+          "start_char": 229,
+          "end_char": 252
+        },
+        {
+          "id": 7,
+          "text": "如果这套方法对你有用，就把五步检查法收藏起来，在下一次付款之前真正用一次。",
+          "start_char": 252,
+          "end_char": 289
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "镜头回到开场餐厅，年轻上班族重新面对豪华套餐和普通双人餐。",
+          "sentence_ids": [
+            0,
+            1
+          ],
+          "start_char": 0,
+          "end_char": 45,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "resolved",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "人物放下菜单，先确认同行人数、份量、体验需求和可接受预算。",
+          "sentence_ids": [
+            2
+          ],
+          "start_char": 45,
+          "end_char": 93,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "resolved",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 2,
+          "shot": "close",
+          "visual_description": "普通套餐被放上需求与价值天平，不再只靠与豪华套餐的差价证明合理。",
+          "sentence_ids": [
+            3,
+            4
+          ],
+          "start_char": 93,
+          "end_char": 163,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "resolved",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 3,
+          "shot": "medium",
+          "visual_description": "促销价、推荐档和首报价再次出现，人物停顿片刻找出最先进入视线的数字。",
+          "sentence_ids": [
+            5,
+            6
+          ],
+          "start_char": 163,
+          "end_char": 252,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "resolved",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 4,
+          "shot": "wide",
+          "visual_description": "人物用新的可靠尺度完成选择，与年轻女性走向开阔街道，手中保留五步检查清单。",
+          "sentence_ids": [
+            7
+          ],
+          "start_char": 252,
+          "end_char": 289,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "resolved",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 19,
+      "type": "END",
+      "head": "END",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "开阔远景中，两位消费者带着自己的尺度走过价格标签组成的城市，画面平静收束。",
+          "sentence_ids": [],
+          "start_char": 0,
+          "end_char": 0,
+          "character_ids": [
+            "young_pro",
+            "frugal_girl"
+          ],
+          "emotion": "calm",
+          "segment": "action"
+        }
+      ]
+    }
+  ]
+}

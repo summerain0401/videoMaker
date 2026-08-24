@@ -13,6 +13,7 @@ projects/*/output/storyboard_long.csv
 projects/*/output/tone_report.md
 projects/*/input/candidates/
 projects/*/assets/scenes/candidates/
+projects/*/assets/scenes/
 projects/*/workflow/runs/
 
 # Python 字节码 / 系统垃圾

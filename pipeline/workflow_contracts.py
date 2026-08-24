@@ -29,9 +29,11 @@ DEFAULT_PROVIDERS = {
     },
 }
 NEGATIVE_PROMPT = (
-    "text, letters, numbers, captions, subtitle, logo, watermark, UI, "
-    "chart, infographic, sticker, speech bubble, frame, border, bottom bar, "
-    "letterbox, extra fingers, malformed hands, duplicated person"
+    "dense text, multiple sentences, paragraphs, long captions, subtitles, "
+    "crowded labels, dense UI, dense chart, text-heavy infographic, "
+    "illegible or gibberish text, logo, watermark, sticker, speech bubble, "
+    "frame, border, bottom bar, letterbox, extra fingers, malformed hands, "
+    "duplicated person"
 )
 
 
@@ -386,7 +388,13 @@ def build_image_tasks(storyboard, project_meta, characters, images_dir):
                 f"{beat.get('shot', 'medium')} shot",
                 f"emotion: {beat.get('emotion', 'neutral')}",
                 "16:9 horizontal, 1920x1080, full-bleed, clean readable subject, "
-                "bottom 15 percent visually simple for subtitles, no text or watermark",
+                "semantically useful in-scene text is allowed when it helps the "
+                "viewer: one short headline or key phrase plus a few concise "
+                "labels, prices or numbers; keep text easy to scan and visually "
+                "secondary, normally no more than about 6 short groups and under "
+                "20 percent of the frame; avoid paragraphs or dense text layouts; "
+                "bottom 15 percent visually simple and completely text-free for "
+                "subtitles; no logo or watermark",
             ] if x)
             tasks.append({
                 "key": key,

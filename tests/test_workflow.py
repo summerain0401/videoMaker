@@ -19,6 +19,7 @@ sys.path.insert(0, PIPELINE)
 
 import proj as PJ
 import build_long
+import migrate_provider_architecture as migration
 import tts_azure
 import workflow
 from providers import IMAGE_PROVIDERS, LLM_PROVIDERS
@@ -92,6 +93,19 @@ class ContractTests(unittest.TestCase):
             self.assertEqual([x["key"] for x in tasks], ["00_0", "00_1"])
             self.assertTrue(all(x["output_path"].startswith(tmp) for x in tasks))
             self.assertIn("red scarf", tasks[0]["prompt"])
+            self.assertIn("one short headline or key phrase",
+                          tasks[0]["prompt"])
+            self.assertIn("normally no more than about 6 short groups",
+                          tasks[0]["prompt"])
+            self.assertIn("under 20 percent of the frame",
+                          tasks[0]["prompt"])
+            self.assertNotIn("at most 3 short label-or-number groups",
+                             tasks[0]["prompt"])
+            self.assertNotIn("no text or watermark", tasks[0]["prompt"])
+            self.assertIn("dense text", tasks[0]["negative_prompt"])
+            self.assertNotIn("full sentences", tasks[0]["negative_prompt"])
+            self.assertNotIn("text, letters, numbers",
+                             tasks[0]["negative_prompt"])
             self.assertEqual(ImageGenProvider({}, ROOT).generate(tasks)["tasks"], tasks)
             provider = WanxiangProvider({}, ROOT)
             with mock.patch.object(provider, "_config", return_value=("k", "u", "m")), \
@@ -251,29 +265,98 @@ class AzureTests(unittest.TestCase):
 
 
 class MigrationRegressionTests(unittest.TestCase):
-    def test_001_002_preserve_script_blocks_beats_and_image_keys(self):
-        for pid in ("001", "002"):
-            matches = [name for name in os.listdir(os.path.join(ROOT, "projects"))
-                       if name.startswith(pid + "_")]
-            self.assertEqual(len(matches), 1)
-            project = os.path.join(ROOT, "projects", matches[0])
-            archive = os.path.join(project, "archive", "pre_provider_refactor")
-            manifest = read_json(os.path.join(archive, "migration_manifest.json"))
-            self.assertEqual(manifest["script_sha256_before"],
-                             manifest["script_sha256_after"])
-            self.assertEqual(manifest["blocks_before"], manifest["blocks_after"])
-            self.assertEqual(manifest["beats_before"], manifest["beats_after"])
-            with open(os.path.join(project, "input", "script.txt"),
-                      encoding="utf-8") as handle:
-                errors, _, blocks = validate_script(handle.read())
-            self.assertEqual(errors, [])
-            storyboard = read_json(os.path.join(project, "input", "storyboard.json"))
-            self.assertEqual(validate_storyboard(storyboard, blocks), [])
-            current_keys = sorted(
-                os.path.splitext(name)[0]
-                for name in os.listdir(os.path.join(project, "assets", "scenes"))
-                if name.endswith(".png") and name[0:2].isdigit())
-            self.assertEqual(manifest["image_keys"], current_keys)
+    def _legacy_project(self, root, pid):
+        project = os.path.join(root, f"{pid}_旧项目")
+        input_dir = os.path.join(project, "input")
+        scenes_dir = os.path.join(project, "assets", "scenes")
+        os.makedirs(input_dir)
+        os.makedirs(scenes_dir)
+        write_json(os.path.join(project, "project.json"), {
+            "id": pid, "title": "旧项目", "author": "测试作者",
+        })
+        brief = (
+            "# 旧选题\n\n## 书目\n测试书\n\n## 作者\n测试作者\n\n"
+            "## 视频标题\n迁移测试\n\n## 核心痛点\n保持内容一致\n\n"
+            "## 目标受众\n普通观众\n"
+        )
+        with open(os.path.join(input_dir, "brief.md"), "w",
+                  encoding="utf-8") as handle:
+            handle.write(brief)
+
+        parts = [
+            "# TITLE\n## 迁移测试\nvoice：" + "旧剧本标题内容。" * 20,
+        ]
+        for index in range(1, 6):
+            parts.extend([
+                f"# PHASE {index:02d} · 阶段{index}",
+                f"# CARD\n## 阶段{index}要点\nvoice：" +
+                f"这是第{index}阶段的旧剧本内容，用于验证迁移前后文本完全一致。" * 12,
+            ])
+        parts.append("# END")
+        script_text = "\n\n".join(parts) + "\n"
+        script_path = os.path.join(input_dir, "script.txt")
+        with open(script_path, "w", encoding="utf-8") as handle:
+            handle.write(script_text)
+        errors, _, blocks = validate_script(script_text)
+        self.assertEqual(errors, [])
+
+        narrative = {"version": 1, "blocks": []}
+        for block_idx, block in enumerate(blocks):
+            voice = block.get("voice") or ""
+            subtitles = ([{
+                "id": 0, "text": voice,
+                "start_char": 0, "end_char": len(voice),
+            }] if voice else [])
+            narrative["blocks"].append({
+                "block_idx": block_idx,
+                "type": block["type"],
+                "head": block["head"],
+                "voice_chars": len(voice),
+                "subtitles": subtitles,
+                "beats": [{
+                    "beat_idx": 0,
+                    "shot": "medium",
+                    "visual_description": (
+                        f"阶段 {block_idx} 的旧语义画面" if voice else ""),
+                    "sentence_ids": [0] if voice else [],
+                    "start_char": 0,
+                    "end_char": len(voice),
+                    "character_ids": ["none"],
+                    "emotion": "neutral",
+                }],
+            })
+        write_json(os.path.join(input_dir, "storyboard_narrative.json"),
+                   narrative)
+        for key in ("00_0", "02_0"):
+            with open(os.path.join(scenes_dir, key + ".png"), "wb") as handle:
+                handle.write(b"fixture")
+        return project
+
+    def test_migration_preserves_script_blocks_beats_and_image_keys(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for pid in ("001", "002"):
+                project = self._legacy_project(tmp, pid)
+                result = migration.migrate_project(project)
+                manifest = result["manifest"]
+                self.assertEqual(manifest["script_sha256_before"],
+                                 manifest["script_sha256_after"])
+                self.assertEqual(manifest["blocks_before"],
+                                 manifest["blocks_after"])
+                self.assertEqual(manifest["beats_before"],
+                                 manifest["beats_after"])
+                with open(os.path.join(project, "input", "script.txt"),
+                          encoding="utf-8") as handle:
+                    errors, _, blocks = validate_script(handle.read())
+                self.assertEqual(errors, [])
+                storyboard = read_json(
+                    os.path.join(project, "input", "storyboard.json"))
+                self.assertEqual(validate_storyboard(storyboard, blocks), [])
+                current_keys = sorted(
+                    os.path.splitext(name)[0]
+                    for name in os.listdir(
+                        os.path.join(project, "assets", "scenes"))
+                    if name.endswith(".png") and name[0:2].isdigit())
+                self.assertEqual(manifest["image_keys"], current_keys)
 
 
 if __name__ == "__main__":
