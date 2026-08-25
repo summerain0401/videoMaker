@@ -68,3 +68,22 @@ $PY pipeline/build_long.py --project 001 --frames
 001/002 的旧分镜已迁移到 `archive/pre_provider_refactor/`，迁移清单记录了剧本哈希、块数、拍数和历史图片键。
 
 完整操作流程见 [docs/长视频工作流.md](docs/长视频工作流.md)。
+# videoMaker
+
+视频制作完成后，可通过独立的品牌与发布准备流程生成平台适配文案。该流程不修改内容阶段、图片、配音或成片，也不会自动上传。
+
+```bash
+python3 pipeline/workflow.py brand-init --project 001 --channel main
+python3 pipeline/workflow.py brand-run <brand_run_id> --project 001 --channel main
+python3 pipeline/workflow.py brand-select <brand_run_id> --project 001 --channel main --name-id name_0 --visual-id visual_0
+python3 pipeline/workflow.py brand-verify <brand_run_id> --project 001 --channel main
+python3 pipeline/workflow.py brand-promote <brand_run_id> --project 001 --channel main
+python3 pipeline/workflow.py publish-init <video_run_id> --project 001 --channel main
+python3 pipeline/workflow.py publish-run <video_run_id> <publish_id> --project 001 --channel main --revision v2
+python3 pipeline/workflow.py publish-verify <video_run_id> <publish_id> --project 001 --channel main --revision v2
+python3 pipeline/workflow.py publish-promote <video_run_id> <publish_id> --project 001 --channel main --revision v2
+```
+
+发布任务会从项目 `assets/scenes/` 中按文件名选择最多三张正式常规 PNG 作为封面风格与角色参考（排除 `phase_*.png` 和候选素材）。封面任务包会锁定这些文件的路径与 SHA-256；生成封面时必须将其作为 input references，并保持与正式成片一致的画风、角色、比例、线条、色彩和光影。
+
+品牌和发布候选均须人工选择/确认后提升；`promote` 只生成发布清单，不执行平台上传。

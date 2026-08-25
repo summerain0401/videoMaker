@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "candidates": [
+    {
+      "id": "name_01",
+      "name": "赚钱的底层逻辑",
+      "benefit_hook": "直接回应观众对赚钱机制的好奇，利益感强但不承诺结果。",
+      "rationale": "适合用消费、职业与商业案例解释财富机制。"
+    },
+    {
+      "id": "name_02",
+      "name": "钱从哪里来",
+      "benefit_hook": "以一个人人关心的问题制造持续点击动机。",
+      "rationale": "可自然延展到定价、职业价值、商业模式与财富分配。"
+    },
+    {
+      "id": "name_03",
+      "name": "财富机制局",
+      "benefit_hook": "有解码与看穿机制的感觉，兼具神秘感和专业感。",
+      "rationale": "适合反套路、行为经济学与商业规律的叙事。"
+    },
+    {
+      "id": "name_04",
+      "name": "钱路观察室",
+      "benefit_hook": "把赚钱路径变成可观察、可拆解的问题。",
+      "rationale": "语气更克制，适合长期积累可信赖的认知型内容。"
+    },
+    {
+      "id": "name_05",
+      "name": "认知生财",
+      "benefit_hook": "用认知理解财富机制，利益感明确但不承诺结果。",
+      "rationale": "可长期覆盖读书、消费、职业、商业与财富认知。"
+    }
+  ],
+  "visual_directions": [
+    {
+      "id": "visual_01",
+      "label": "财富杠杆",
+      "concept": "一枚向上平衡的抽象杠杆，表达用认知理解资源与选择。",
+      "symbol": "金色斜杠穿过深色圆心与两端圆点。",
+      "palette": {
+        "background": "#102A43",
+        "foreground": "#F8FAFC",
+        "accent": "#F6C453"
+      },
+      "avatar_svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1024 1024\"><circle cx=\"512\" cy=\"512\" r=\"472\" fill=\"#102A43\"/><circle cx=\"512\" cy=\"592\" r=\"64\" fill=\"#F8FAFC\"/><path d=\"M248 488 L776 344\" stroke=\"#F6C453\" stroke-width=\"72\" stroke-linecap=\"round\"/><circle cx=\"248\" cy=\"488\" r=\"52\" fill=\"#F8FAFC\"/><circle cx=\"776\" cy=\"344\" r=\"52\" fill=\"#F8FAFC\"/></svg>"
+    },
+    {
+      "id": "visual_02",
+      "label": "价格显微镜",
+      "concept": "抽象放大镜聚焦一枚价格刻度，表达看穿价格与价值机制。",
+      "symbol": "金色镜环、白色刻度和深色手柄组成极简符号。",
+      "palette": {
+        "background": "#1D2433",
+        "foreground": "#F5F1E8",
+        "accent": "#E7A93C"
+      },
+      "avatar_svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1024 1024\"><circle cx=\"512\" cy=\"512\" r=\"472\" fill=\"#1D2433\"/><circle cx=\"440\" cy=\"430\" r=\"230\" fill=\"none\" stroke=\"#E7A93C\" stroke-width=\"76\"/><path d=\"M602 596 L800 794\" stroke=\"#F5F1E8\" stroke-width=\"94\" stroke-linecap=\"round\"/><path d=\"M340 430 H540 M440 330 V530\" stroke=\"#F5F1E8\" stroke-width=\"52\" stroke-linecap=\"round\"/></svg>"
+    },
+    {
+      "id": "visual_03",
+      "label": "书页罗盘",
+      "concept": "展开的书页与罗盘指针合为一个符号，表达从阅读中找到财富判断方向。",
+      "symbol": "象牙白书页、青绿色书脊指针与四个粗刻度。",
+      "palette": {
+        "background": "#172033",
+        "foreground": "#EDF4FF",
+        "accent": "#58C4D8"
+      },
+      "avatar_svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1024 1024\"><circle cx=\"512\" cy=\"512\" r=\"472\" fill=\"#172033\"/><path d=\"M512 182V260 M842 512H764 M512 842V764 M182 512H260\" stroke=\"#58C4D8\" stroke-width=\"48\" stroke-linecap=\"round\"/><path d=\"M512 394C438 344 342 346 278 410V656C342 592 438 590 512 640Z\" fill=\"#EDF4FF\"/><path d=\"M512 394C586 344 682 346 746 410V656C682 592 586 590 512 640Z\" fill=\"#EDF4FF\"/><path d=\"M512 330L602 548L512 508L422 548Z\" fill=\"#58C4D8\"/><path d=\"M512 394V660\" stroke=\"#58C4D8\" stroke-width=\"34\" stroke-linecap=\"round\"/></svg>"
+    }
+  ],
+  "profiles": {
+    "youtube": {
+      "description_template": "{{channel_name}}：用生活案例拆解价格、职业与商业背后的财富机制，帮你看懂钱的规则。"
+    },
+    "bilibili": {
+      "description_template": "{{channel_name}}，用通俗案例讲清消费、职业与商业里的财富机制。"
+    },
+    "douyin": {
+      "description_template": "{{channel_name}}：看懂钱的规则，少走认知弯路。"
+    },
+    "wechat": {
+      "description_template": "{{channel_name}}，从日常选择出发，理解财富机制与商业规律。"
+    }
+  },
+  "tone": [
+    "清醒",
+    "直接",
+    "有洞察"
+  ],
+  "cta": "关注频道，一起看懂钱背后的规则。",
+  "selected_name_id": "name_05",
+  "selected_visual_id": "visual_03"
+}

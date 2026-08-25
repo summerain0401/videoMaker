@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "run_id": "run_20260825_100829",
+  "channel": "main",
+  "project_id": "001",
+  "providers": {
+    "llm": {
+      "name": "codex",
+      "model": null
+    },
+    "image": {
+      "name": "imagegen",
+      "model": null
+    },
+    "speech": {
+      "name": "azure",
+      "voice": "zh-CN-Xiaochen:DragonHDFlashLatestNeural"
+    }
+  },
+  "updated_at": "2026-08-25 10:36:30",
+  "status": "promoted",
+  "artifact": "/Volumes/Samsung/codexProjects/videoMaker/channels/main/candidates/run_20260825_100829/brand_candidates.json"
+}

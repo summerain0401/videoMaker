@@ -41,7 +41,7 @@ def _extract_json(text):
 
 class CodexProvider:
     mode = "interactive"
-    stages = {"topic", "copy", "script", "storyboard"}
+    stages = {"topic", "copy", "script", "storyboard", "brand", "publish"}
 
     def __init__(self, config, root):
         self.config = config
@@ -53,7 +53,7 @@ class CodexProvider:
 
 class DeepSeekProvider:
     mode = "api"
-    stages = {"topic", "copy", "script", "storyboard"}
+    stages = {"topic", "copy", "script", "storyboard", "brand", "publish"}
     default_model = "deepseek-v4-flash"
 
     def __init__(self, config, root):
@@ -98,9 +98,19 @@ class DeepSeekProvider:
                 f.write(text.rstrip() + "\n")
         elif stage == "storyboard":
             write_json(destination, self._storyboard(task))
+        elif stage in ("brand", "publish"):
+            write_json(destination, self._generic(stage, task))
         else:
             raise ValueError(f"DeepSeek 不支持阶段：{stage}")
         return {"mode": self.mode, "destination": destination}
+
+    def _generic(self, stage, task):
+        contract = task.get("output_contract", {})
+        system = ("你是中文频道发布编辑。只输出符合任务 output_contract 的 JSON，"
+                  "不得添加解释、代码块或额外字段。")
+        return _extract_json(self._call(system, json.dumps({
+            "stage": stage, "contract": contract, "source": task.get("source", task)
+        }, ensure_ascii=False)))
 
     def _topic(self, task):
         system = ("你是中文听书视频选题编辑。只输出 JSON。给出 3 个候选，字段为 "

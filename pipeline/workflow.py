@@ -26,6 +26,8 @@ from workflow_contracts import (
     validate_copy, validate_providers, validate_script, validate_storyboard,
     validate_topic, write_json,
 )
+from publishing_contracts import (PLATFORMS, TITLE_LIMITS, source_hashes,
+                                   validate_brand, validate_package, validate_svg_text)
 
 
 STATE_VERSION = 2
@@ -683,6 +685,202 @@ def cmd_status(args):
                      ensure_ascii=False, indent=2))
 
 
+# 后置品牌/分发流程：使用独立目录和 state，不进入旧 content stages。
+def _channel_dir(project, channel):
+    return os.path.join(ROOT, "channels", channel)
+
+
+def _brand_paths(project, channel, run_id):
+    root = _channel_dir(project, channel)
+    run = os.path.join(root, "workflow", "runs", run_id)
+    return {"root": root, "request": os.path.join(root, "brand_request.md"),
+            "brand": os.path.join(root, "brand.json"),
+            "avatar": os.path.join(root, "avatar.svg"),
+            "profile": os.path.join(root, "profile.md"),
+            "candidate": os.path.join(root, "candidates", run_id, "brand_candidates.json"),
+            "run": run, "state": os.path.join(run, "state.json"),
+            "task": os.path.join(run, "tasks", "brand.json")}
+
+
+DEFAULT_BRAND_REQUEST = """# 频道品牌需求
+
+面向中文普通人，帮助观众理解财富机制，改善消费、职业与商业判断。
+采用强利益钩子吸引点击，但不承诺收益。
+分发平台：YouTube、B站、抖音、视频号。
+头像方向：抽象符号头像，需适合圆形裁切和小尺寸显示。
+禁止表达：稳赚、暴富、躺赚、必赚、保本、保证收益、无风险收益。
+"""
+
+
+def _publish_root(project):
+    return os.path.join(project, "publishing")
+
+
+def _publish_paths(project, video_run, revision, publish_id):
+    root = _publish_root(project)
+    candidate = os.path.join(root, "candidates", f"{video_run}_{revision}", "package.json")
+    release = os.path.join(root, "releases", publish_id)
+    run = os.path.join(project, "workflow", "runs", video_run, "publish", publish_id)
+    return {"candidate": candidate, "release": os.path.join(release, "package.json"),
+            "upload": os.path.join(release, "upload.md"), "run": run,
+            "state": os.path.join(run, "state.json"), "task": os.path.join(run, "task.json")}
+
+
+def _formal_source_paths(project):
+    return {x: os.path.join(project, "input", f"{x}.{'txt' if x == 'script' else 'json'}")
+            for x in ("topic", "copy", "script", "storyboard")}
+
+
+def _cover_style_references(project):
+    """选择正式常规场景作为封面风格参考，不接受候选或 phase 素材。"""
+    root = os.path.join(project, "assets", "scenes")
+    files = []
+    regular_name = re.compile(r"^\d{2}_\d+\.png$")
+    if os.path.isdir(root):
+        for base, _, names in os.walk(root):
+            for name in names:
+                if not regular_name.match(name):
+                    continue
+                full = os.path.join(base, name)
+                if "candidates" in os.path.realpath(full).split(os.sep):
+                    continue
+                files.append(full)
+    files.sort(key=lambda path: tuple(int(part) for part in re.match(r"^(\d{2})_(\d+)\.png$", os.path.basename(path)).groups()))
+    if not files:
+        raise RuntimeError("publish-run 阻断：项目没有正式常规场景 PNG，无法建立封面风格参考")
+    return [{"path": os.path.relpath(path, project), "sha256": _sha256(path),
+             "purpose": "正式成片风格与角色身份参考"} for path in files[:3]]
+
+
+def _load_video_run(project, run_id):
+    path = state_paths(project, run_id)["state"]
+    if not os.path.exists(path): raise FileNotFoundError(path)
+    return read_json(path)
+
+
+def cmd_brand_init(args):
+    project = set_project(args.project); paths = _brand_paths(project, args.channel, args.run_id or now_run_id())
+    if os.path.exists(paths["state"]): raise FileExistsError(paths["state"])
+    os.makedirs(os.path.dirname(paths["request"]), exist_ok=True)
+    if not os.path.exists(paths["request"]):
+        with open(paths["request"], "w", encoding="utf-8") as f: f.write(DEFAULT_BRAND_REQUEST)
+    meta = project_meta(project); providers = normalize_providers(meta.get("providers") or {})
+    state = {"version": 1, "run_id": os.path.basename(paths["run"]), "channel": args.channel,
+             "project_id": str(args.project), "providers": providers, "updated_at": "",
+             "status": "pending", "artifact": paths["candidate"]}
+    os.makedirs(os.path.dirname(paths["state"]), exist_ok=True); save_state({"state": paths["state"]}, state)
+    print(json.dumps({"run_id": state["run_id"], "state": paths["state"]}, ensure_ascii=False))
+
+
+def cmd_brand_run(args):
+    project = set_project(args.project); run_id = args.run_id; paths = _brand_paths(project, args.channel, run_id)
+    state = read_json(paths["state"])
+    with open(paths["request"], encoding="utf-8") as handle:
+        brand_request = handle.read()
+    task = {"stage": "brand", "brand_request": brand_request,
+        "candidate_path": paths["candidate"], "output_contract": {"candidates": 5, "visual_directions": 3,
+        "profiles": list(PLATFORMS), "templates": ["{{channel_name}}"]}}
+    write_json(paths["task"], task); provider = make_llm(state["providers"]["llm"], ROOT)
+    result = provider.generate("brand", task, paths["candidate"])
+    state["status"] = "awaiting_external" if result["mode"] == "interactive" else "generated"; save_state({"state": paths["state"]}, state)
+
+
+def cmd_brand_select(args):
+    project = set_project(args.project); p = _brand_paths(project, args.channel, args.run_id); data = read_json(p["candidate"])
+    if args.name_id not in {x.get("id") for x in data.get("candidates", [])} or args.visual_id not in {x.get("id") for x in data.get("visual_directions", [])}: raise RuntimeError("品牌候选 ID 无效")
+    data["selected_name_id"], data["selected_visual_id"] = args.name_id, args.visual_id; write_json(p["candidate"], data)
+    state = read_json(p["state"])
+    if state.get("status") not in ("awaiting_external", "generated", "failed"): raise RuntimeError("品牌当前状态不可选择")
+    state["status"] = "generated"; save_state({"state": p["state"]}, state)
+    print("品牌候选已选择")
+
+
+def _valid_svg(path):
+    if not os.path.exists(path): return False
+    text = open(path, encoding="utf-8").read()
+    return (re.search(r'<svg[^>]*viewBox=["\']0 0 1024 1024["\']', text) is not None and
+            not re.search(r'<(text|script|image|foreignObject)\b|(?:https?://| on\w+=)', text, re.I))
+
+
+def cmd_brand_verify(args):
+    project = set_project(args.project); p = _brand_paths(project, args.channel, args.run_id); data = read_json(p["candidate"])
+    errors = validate_brand(data)
+    if not data.get("selected_name_id") or not data.get("selected_visual_id"): errors.append("必须先选择名称和视觉方向")
+    state = read_json(p["state"])
+    if state.get("status") != "generated": errors.append("品牌必须先生成并选择候选")
+    if errors: raise RuntimeError("；".join(sorted(set(errors))))
+    state["status"] = "verified"; save_state({"state": p["state"]}, state); print("brand 校验通过")
+
+
+def cmd_brand_promote(args):
+    project = set_project(args.project); p = _brand_paths(project, args.channel, args.run_id)
+    if os.path.exists(p["brand"]): raise FileExistsError("正式 brand.json 已存在")
+    state = read_json(p["state"])
+    if state.get("status") != "verified": raise RuntimeError("品牌尚未 verified")
+    data = read_json(p["candidate"]); errors = validate_brand(data)
+    if errors or not data.get("selected_name_id") or not data.get("selected_visual_id"): raise RuntimeError("品牌尚未通过校验")
+    name = next(x for x in data["candidates"] if x["id"] == data["selected_name_id"])
+    visual = next(x for x in data["visual_directions"] if x["id"] == data["selected_visual_id"])
+    svg_errors = validate_svg_text(visual.get("avatar_svg"));
+    if svg_errors: raise RuntimeError("；".join(svg_errors))
+    os.makedirs(os.path.dirname(p["avatar"]), exist_ok=True)
+    with open(p["avatar"], "w", encoding="utf-8") as f: f.write(visual["avatar_svg"])
+    profiles = {platform: {"description": data["profiles"][platform]["description_template"].replace("{{channel_name}}", name["name"])} for platform in PLATFORMS}
+    write_json(p["brand"], {"channel_name": name["name"], "positioning": "理解财富机制", "audience": "中文普通人", "promise": "帮助理解消费、职业与商业判断", "tone": data["tone"], "cta": data["cta"], "platforms": profiles, "content_policy": {"no_profit_promises": True, "forbidden": ["稳赚", "暴富", "躺赚", "必赚", "保本", "保证收益", "无风险收益"]}, "visual": {k: v for k, v in visual.items() if k != "avatar_svg"}, "avatar": "avatar.svg", "source_run": state["run_id"], "providers": state["providers"], "promoted_at": datetime.datetime.now().isoformat()})
+    with open(p["profile"], "w", encoding="utf-8") as f:
+        f.write("# " + name["name"] + "\n\n" + "\n\n".join(f"## {p}\n{profiles[p]['description']}" for p in PLATFORMS) + "\n")
+    state["status"] = "promoted"; save_state({"state": p["state"]}, state); print("brand 已提升")
+
+
+def cmd_brand_status(args):
+    p = _brand_paths(set_project(args.project), args.channel, args.run_id); print(json.dumps(read_json(p["state"]), ensure_ascii=False, indent=2))
+
+
+def cmd_publish_init(args):
+    project = set_project(args.project); video = _load_video_run(project, args.video_run_id)
+    if video.get("stages", {}).get("qa", {}).get("status") != "promoted": raise RuntimeError("视频 run QA 尚未 promoted")
+    bp = _brand_paths(project, args.channel, "unused")
+    if not os.path.exists(bp["brand"]): raise RuntimeError("频道 brand 尚未 promoted")
+    revision = video.get("stages", {}).get("render", {}).get("revision") or "original"; pid = args.publish_id or now_run_id().replace("run_", "pub_")
+    p = _publish_paths(project, args.video_run_id, revision, pid); os.makedirs(p["run"], exist_ok=True)
+    state = {"version": 1, "publish_id": pid, "video_run_id": args.video_run_id, "revision": revision, "status": "pending", "providers": video["providers"], "artifact": video["stages"]["render"]["artifact"], "updated_at": ""}
+    write_json(p["state"], state); print(json.dumps({"publish_id": pid, "state": p["state"]}, ensure_ascii=False))
+
+
+def cmd_publish_run(args):
+    project = set_project(args.project); p = _publish_paths(project, args.video_run_id, args.revision, args.publish_id); state = read_json(p["state"]); formal = _formal_source_paths(project); brand = _brand_paths(project, args.channel, "unused")["brand"]
+    source = {k: read_json(v) if k != "script" else open(v, encoding="utf-8").read() for k, v in formal.items()}
+    style_refs = _cover_style_references(project)
+    hashes = source_hashes({**formal, "brand": brand})
+    task = {"stage": "publish", "source": {"topic": source["topic"], "copy": source["copy"], "script": source["script"], "storyboard": source["storyboard"], "brand": read_json(brand)}, "source_hashes": hashes, "cover_style_references": style_refs, "cover_visual_policy": "封面必须以 cover_style_references 中正式场景作为 style + character identity references，保持同一画风、角色设定、比例、线条、色彩与光影；禁止 photorealism、painterly realism、不同角色身份及与成片不一致的写实/极简/3D视觉。实际生成必须将这些文件作为 input references。", "candidate_path": p["candidate"], "output_contract": {"version": 1, "publish_id": "string", "channel_id": args.channel, "source": {"hashes": hashes}, "fact_core": {"summary": "string", "claim_refs": "copy.claims indexes", "script_evidence": "literal script substrings"}, "cover": {"aspect_ratio": "16:9", "style_references": "与任务参考完整一致", "style_requirements": "正式视觉一致性要求"}, "platforms": {p: {"primary_title": "string", "alternate_titles": 2, "description": "string", "tags": "3-8", "cta": "string"} for p in PLATFORMS}}}
+    write_json(p["task"], task); provider = make_llm(state["providers"]["llm"], ROOT); result = provider.generate("publish", task, p["candidate"]); state["status"] = "awaiting_external" if result["mode"] == "interactive" else "generated"; save_state({"state": p["state"]}, state)
+
+
+def cmd_publish_verify(args):
+    project = set_project(args.project); p = _publish_paths(project, args.video_run_id, args.revision, args.publish_id); data = read_json(p["candidate"]); formal = _formal_source_paths(project); brand = _brand_paths(project, args.channel, "unused")["brand"]; hashes = source_hashes({**formal, "brand": brand})
+    with open(formal["script"], encoding="utf-8") as handle:
+        script = handle.read()
+    copy_data = read_json(formal["copy"]); task = read_json(p["task"]); errors = validate_package(data, hashes, script, copy_data, str(args.project), args.video_run_id, args.revision, brand_hash=hashes["brand"], cover_style_references=task.get("cover_style_references"), project_root=project)
+    if errors: raise RuntimeError("；".join(errors))
+    state = read_json(p["state"]); state["status"] = "verified"; save_state({"state": p["state"]}, state); print("publish 校验通过")
+
+
+def cmd_publish_promote(args):
+    project = set_project(args.project); p = _publish_paths(project, args.video_run_id, args.revision, args.publish_id); state = read_json(p["state"])
+    if state.get("status") != "verified": raise RuntimeError("publish 尚未 verified")
+    data = read_json(p["candidate"]); os.makedirs(os.path.dirname(p["release"]), exist_ok=True); write_json(p["release"], data)
+    with open(p["upload"], "w", encoding="utf-8") as f:
+        f.write("# 上传清单\n\n## 统一事实核心\n" + str(data.get("fact_core", {}).get("summary", "")) + "\n\n## 封面文案与视觉任务\n" + data.get("cover", {}).get("concept", "") + "\n")
+        labels = {"youtube": "YouTube", "bilibili": "B站", "douyin": "抖音", "wechat": "视频号"}
+        for platform in PLATFORMS: f.write(f"\n## {labels[platform]}\n{data.get('platforms', {}).get(platform, {}).get('primary_title', '')}\n")
+        f.write("\n## 上传前人工检查\n- 人工上传\n- 检查标题与封面\n- 检查封面与正式场景的风格/角色一致性\n")
+    state["status"] = "promoted"; save_state({"state": p["state"]}, state); print("publish 已提升")
+
+
+def cmd_publish_status(args):
+    p = _publish_paths(set_project(args.project), args.video_run_id, args.revision, args.publish_id); print(json.dumps(read_json(p["state"]), ensure_ascii=False, indent=2))
+
+
 def parser():
     ap = argparse.ArgumentParser(description="可插拔长视频生产工作流")
     ap.add_argument("--project", default=None, help=argparse.SUPPRESS)
@@ -731,6 +929,19 @@ def parser():
     status.add_argument("run_id")
     status.add_argument("--project")
     status.set_defaults(func=cmd_status)
+    for name, func in (("brand-init", cmd_brand_init), ("brand-run", cmd_brand_run),
+                       ("brand-select", cmd_brand_select), ("brand-verify", cmd_brand_verify),
+                       ("brand-promote", cmd_brand_promote), ("brand-status", cmd_brand_status)):
+        p = sub.add_parser(name); p.add_argument("--run-id", required=True); p.add_argument("--project", required=True); p.add_argument("--channel", default="main")
+        if name == "brand-select": p.add_argument("--name-id", required=True); p.add_argument("--visual-id", required=True)
+        p.set_defaults(func=func)
+    for name, func in (("publish-init", cmd_publish_init), ("publish-run", cmd_publish_run),
+                       ("publish-verify", cmd_publish_verify), ("publish-promote", cmd_publish_promote),
+                       ("publish-status", cmd_publish_status)):
+        p = sub.add_parser(name); p.add_argument("video_run_id"); p.add_argument("--project", required=True); p.add_argument("--channel", default="main")
+        p.add_argument("--revision", default="v2"); p.add_argument("--publish-id", default=None)
+        if name != "publish-init": p.add_argument("publish_id")
+        p.set_defaults(func=func)
     return ap
 
 
