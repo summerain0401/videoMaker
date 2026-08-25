@@ -4,6 +4,7 @@
 
 import argparse
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -256,7 +257,18 @@ def build_task(paths, state, stage):
 def cmd_run(args):
     paths, state = locate_run(args.run_id, args.project)
     stage = args.stage
-    if state["stages"][stage]["status"] in ("verified", "promoted"):
+    review_render = stage == "render" and bool(getattr(args, "review_id", None))
+    revision_render = stage == "render" and bool(getattr(args, "revision", None))
+    if stage != "render" and any((getattr(args, "review_id", None),
+                                  getattr(args, "revision", None),
+                                  getattr(args, "blocks", None),
+                                  getattr(args, "clip_durations", None),
+                                  getattr(args, "phase_images_dir", None))):
+        raise ValueError("review/revision/blocks 参数只允许用于 render 阶段")
+    if review_render and not getattr(args, "blocks", None):
+        raise ValueError("review render 必须显式指定 --blocks")
+    if state["stages"][stage]["status"] in ("verified", "promoted") and not (
+            review_render or revision_render):
         raise RuntimeError(f"阶段 {stage} 已校验或完成，不能在同一 run 内重新生成")
     require_dependencies(state, stage)
     project = paths["project"]
@@ -316,7 +328,7 @@ def cmd_run(args):
     if stage == "voice":
         _run_voice(paths, state)
     elif stage == "render":
-        _run_render(paths, state)
+        _run_render(paths, state, args)
     elif stage == "qa":
         _run_qa(paths, state)
     else:
@@ -505,26 +517,106 @@ def _run_voice(paths, state):
     print(f"Azure 配音完成：{manifest_path}")
 
 
-def _run_render(paths, state):
+def _sha256(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _run_render(paths, state, args):
     pid = state["project_id"]
     cmd = [sys.executable, os.path.join(ROOT, "pipeline", "build_long.py"),
            "--project", pid, "--workflow-run", state["run_id"]]
-    output = os.path.join(paths["project"], "output", f"long_{pid}.mp4")
+    review_id = getattr(args, "review_id", None)
+    revision = getattr(args, "revision", None)
+    blocks = getattr(args, "blocks", None)
+    clip_durations = getattr(args, "clip_durations", None)
+    phase_images_dir = getattr(args, "phase_images_dir", None)
+    if phase_images_dir:
+        phase_images_dir = os.path.realpath(phase_images_dir)
+        project_root = os.path.realpath(paths["project"])
+        if os.path.commonpath((project_root, phase_images_dir)) != project_root:
+            raise ValueError("阶段候选图目录必须位于当前项目内")
+        if not (review_id or revision):
+            raise ValueError("阶段候选图只允许用于 review/revision")
+        cmd += ["--phase-images-dir", phase_images_dir]
+    if review_id:
+        cmd += ["--review-id", review_id,
+                "--blocks", ",".join(str(x) for x in blocks)]
+        if clip_durations:
+            if len(clip_durations) != len(blocks):
+                raise ValueError("--clip-durations 必须与 --blocks 等长")
+            cmd += ["--clip-durations",
+                    ",".join(str(x) for x in clip_durations)]
+        output = os.path.join(paths["project"], "output", "reviews",
+                              review_id, "review.mp4")
+    elif revision:
+        cmd += ["--revision", revision]
+        output = os.path.join(paths["project"], "output",
+                              f"long_{pid}_{revision}.mp4")
+    else:
+        output = os.path.join(paths["project"], "output", f"long_{pid}.mp4")
     try:
         subprocess.run(cmd, check=True)
         if not os.path.exists(output):
             raise FileNotFoundError(f"渲染命令未生成成片：{output}")
     except Exception as exc:
-        transition(state, "render", "failed", str(exc))
-        save_state(paths, state)
+        if not (review_id or revision):
+            transition(state, "render", "failed", str(exc))
+            save_state(paths, state)
         raise
-    transition(state, "render", "promoted", "渲染完成", output)
+    if review_id:
+        formal = formal_paths(paths["project"])
+        manifest = {
+            "review_id": review_id,
+            "profile": "immersive_v2",
+            "video": output,
+            "blocks": blocks,
+            "clip_durations": clip_durations,
+            "phase_images_dir": phase_images_dir,
+            "phase_image_sha256": {
+                f"phase_{number:02d}.png": _sha256(os.path.join(
+                    phase_images_dir, f"phase_{number:02d}.png"))
+                for number in range(1, 6)
+            } if phase_images_dir else {},
+            "created_at": datetime.datetime.now().isoformat(),
+            "sources": {
+                "script_sha256": _sha256(formal["script"]),
+                "storyboard_sha256": _sha256(formal["storyboard"]),
+            },
+        }
+        manifest_path = os.path.join(paths["project"], "output", "reviews",
+                                     review_id, "manifest.json")
+        write_json(manifest_path, manifest)
+        print(f"review 渲染完成：{output}")
+        return
+    if revision:
+        previous = state["stages"]["render"].get("artifact")
+        previous_qa = state["stages"]["qa"].get("artifact")
+        state.setdefault("render_history", []).append({
+            "artifact": previous,
+            "qa_artifact": previous_qa,
+            "archived_at": datetime.datetime.now().isoformat(),
+        })
+    transition(state, "render", "promoted",
+               f"渲染完成{f'（{revision}）' if revision else ''}", output)
+    state["stages"]["render"]["revision"] = revision
+    if revision:
+        state["stages"]["qa"] = {
+            "status": "pending", "note": "新 render revision 待 QA",
+            "artifact": None,
+        }
     unlock(state)
     save_state(paths, state)
     print(f"渲染完成：{output}")
 
 
 def _run_qa(paths, state):
+    revision = state["stages"]["render"].get("revision")
+    qa_path = (os.path.join(paths["run_dir"], f"qa_{revision}.json")
+               if revision else paths["qa"])
     try:
         video = state["stages"]["render"].get("artifact")
         if not video or not os.path.exists(video):
@@ -551,19 +643,36 @@ def _run_qa(paths, state):
         mean_volume = float(match.group(1)) if match else None
         if mean_volume is None or not -16.5 <= mean_volume <= -11.5:
             raise RuntimeError(f"平均响度不在 -14 dB 目标容差内：{mean_volume}")
+        loudness = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-i", video, "-af",
+             "loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json",
+             "-f", "null", "-"], text=True, capture_output=True, check=True)
+        matches = re.findall(r"\{\s*\"input_i\".*?\}",
+                             loudness.stderr, flags=re.S)
+        metrics = json.loads(matches[-1]) if matches else {}
+        integrated_lufs = float(metrics.get("input_i", "nan"))
+        true_peak_db = float(metrics.get("input_tp", "nan"))
+        if not -15.5 <= integrated_lufs <= -12.5:
+            raise RuntimeError(
+                f"综合响度不在 -14 LUFS 目标容差内：{integrated_lufs}")
+        if true_peak_db > -0.8:
+            raise RuntimeError(f"True Peak 过高：{true_peak_db} dBTP")
         report = {
             "video": video, "ffprobe": probe, "decode": "ok",
             "mean_volume_db": mean_volume,
+            "integrated_lufs": integrated_lufs,
+            "true_peak_db": true_peak_db,
             "checked_at": datetime.datetime.now().isoformat(),
         }
-        write_json(paths["qa"], report)
+        report["render_revision"] = revision
+        write_json(qa_path, report)
     except Exception as exc:
         transition(state, "qa", "failed", str(exc))
         save_state(paths, state)
         raise
-    transition(state, "qa", "promoted", "1080p、响度与完整解码通过", paths["qa"])
+    transition(state, "qa", "promoted", "1080p、响度与完整解码通过", qa_path)
     save_state(paths, state)
-    print(f"QA 通过：{paths['qa']}")
+    print(f"QA 通过：{qa_path}")
 
 
 def cmd_status(args):
@@ -596,6 +705,11 @@ def parser():
     run.add_argument("stage", choices=ALL_STAGES)
     run.add_argument("--project")
     run.add_argument("--beats", nargs="*")
+    run.add_argument("--review-id")
+    run.add_argument("--revision")
+    run.add_argument("--blocks", nargs="*", type=int)
+    run.add_argument("--clip-durations", nargs="*", type=float)
+    run.add_argument("--phase-images-dir")
     run.set_defaults(func=cmd_run)
     select = sub.add_parser("select-topic", help="选择选题候选")
     select.add_argument("run_id")

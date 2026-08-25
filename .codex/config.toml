@@ -1,0 +1,8 @@
+# 项目默认由 Terra 主控；专用模型由 AGENTS.md 的路由规则按需调用。
+model = "gpt-5.6-terra"
+model_reasoning_effort = "medium"
+
+[agents]
+enabled = true
+# 节省上下文与避免并发写冲突：同一时刻最多启用一个专用代理。
+max_concurrent_threads_per_session = 1

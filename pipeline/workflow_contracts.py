@@ -37,6 +37,18 @@ NEGATIVE_PROMPT = (
 )
 
 
+def phase_identity(block):
+    """解析 PHASE 编号和标题；普通块返回 (None, None)。"""
+    if block.get("type") != "PHASE":
+        return None, None
+    match = re.fullmatch(
+        r"PHASE\s+(\d{1,2})\s*(?:·|\-|—)?\s*(.+)",
+        str(block.get("head") or "").strip())
+    if not match:
+        raise ValueError(f"无法解析 PHASE 标题：{block.get('head')}")
+    return int(match.group(1)), match.group(2).strip()
+
+
 def read_json(path):
     with open(path, encoding="utf-8") as f:
         return json.load(f)
@@ -230,6 +242,8 @@ def validate_storyboard(data, script_blocks=None, known_character_ids=None):
                 problems.append(f"块 {pos} voice_chars 与剧本不一致")
         if not beats:
             problems.append(f"块 {pos} 必须至少包含一拍")
+        if block.get("type") == "PHASE" and len(beats) != 1:
+            problems.append(f"块 {pos} PHASE 必须且只能包含一拍")
         if voice_chars and not subtitles:
             problems.append(f"块 {pos} 有口播但无 subtitles")
         if not all(isinstance(s, dict) for s in subtitles):
@@ -367,11 +381,17 @@ def build_image_tasks(storyboard, project_meta, characters, images_dir):
     palette = visual.get("palette") or "colors follow the narrative emotion"
     tasks = []
     for block in storyboard.get("blocks", []):
+        phase_number, phase_title = phase_identity(block)
+        if phase_number is not None and len(block.get("beats", [])) != 1:
+            raise ValueError(
+                f"PHASE {phase_number:02d} 必须且只能包含一个图片任务")
         for beat in block.get("beats", []):
             description = (beat.get("visual_description") or "").strip()
             if not description:
                 continue
-            key = f"{int(block['block_idx']):02d}_{int(beat['beat_idx'])}"
+            is_phase = phase_number is not None
+            key = (f"phase_{phase_number:02d}" if is_phase else
+                   f"{int(block['block_idx']):02d}_{int(beat['beat_idx'])}")
             char_bits = []
             for char_id in beat.get("character_ids", []):
                 if char_id == "none":
@@ -382,22 +402,41 @@ def build_image_tasks(storyboard, project_meta, characters, images_dir):
                 identity = char.get("prompt") or char.get("description") or char_id
                 anchor = char.get("anchor") or ""
                 char_bits.append(", ".join(x for x in (identity, anchor) if x))
+            text_policy = (
+                f'chapter-opening image; render the exact simplified-Chinese '
+                f'title "{phase_title}" verbatim as a prominent physical part '
+                "of the depicted world—such as lettering engraved, painted, "
+                "printed or mounted on the most semantically natural object or "
+                "architectural surface; make the lettering follow that object's "
+                "perspective, material, lighting and contact shadows; the title "
+                "must be immediately legible and contain no missing, incorrect "
+                "or extra characters; do not write PHASE or add other readable "
+                "text; never use a floating overlay, generic title card, separate "
+                "banner, lower-third, subtitle, UI panel or watermark"
+                if is_phase else
+                "semantically useful in-scene text is allowed when it helps the "
+                "viewer: one short headline or key phrase plus a few concise "
+                "labels, prices or numbers; keep text easy to scan and visually "
+                "secondary, normally no more than about 6 short groups and under "
+                "20 percent of the frame; avoid paragraphs or dense text layouts"
+            )
             prompt = ", ".join(x for x in [
                 style, palette, description,
                 "characters: " + "; ".join(char_bits) if char_bits else "",
                 f"{beat.get('shot', 'medium')} shot",
                 f"emotion: {beat.get('emotion', 'neutral')}",
-                "16:9 horizontal, 1920x1080, full-bleed, clean readable subject, "
-                "semantically useful in-scene text is allowed when it helps the "
-                "viewer: one short headline or key phrase plus a few concise "
-                "labels, prices or numbers; keep text easy to scan and visually "
-                "secondary, normally no more than about 6 short groups and under "
-                "20 percent of the frame; avoid paragraphs or dense text layouts; "
-                "bottom 15 percent visually simple and completely text-free for "
-                "subtitles; no logo or watermark",
+                text_policy,
+                "16:9 horizontal, 1920x1080, full-bleed, clean readable subject; "
+                "compose as a continuous full-frame scene with no reserved caption "
+                "panel or empty bottom band; keep critical faces and indispensable "
+                "semantic details away from the bottom-center subtitle line while "
+                "allowing natural scenery and texture to continue to every edge; "
+                "no logo or watermark",
             ] if x)
             tasks.append({
                 "key": key,
+                "kind": "phase_title" if is_phase else "scene",
+                "title_text": phase_title if is_phase else None,
                 "block_idx": block["block_idx"],
                 "beat_idx": beat["beat_idx"],
                 "prompt": prompt,

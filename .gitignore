@@ -8,6 +8,8 @@ projects/*/audio/tmp/
 projects/*/audio/music.wav
 projects/*/output/*.mp4
 projects/*/output/preview/
+projects/*/output/reviews/
+projects/*/output/revisions/
 projects/*/output/long_summary.json
 projects/*/output/storyboard_long.csv
 projects/*/output/tone_report.md

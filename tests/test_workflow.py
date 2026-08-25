@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 """Regression tests for provider-neutral workflow contracts and migration."""
 
+import copy
+import inspect
 import io
 import os
 import tempfile
@@ -55,6 +57,15 @@ def sample_storyboard():
 
 
 class ContractTests(unittest.TestCase):
+    def test_long_narrative_beats_use_one_continuous_zoompan(self):
+        source = inspect.getsource(build_long.render_scene_narrative)
+        self.assertIn("每个 beat 始终使用一条完整 zoompan 轨迹", source)
+        self.assertNotIn("split=2", source)
+        self.assertNotIn("concat=n=2:v=1:a=0", source)
+        # 第二个 zoompan 属于独立的 deco 视差层，不是 beat 图片轨迹。
+        beat_section = source.split("# 块内卡点硬切", 1)[0]
+        self.assertEqual(beat_section.count("zoompan=z='"), 1)
+
     def test_provider_registry_and_no_stage_override(self):
         self.assertEqual(set(LLM_PROVIDERS), {"codex", "deepseek"})
         self.assertEqual(set(IMAGE_PROVIDERS), {"imagegen", "wanxiang"})
@@ -99,6 +110,11 @@ class ContractTests(unittest.TestCase):
                           tasks[0]["prompt"])
             self.assertIn("under 20 percent of the frame",
                           tasks[0]["prompt"])
+            self.assertIn("no reserved caption panel or empty bottom band",
+                          tasks[0]["prompt"])
+            self.assertIn("natural scenery and texture to continue to every edge",
+                          tasks[0]["prompt"])
+            self.assertNotIn("bottom 15 percent", tasks[0]["prompt"])
             self.assertNotIn("at most 3 short label-or-number groups",
                              tasks[0]["prompt"])
             self.assertNotIn("no text or watermark", tasks[0]["prompt"])
@@ -112,6 +128,106 @@ class ContractTests(unittest.TestCase):
                     mock.patch.object(provider, "_generate_one") as generate:
                 provider.generate(tasks)
             self.assertEqual(generate.call_count, 2)
+
+    def test_phase_image_task_integrates_exact_title_and_uses_stable_key(self):
+        storyboard = {
+            "blocks": [{
+                "block_idx": 4,
+                "type": "PHASE",
+                "head": "PHASE 02 · 锚点怎样改变价值感",
+                "subtitles": [],
+                "beats": [{
+                    "beat_idx": 0,
+                    "shot": "wide",
+                    "visual_description": "雾中岔路与被路灯照亮的路牌",
+                    "sentence_ids": [],
+                    "start_char": 0,
+                    "end_char": 0,
+                    "character_ids": ["none"],
+                    "emotion": "analytical",
+                    "segment": "insight",
+                }],
+            }],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            task = build_image_tasks(storyboard, {}, {"none": {}}, tmp)[0]
+        self.assertEqual(task["key"], "phase_02")
+        self.assertEqual(task["kind"], "phase_title")
+        self.assertEqual(task["title_text"], "锚点怎样改变价值感")
+        self.assertTrue(task["output_path"].endswith("phase_02.png"))
+        self.assertIn('"锚点怎样改变价值感"', task["prompt"])
+        self.assertIn("physical part of the depicted world", task["prompt"])
+        self.assertIn("never use a floating overlay", task["prompt"])
+        self.assertIn("no reserved caption panel or empty bottom band",
+                      task["prompt"])
+        second_beat = copy.deepcopy(storyboard["blocks"][0]["beats"][0])
+        second_beat["beat_idx"] = 1
+        storyboard["blocks"][0]["beats"].append(second_beat)
+        self.assertTrue(any("PHASE 必须且只能包含一拍" in error for error in
+                            validate_storyboard(storyboard)))
+
+
+class RenderRegressionTests(unittest.TestCase):
+    def test_phase_title_layer_and_duration(self):
+        layer = build_long.V.make_phase_title_layer(
+            "PHASE 03 · 生活中的三类价格锚")
+        self.assertEqual(layer.size, (1920, 1080))
+        self.assertIsNotNone(layer.getchannel("A").getbbox())
+        self.assertEqual(build_long.PHASE_DUR, 2.5)
+
+    def test_integrated_phase_art_disables_overlay_fallback(self):
+        old_dir = build_long.PHASE_ART_DIR
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                phase_path = os.path.join(tmp, "phase_03.png")
+                with open(phase_path, "wb") as handle:
+                    handle.write(b"candidate")
+                build_long.PHASE_ART_DIR = tmp
+                block = {"head": "PHASE 03 · 生活中的三类价格锚"}
+                self.assertEqual(
+                    build_long.integrated_phase_art_path(block), phase_path)
+        finally:
+            build_long.PHASE_ART_DIR = old_dir
+
+    def test_motion_profiles_change_by_shot_and_are_deterministic(self):
+        wide = build_long.motion_exprs(3, 300, "wide", "alert", "hook")
+        medium = build_long.motion_exprs(
+            3, 300, "medium", "alert", "hook")
+        close = build_long.motion_exprs(3, 300, "close", "alert", "hook")
+        self.assertEqual(
+            wide, build_long.motion_exprs(3, 300, "wide", "alert", "hook"))
+        self.assertNotEqual(wide, medium)
+        self.assertNotEqual(medium, close)
+        self.assertTrue(all("iw-iw/zoom" in item for item in
+                            (wide[1], medium[1], close[1])))
+
+    def test_subtitle_keeps_source_ranges_and_never_splits_book_title(self):
+        text = ("今天我们用威廉·庞德斯通的《无价》，拆开价格背后的锚定效应。"
+                "你会买吗？")
+        chunks = build_long.subtitle_chunk_events(
+            text, protected_words=build_long.subtitle_protected_terms(
+                ("《无价》", "锚定", "威廉·庞德斯通")))
+        self.assertEqual("".join(x["source_text"] for x in chunks), text)
+        self.assertEqual(chunks[0]["source_start"], 0)
+        self.assertEqual(chunks[-1]["source_end"], len(text))
+        title_chunks = [x for x in chunks if "《" in x["source_text"]]
+        self.assertEqual(len(title_chunks), 1)
+        self.assertIn("《无价》", title_chunks[0]["source_text"])
+        self.assertTrue(all(not x["display_text"].endswith(tuple("，。；、"))
+                            for x in chunks))
+        self.assertTrue(any(x["display_text"].endswith("？") for x in chunks))
+
+    def test_sfx_mix_disables_amix_normalization(self):
+        with mock.patch.object(build_long, "synth_sfx",
+                               return_value="/tmp/fake.wav"), \
+                mock.patch.object(build_long, "sh") as sh:
+            build_long.mix_sfx(
+                "/tmp/voice.wav", [("reveal", 1000)], "/tmp/out.wav")
+        command = sh.call_args.args
+        graph = command[command.index("-filter_complex") + 1]
+        self.assertIn("normalize=0", graph)
+        self.assertIn("volume=0.160", graph)
+        self.assertNotIn("volume=0.35", graph)
 
 
 class WorkflowStateTests(unittest.TestCase):
@@ -194,6 +310,70 @@ class WorkflowStateTests(unittest.TestCase):
         _, state = workflow.locate_run("run_topic", "005")
         self.assertEqual(state["stages"]["topic"]["status"], "promoted")
         self.assertEqual(state["stages"]["copy"]["status"], "pending")
+
+    def test_review_is_isolated_and_revision_preserves_previous_render(self):
+        create = SimpleNamespace(
+            project="006", llm="codex", llm_model=None,
+            image="imagegen", image_model=None, azure_voice="voice-A")
+        with redirect_stdout(io.StringIO()):
+            workflow.cmd_create(create)
+            workflow.cmd_init(SimpleNamespace(project="006", run_id="run_render"))
+        project = workflow.project_for_id("006")
+        paths = workflow.state_paths(project, "run_render")
+        formal = workflow.formal_paths(project)
+        os.makedirs(os.path.dirname(formal["script"]), exist_ok=True)
+        with open(formal["script"], "w", encoding="utf-8") as handle:
+            handle.write("# TITLE\n## 测试\nvoice：测试正文。\n# END\n")
+        write_json(formal["storyboard"], {"version": 1, "blocks": []})
+        old_video = os.path.join(project, "output", "long_006.mp4")
+        os.makedirs(os.path.dirname(old_video), exist_ok=True)
+        with open(old_video, "wb") as handle:
+            handle.write(b"old")
+        old_qa = os.path.join(paths["run_dir"], "qa.json")
+        write_json(old_qa, {"video": old_video})
+        state = read_json(paths["state"])
+        for stage in ("images", "voice", "render", "qa"):
+            state["stages"][stage]["status"] = "promoted"
+        state["stages"]["render"]["artifact"] = old_video
+        state["stages"]["qa"]["artifact"] = old_qa
+        workflow.save_state(paths, state)
+
+        def fake_render(command, check):
+            self.assertTrue(check)
+            if "--review-id" in command:
+                target = os.path.join(
+                    project, "output", "reviews", "immersive_v2", "review.mp4")
+            else:
+                target = os.path.join(project, "output", "long_006_v2.mp4")
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            with open(target, "wb") as handle:
+                handle.write(b"new")
+
+        before = copy.deepcopy(state)
+        review_args = SimpleNamespace(
+            review_id="immersive_v2", revision=None, blocks=[1, 2],
+            clip_durations=[2.5, 12.0])
+        with mock.patch.object(workflow.subprocess, "run", side_effect=fake_render), \
+                redirect_stdout(io.StringIO()):
+            workflow._run_render(paths, state, review_args)
+        self.assertEqual(state, before)
+        self.assertTrue(os.path.exists(os.path.join(
+            project, "output", "reviews", "immersive_v2", "manifest.json")))
+        with open(old_video, "rb") as handle:
+            self.assertEqual(handle.read(), b"old")
+
+        revision_args = SimpleNamespace(
+            review_id=None, revision="v2", blocks=None, clip_durations=None)
+        with mock.patch.object(workflow.subprocess, "run", side_effect=fake_render), \
+                redirect_stdout(io.StringIO()):
+            workflow._run_render(paths, state, revision_args)
+        self.assertEqual(state["stages"]["render"]["revision"], "v2")
+        self.assertTrue(state["stages"]["render"]["artifact"].endswith(
+            "long_006_v2.mp4"))
+        self.assertEqual(state["stages"]["qa"]["status"], "pending")
+        self.assertEqual(state["render_history"][0]["artifact"], old_video)
+        with open(old_video, "rb") as handle:
+            self.assertEqual(handle.read(), b"old")
 
 
 class AzureTests(unittest.TestCase):

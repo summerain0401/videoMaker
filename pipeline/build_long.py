@@ -23,6 +23,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import subprocess
 import sys
 
@@ -45,15 +46,41 @@ def PROJ(*parts):
 
 
 W, H, FPS = 1920, 1080, 30
-KENZOOM = 0.08  # 每镜头 Ken Burns 统一缓推幅度（1.0→1.08，常量可调）
+KENZOOM = 0.08
 LEAD, TAIL = 0.4, 0.6
 QUOTE_LEAD = 1.0
-PHASE_DUR = 4.0
+PHASE_DUR = 2.5
 XD = 0.3  # 块间转场时长（方向型快速转场，不用 dissolve 家族）
 NO_TTS = False  # --no-tts：跳过配音合成，音轨静音
 RUN_AZURE_VOICE = None  # workflow run 的 provider 快照；非用户可选项
+RENDER_WORK_DIR = None  # review/revision 隔离中间文件，避免覆盖正式分片
+PHASE_ART_DIR = None  # 评审候选阶段页目录；正式版默认读取 scenes/phase_nn.png
+CONTINUOUS_BGM = os.environ.get("BGM_MODE", "chapter_cues") == "continuous"
 BOOK = "《金钱的艺术》"
 AUTHOR = "Morgan Housel"
+
+
+def render_work_path(*parts):
+    base = RENDER_WORK_DIR or PROJ("output")
+    path = os.path.join(base, *parts)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    return path
+
+
+def layer_path(name):
+    if RENDER_WORK_DIR:
+        return render_work_path("layers", name)
+    path = PROJ("assets", "layers", name)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    return path
+
+
+def audio_tmp_path(name):
+    if RENDER_WORK_DIR:
+        return render_work_path("audio", name)
+    path = PROJ("audio", "tmp", name)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    return path
 
 
 def story_path():
@@ -197,8 +224,11 @@ def scene_lead(b):
 
 def scene_time(b):
     if b["type"] == "PHASE":
-        return PHASE_DUR
-    return scene_lead(b) + b["voice_dur"] + TAIL
+        duration = PHASE_DUR
+    else:
+        duration = scene_lead(b) + b["voice_dur"] + TAIL
+    clip = b.get("_clip_dur")
+    return min(duration, clip) if clip is not None else duration
 
 
 def palette_for(b):
@@ -210,18 +240,55 @@ def palette_for(b):
     return PALETTES.get(key, PALETTES["01"])
 
 
-def motion_exprs(idx, nframes):
-    """统一 1.0→1+KENZOOM 缓推：锚点上移(50%,35%)对准面部 + X 轴 2.5% 缓移 + ease-out。
-
-    缩放与平移都用 ease-out（1-(1-p)²），切入前 0.5s 明显动态入场、随后缓推；
-    X 向平移 2.5% 在缩放余量内，不露画面边缘。
-    """
-    n = max(nframes, 1)
+def motion_exprs(idx, nframes, shot="medium", emotion="neutral",
+                 segment="insight", continuation=False):
+    """按景别与语义生成稳定、可复现且不露边的推拉摇移表达式。"""
+    n = max(nframes - 1, 1)
     p = f"(1-pow(1-min(1,on/{n}),2))"
-    z = f"1+{KENZOOM}*({p})"
-    cx = f"'(iw-iw/zoom)*0.5+iw*0.025*({p})'"
-    cy = f"'(ih-ih/zoom)*0.35'"
+    seed_text = f"{idx}:{shot}:{emotion}:{segment}".encode("utf-8")
+    seed = int(hashlib.md5(seed_text).hexdigest()[:8], 16)
+    reverse = seed % 2 == 1
+
+    if shot == "wide":
+        z0, z1, x0, x1, y0, y1 = 1.00, 1.09, 0.18, 0.78, 0.34, 0.28
+    elif shot == "close":
+        z0, z1, x0, x1, y0, y1 = 1.14, 1.05, 0.43, 0.57, 0.30, 0.38
+    else:
+        z0, z1, x0, x1, y0, y1 = 1.03, 1.12, 0.34, 0.66, 0.34, 0.28
+    if continuation:
+        if shot == "wide":
+            z0, z1, x0, x1 = 1.065, 1.12, 0.54, 0.34
+        elif shot == "close":
+            z0, z1, x0, x1 = 1.08, 1.035, 0.52, 0.44
+        else:
+            z0, z1, x0, x1 = 1.085, 1.14, 0.52, 0.40
+    if reverse:
+        x0, x1 = 1.0 - x0, 1.0 - x1
+        y0, y1 = y1, y0
+    if segment == "action":
+        z1 += 0.015
+    elif emotion in {"calm", "balanced", "reflective"}:
+        z1 = z0 + (z1 - z0) * 0.72
+
+    z = f"{z0:.3f}+({z1 - z0:.3f})*({p})"
+    cx = f"'(iw-iw/zoom)*({x0:.3f}+({x1 - x0:.3f})*({p}))'"
+    cy = f"'(ih-ih/zoom)*({y0:.3f}+({y1 - y0:.3f})*({p}))'"
     return z, cx, cy
+
+
+def reframe_fraction(beat, storyboard_block):
+    """选择最接近中点的句子边界，作为长拍的轻微重新构图点。"""
+    start = beat.get("start_char", 0)
+    end = beat.get("end_char", start)
+    span = max(end - start, 1)
+    boundaries = []
+    subtitles = {item["id"]: item for item in storyboard_block["subtitles"]}
+    for sentence_id in beat.get("sentence_ids", [])[:-1]:
+        subtitle = subtitles.get(sentence_id)
+        if subtitle:
+            boundaries.append((subtitle["end_char"] - start) / span)
+    usable = [value for value in boundaries if 0.32 <= value <= 0.72]
+    return min(usable, key=lambda value: abs(value - 0.52)) if usable else 0.52
 
 
 def load_storyboard():
@@ -232,8 +299,29 @@ def load_storyboard():
         return json.load(f)
 
 
+def integrated_phase_art_path(block):
+    """返回标题已内化到场景中的阶段专用图；不存在则返回 None。"""
+    num = phase_num(block.get("head"))
+    if not num:
+        return None
+    roots = ([PHASE_ART_DIR] if PHASE_ART_DIR else []) + [
+        PROJ("assets", "scenes")]
+    for root in roots:
+        path = os.path.join(root, f"phase_{num}.png")
+        if os.path.exists(path):
+            return path
+    return None
+
+
 def phase_art_path(blocks, idx):
-    """阶段页背景：后续第一个有卡点图的内容块首拍画面（保持故事连续）。"""
+    """阶段页优先专用图，其次旧阶段图，最后沿用后续内容首拍。"""
+    integrated = integrated_phase_art_path(blocks[idx])
+    if integrated:
+        return integrated
+    source_idx = blocks[idx].get("_source_idx", idx)
+    current = PROJ("assets", "scenes", f"{source_idx:02d}_0.png")
+    if os.path.exists(current):
+        return current
     for j in range(idx + 1, len(blocks)):
         source_idx = blocks[j].get("_source_idx", j)
         p = PROJ("assets", "scenes", f"{source_idx:02d}_0.png")
@@ -244,21 +332,26 @@ def phase_art_path(blocks, idx):
 
 def beat_art_path(b, idx, beat_idx, blocks=None):
     """卡点画面：优先 scenes/{idx}_{beat}.png；PHASE 用后续内容块首拍；否则 None。"""
+    if b["type"] == "PHASE" and blocks is not None:
+        return phase_art_path(blocks, idx)
     source_idx = b.get("_source_idx", idx)
     p = PROJ("assets", "scenes", f"{source_idx:02d}_{beat_idx}.png")
     if os.path.exists(p):
         return p
-    if b["type"] == "PHASE" and blocks is not None:
-        return phase_art_path(blocks, idx)
     return None
 
 
 def make_beat_bg(b, idx, beat_idx, art_path):
-    """卡点底图：原图直接放大（不压暗），否则程序化底图。"""
-    out = PROJ("assets", "layers", f"nbg_{idx:02d}_{beat_idx:02d}.png")
+    """卡点底图：按比例 cover 到 2x 画布，不拉伸、不留边。"""
+    out = layer_path(f"nbg_{idx:02d}_{beat_idx:02d}.png")
     if art_path and os.path.exists(art_path):
-        Image.open(art_path).convert("RGB").resize(
-            (2 * W, 2 * H), Image.LANCZOS).save(out)
+        image = Image.open(art_path).convert("RGB")
+        scale = max((2 * W) / image.width, (2 * H) / image.height)
+        size = (math.ceil(image.width * scale), math.ceil(image.height * scale))
+        image = image.resize(size, Image.LANCZOS)
+        left = max(0, (image.width - 2 * W) // 2)
+        top = max(0, (image.height - 2 * H) // 2)
+        image.crop((left, top, left + 2 * W, top + 2 * H)).save(out)
     else:
         c0, c1, c2 = palette_for(b)
         V.procedural_bg(c0, c1, c2, 2 * W, 2 * H).save(out)
@@ -300,6 +393,11 @@ PROTECTED_WORDS = [
     "越花钱", "越省钱", "挣得不多", "掏不出", "一夜暴富",
     "跳槽加薪", "年终奖",
 ]
+ATOMIC_SUBTITLE_RE = re.compile(
+    r"《[^》\n]+》|[¥￥]?\d[\d,.]*(?:\.\d+)?\s*"
+    r"(?:元|块|万|千|亿|%|折|年|月|天|秒)?|[A-Za-z0-9][A-Za-z0-9._%+-]*"
+)
+DISPLAY_TRAILING_PUNCT = "，。；、"
 if _HAS_JIEBA:
     for _w in PROTECTED_WORDS:
         jieba.add_word(_w)
@@ -309,89 +407,122 @@ if _HAS_JIEBA:
         pass
 
 
-def _pieces_from_tokens(tokens, max_chars):
-    """按 jieba 词元累积成 ≤max_chars 的段，标点并入前段。"""
-    pieces, cur = [], ""
-    for tok in tokens:
-        if not tok.strip():
-            continue
-        if tok in CLAUSE_PUNCT and cur:
-            cur += tok
-            continue
-        if cur and len(cur) + len(tok) > max_chars:
-            pieces.append(cur)
-            cur = tok
-        else:
-            cur += tok
-    if cur:
-        pieces.append(cur)
-    return pieces
+def subtitle_protected_terms(meta=None):
+    """从项目元数据动态补充书名、作者等不可拆词组。"""
+    terms = set(PROTECTED_WORDS)
+    if meta:
+        book, _hook, author = meta
+        for value in (book, author):
+            value = (value or "").strip()
+            if value:
+                terms.add(value)
+                terms.add(value.strip("《》"))
+    return sorted((x for x in terms if x), key=len, reverse=True)
 
 
-def _char_split(cl, max_chars):
-    """无 jieba 时按字切分，切后剩余段 ≥3 字。"""
-    i, out = 0, []
-    while len(cl) - i > max_chars:
-        cut = i + max_chars
-        while len(cl) - cut < 3 and cut > i:
-            cut -= 1
-        out.append(cl[i:cut])
-        i = cut
-    out.append(cl[i:])
-    return out
+def _protected_ranges(text, protected_words):
+    candidates = [(m.start(), m.end()) for m in ATOMIC_SUBTITLE_RE.finditer(text)]
+    for word in protected_words or []:
+        start = text.find(word)
+        while start != -1:
+            candidates.append((start, start + len(word)))
+            start = text.find(word, start + len(word))
+    selected = []
+    for start, end in sorted(candidates, key=lambda x: (x[0], -(x[1] - x[0]))):
+        if not selected or start >= selected[-1][1]:
+            selected.append((start, end))
+    return selected
 
 
-def split_subtitle_chunks(text, max_chars=15):
-    """字幕分块：按标点切子句 → jieba 分词 → 累积 ≤max_chars 字/屏。
+def _subtitle_tokens(text, protected_words):
+    """生成覆盖原文的词元，并把书名、金额等保护范围视为单一词元。"""
+    ranges = _protected_ranges(text, protected_words)
+    tokens, cursor = [], 0
 
-    规则：固定词组（思维框架/年薪百万/真相）严禁跨屏切断；事件不以标点或
-    单字开头；jieba 缺失时回退子句按字切分。
-    """
-    clauses, cur = [], ""
-    for ch in text:
-        cur += ch
-        if ch in CLAUSE_PUNCT:
-            clauses.append(cur)
-            cur = ""
-    if cur:
-        clauses.append(cur)
-    # 超长子句按词切（jieba），避免切碎固定词组
+    def add_plain(start, end):
+        plain = text[start:end]
+        if not plain:
+            return
+        pieces = list(jieba.cut(plain)) if _HAS_JIEBA else list(plain)
+        pos = start
+        for piece in pieces:
+            if not piece:
+                continue
+            tokens.append((pos, pos + len(piece)))
+            pos += len(piece)
+
+    for start, end in ranges:
+        add_plain(cursor, start)
+        tokens.append((start, end))
+        cursor = end
+    add_plain(cursor, len(text))
+    return tokens
+
+
+def _subtitle_width(text, size=48):
+    canvas = Image.new("RGB", (1, 1))
+    return ImageDraw.Draw(canvas).textlength(text, font=V.sub_font(size))
+
+
+def subtitle_chunk_events(text, max_chars=18, max_width=1400,
+                          protected_words=None):
+    """返回源区间与显示文本分离的字幕块，保证删标点不破坏时间映射。"""
+    if not text:
+        return []
+    tokens = _subtitle_tokens(text, protected_words or PROTECTED_WORDS)
     units = []
-    for cl in clauses:
-        if len(cl) <= max_chars:
-            units.append(cl)
-            continue
-        if _HAS_JIEBA:
-            units.extend(_pieces_from_tokens(list(jieba.cut(cl)), max_chars))
-        else:
-            units.extend(_char_split(cl, max_chars))
-    # 累积到 ≤max_chars 的屏
-    out, buf = [], ""
-    for u in units:
-        if buf and len(buf) + len(u) <= max_chars:
-            buf += u
-        else:
-            if buf:
-                out.append(buf)
-            buf = u
-    if buf:
-        out.append(buf)
-    # 行首标点并入上一屏
-    fixed = []
-    for s in out:
-        while s and s[0] in LEAD_PUNCT and fixed:
-            fixed[-1] += s[0]
-            s = s[1:]
-        if s:
-            fixed.append(s)
-    # 单字屏兜底并入上一屏
+    start = end = None
+    for token_start, token_end in tokens:
+        if start is None:
+            start = token_start
+        candidate = text[start:token_end]
+        overflow = (len(candidate) > max_chars or
+                    _subtitle_width(candidate) > max_width)
+        if overflow and end is not None and token_start > start:
+            units.append([start, end])
+            start = token_start
+        end = token_end
+        if text[token_start:token_end] in CLAUSE_PUNCT:
+            units.append([start, end])
+            start = end = None
+    if start is not None:
+        units.append([start, end])
+
     merged = []
-    for s in fixed:
-        if len(s) == 1 and merged:
-            merged[-1] += s
-        else:
-            merged.append(s)
-    return merged
+    for start, end in units:
+        if merged:
+            combined = text[merged[-1][0]:end]
+            if (len(combined) <= max_chars and
+                    _subtitle_width(combined) <= max_width):
+                merged[-1][1] = end
+                continue
+        merged.append([start, end])
+    for index in range(len(merged) - 1, 0, -1):
+        start, end = merged[index]
+        visible = text[start:end].strip(LEAD_PUNCT)
+        if len(visible.rstrip(DISPLAY_TRAILING_PUNCT)) <= 2:
+            combined = text[merged[index - 1][0]:end]
+            if _subtitle_width(combined) <= max_width * 1.08:
+                merged[index - 1][1] = end
+                del merged[index]
+
+    events = []
+    for start, end in merged:
+        source = text[start:end]
+        display = source.rstrip(DISPLAY_TRAILING_PUNCT)
+        events.append({
+            "source_start": start,
+            "source_end": end,
+            "source_text": source,
+            "display_text": display or source,
+        })
+    return events
+
+
+def split_subtitle_chunks(text, max_chars=18, protected_words=None):
+    """兼容调用：返回精简标点后的显示字幕。"""
+    return [item["display_text"] for item in subtitle_chunk_events(
+        text, max_chars=max_chars, protected_words=protected_words)]
 
 
 def render_scene_narrative(blocks, idx, total, first, last, meta, story):
@@ -409,42 +540,57 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
         beat_idx = beat["beat_idx"]
         bg_paths.append(make_beat_bg(
             b, idx, beat_idx, beat_art_path(b, idx, beat_idx, blocks)))
-    deco = PROJ("assets", "layers", f"deco_{idx:02d}.png")
+    deco = layer_path(f"deco_{idx:02d}.png")
     V.make_deco_layer(idx).save(deco)
+    phase_title = None
+    if b["type"] == "PHASE" and not integrated_phase_art_path(b):
+        phase_title = layer_path(f"phase_{idx:02d}.png")
+        V.make_phase_title_layer(b["head"]).save(phase_title)
     sub_events = []
     pop_events = []
+    protected = subtitle_protected_terms(meta)
     for s in sb["subtitles"]:
         ts, te = subtitle_windows(b, s)
-        total = max(s["end_char"] - s["start_char"], 1)
-        offset = 0
-        for ch in split_subtitle_chunks(s["text"]):
-            ln = len(ch)
-            st = ts + (offset / total) * (te - ts)
-            et = ts + ((offset + ln) / total) * (te - ts)
-            p = PROJ("assets", "layers",
-                  f"sub_{idx:02d}_{s['id']:02d}_{offset:03d}.png")
+        source_total = max(len(s["text"]), 1)
+        for chunk in subtitle_chunk_events(s["text"], protected_words=protected):
+            offset = chunk["source_start"]
+            source_end = chunk["source_end"]
+            ch = chunk["display_text"]
+            st = ts + (offset / source_total) * (te - ts)
+            et = ts + (source_end / source_total) * (te - ts)
+            if st >= sdur:
+                continue
+            et = min(et, sdur)
+            p = layer_path(
+                f"sub_{idx:02d}_{s['id']:02d}_{offset:03d}.png")
             V.make_subtitle_layer(ch).save(p)
             sub_events.append((p, st, et))
             hl = V.first_highlight_span(ch)
             if hl:
-                hp = PROJ("assets", "layers",
-                          f"subpop_{idx:02d}_{s['id']:02d}_{offset:03d}.png")
+                hp = layer_path(
+                    f"subpop_{idx:02d}_{s['id']:02d}_{offset:03d}.png")
                 himg, hcx, hcy = V.make_subtitle_highlight_layer(ch)
                 himg.save(hp)
-                frac = hl[0] / max(ln, 1)
+                frac = hl[0] / max(len(ch), 1)
                 pt = st + frac * (et - st)
-                pop_events.append((hp, pt, hcx, hcy))
-            offset += ln
+                if pt < sdur:
+                    pop_events.append((hp, pt, hcx, hcy))
 
     fc = []
     for k in range(n):
         nframes = max(int(durs[k] * FPS), 1)
-        z, cx, cy = motion_exprs(idx * 5 + k, nframes)
+        beat = beats[k]
+        motion_args = (
+            beat.get("shot", "medium"), beat.get("emotion", "neutral"),
+            beat.get("segment", "insight"))
+        # 每个 beat 始终使用一条完整 zoompan 轨迹。长 beat 不再按句子边界
+        # split 成两段后 concat，避免中段重新构图造成画面顿挫。
+        z, cx, cy = motion_exprs(
+            source_idx * 7 + k, nframes, *motion_args)
         fc.append(
             f"[{k}:v]scale={2 * W}:{2 * H},"
             f"zoompan=z='{z}':x={cx}:y={cy}:d={nframes}:"
-            f"s={W}x{H}:fps={FPS},"
-            f"format=yuv420p[b{k}]"
+            f"s={W}x{H}:fps={FPS},format=yuv420p[b{k}]"
         )
     # 块内卡点硬切：各拍 zoompan 后 concat 拼接（保留 Ken Burns，无叠化）
     if n > 1:
@@ -459,12 +605,17 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
               f"y='22*cos(t/3.5)'[d0]")
     o_prev = "d0"
     bi += 1
-    # 底部半透明渐变遮罩（画面之上、字幕之下，保证字幕可读）
-    grad = PROJ("assets", "layers", f"grad_{idx:02d}.png")
-    V.make_bottom_gradient().save(grad)
-    fc.append(f"[{o_prev}][{bi}:v]overlay=0:0[g0]")
-    o_prev = "g0"
-    bi += 1
+    if phase_title:
+        fade_out = max(0.5, sdur - 0.45)
+        fc.append(
+            f"[{bi}:v]format=rgba,fade=t=in:st=0.15:d=0.35:alpha=1,"
+            f"fade=t=out:st={fade_out:.2f}:d=0.35:alpha=1[PT]"
+        )
+        fc.append(
+            f"[{o_prev}][PT]overlay=x=0:y='18-18*min(1,t/0.45)'[phase0]"
+        )
+        o_prev = "phase0"
+        bi += 1
     for k, (p, ts, te) in enumerate(sub_events):
         fc.append(
             f"[{bi}:v]fade=t=in:st={ts:.2f}:d=0.12:alpha=1,"
@@ -472,9 +623,9 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
         )
         fc.append(
             f"[{o_prev}][S{k}]overlay=0:0:"
-            f"enable='between(t,{ts:.2f},{te:.2f})'[o{k + 3}]"
+            f"enable='between(t,{ts:.2f},{te:.2f})'[sub{k}]"
         )
-        o_prev = f"o{k + 3}"
+        o_prev = f"sub{k}"
         bi += 1
     for k, (hp, pt, hcx, hcy) in enumerate(pop_events):
         fc.append(
@@ -504,8 +655,9 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
         cmd += ["-i", bg_paths[k]]
     cmd += ["-loop", "1", "-framerate", str(FPS),
             "-t", f"{sdur:.3f}", "-i", deco]
-    cmd += ["-loop", "1", "-framerate", str(FPS),
-            "-t", f"{sdur:.3f}", "-i", grad]
+    if phase_title:
+        cmd += ["-loop", "1", "-framerate", str(FPS),
+                "-t", f"{sdur:.3f}", "-i", phase_title]
     for p, ts, te in sub_events:
         cmd += ["-loop", "1", "-framerate", str(FPS),
                 "-t", f"{sdur:.3f}", "-i", p]
@@ -516,7 +668,7 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
             "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
             "-ar", "44100", "-ac", "1", "-r", str(FPS),
-            "-t", f"{sdur:.3f}", PROJ("output", f"vs2_{idx:02d}.mp4")]
+            "-t", f"{sdur:.3f}", render_work_path(f"vs2_{idx:02d}.mp4")]
     sh(*cmd)
 
 
@@ -540,6 +692,9 @@ def render_frames_narrative(blocks, meta, story):
             x0 = (img.width - W) // 2
             y0 = (img.height - H) // 2
             img = img.crop((x0, y0, x0 + W, y0 + H)).convert("RGBA")
+            if b["type"] == "PHASE" and not integrated_phase_art_path(b):
+                img = Image.alpha_composite(
+                    img, V.make_phase_title_layer(b["head"]))
             img.convert("RGB").save(
                 os.path.join(outdir,
                              f"m3n_{source_idx:02d}_{beat_idx:02d}.jpg"),
@@ -548,7 +703,8 @@ def render_frames_narrative(blocks, meta, story):
                 img2 = Image.alpha_composite(
                     img, V.make_subtitle_layer(
                         split_subtitle_chunks(
-                            sb["subtitles"][0]["text"])[0]))
+                            sb["subtitles"][0]["text"],
+                            protected_words=subtitle_protected_terms(meta))[0]))
                 img2.convert("RGB").save(
                     os.path.join(
                         outdir,
@@ -568,6 +724,10 @@ SFX_MAX_PER_KIND = 3
 
 def synth_sfx(kind):
     """用 ffmpeg lavfi 合成短音效（缓存到项目 audio/tmp/）。"""
+    for ext in ("wav", "mp3", "m4a", "flac", "aac"):
+        custom = PROJ("audio", f"cue_{kind}.{ext}")
+        if os.path.exists(custom):
+            return custom
     tmp = PROJ("audio", "tmp")
     os.makedirs(tmp, exist_ok=True)
     out = os.path.join(tmp, f"sfx_{kind}.wav")
@@ -583,10 +743,24 @@ def synth_sfx(kind):
            "-i", "aevalsrc=0.55*sin(2*PI*(180-125*t/0.3)*t)*exp(-6*t):"
                 "s=44100:d=0.3",
            "-c:a", "pcm_s16le", out)
-    else:  # calc：单个 1kHz 短 click
+    elif kind == "calc":
         sh("ffmpeg", "-y", "-f", "lavfi",
            "-i", "aevalsrc=0.5*sin(2*PI*1000*t)*exp(-60*t):"
                 "s=44100:d=0.08",
+           "-c:a", "pcm_s16le", out)
+    else:
+        cue_specs = {
+            "intro": ("0.16*sin(2*PI*(180+70*t)*t)*(1-exp(-8*t))*exp(-1.4*t)",
+                      1.35),
+            "phase": ("0.18*sin(2*PI*440*t)*exp(-3.2*t)+"
+                      "0.10*sin(2*PI*660*t)*exp(-4.0*t)", 0.90),
+            "outro": ("0.15*sin(2*PI*(520-130*t)*t)*exp(-2.8*t)", 0.90),
+        }
+        if kind not in cue_specs:
+            raise ValueError(f"未知 SFX：{kind}")
+        expr, duration = cue_specs[kind]
+        sh("ffmpeg", "-y", "-f", "lavfi",
+           "-i", f"aevalsrc={expr}:s=44100:d={duration}",
            "-c:a", "pcm_s16le", out)
     return out
 
@@ -613,39 +787,50 @@ def find_sfx(voice, vd):
 
 
 def mix_sfx(block_wav, events, out):
-    """把 SFX 按时间点混入块配音（adelay + volume 0.35 + amix）。"""
+    """固定权重混入 SFX；关闭 amix 归一化，避免延迟音效提前压低人声。"""
     inputs = ["-i", block_wav]
     fc, amix_in = [], ["[0:a]"]
     in_idx = 1
+    gains = {"coin": 0.20, "calc": 0.14, "reveal": 0.16,
+             "intro": 0.10, "phase": 0.16, "outro": 0.13}
     for i, (kind, ms) in enumerate(events):
         sfx = synth_sfx(kind)
         inputs += ["-i", sfx]
-        delays = [ms] if kind == "coin" else [ms, ms + 120, ms + 240]
+        delays = ([ms, ms + 120, ms + 240]
+                  if kind in {"calc", "reveal"} else [ms])
         for j, d in enumerate(delays):
             lab = f"s{i}_{j}"
-            fc.append(f"[{in_idx}:a]adelay={d}|{d},volume=0.35[{lab}]")
+            fc.append(
+                f"[{in_idx}:a]adelay={d}|{d},volume={gains[kind]:.3f}[{lab}]"
+            )
             amix_in.append(f"[{lab}]")
         in_idx += 1
     fc.append("".join(amix_in) +
               f"amix=inputs={len(amix_in)}:duration=first:"
-              f"dropout_transition=0,alimiter[a]")
+              f"dropout_transition=0:normalize=0,"
+              f"alimiter=limit=0.95:attack=5:release=50[a]")
     sh("ffmpeg", "-y", *inputs, "-filter_complex", ";".join(fc),
        "-map", "[a]", "-ar", "44100", "-ac", "1", out)
     return out
 
 
 def make_scene_audio(b, idx, sfx_events=None):
-    tmp = PROJ("audio", "tmp")
-    os.makedirs(tmp, exist_ok=True)
-    if NO_TTS or b["type"] == "PHASE":
-        out = os.path.join(tmp, f"vs2_{idx:02d}.wav")
+    if NO_TTS:
+        out = audio_tmp_path(f"vs2_{idx:02d}.wav")
         sh("ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
            "-t", f"{scene_time(b):.3f}", "-c:a", "pcm_s16le", out)
         return out
+    if b["type"] in {"PHASE", "END"}:
+        base = audio_tmp_path(f"vs2_{idx:02d}_base.wav")
+        out = audio_tmp_path(f"vs2_{idx:02d}.wav")
+        sh("ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
+           "-t", f"{scene_time(b):.3f}", "-c:a", "pcm_s16le", base)
+        cue = "phase" if b["type"] == "PHASE" else "outro"
+        return mix_sfx(base, [(cue, 0)], out)
     segs = []
 
     def silence(dur, name):
-        path = os.path.join(tmp, name)
+        path = audio_tmp_path(name)
         sh("ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
            "-t", f"{dur:.3f}", "-c:a", "pcm_s16le", path)
         return path
@@ -655,16 +840,19 @@ def make_scene_audio(b, idx, sfx_events=None):
     segs.append(PROJ("audio", "voice",
                   voice_stem(source_idx, b["voice"]) + ".wav"))
     segs.append(silence(TAIL, f"vs2_{idx:02d}_tail.wav"))
-    lst = os.path.join(tmp, f"vs2_{idx:02d}_list.txt")
+    lst = audio_tmp_path(f"vs2_{idx:02d}_list.txt")
     with open(lst, "w", encoding="utf-8") as f:
         for p in segs:
             f.write(f"file '{os.path.abspath(p)}'\n")
-    out = PROJ("audio", "tmp", f"vs2_{idx:02d}.wav")
+    out = audio_tmp_path(f"vs2_{idx:02d}.wav")
     sh("ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", lst,
        "-c:a", "pcm_s16le", out)
+    sfx_events = list(sfx_events or [])
+    if b["type"] == "TITLE":
+        sfx_events.insert(0, ("intro", 0))
     if sfx_events:
         out = mix_sfx(out, sfx_events,
-                      PROJ("audio", "tmp", f"vs2_{idx:02d}_sfx.wav"))
+                      audio_tmp_path(f"vs2_{idx:02d}_sfx.wav"))
     return out
 
 
@@ -768,9 +956,9 @@ def transition_for(b, k):
     return "wipeup"
 
 
-def finalize(blocks, out_name, seg_points=None):
+def finalize(blocks, out_name, seg_points=None, output_path=None):
     """xfade 视频转场 + acrossfade 音频 + 三段 BGM（Ducking/EQ）+ 全局响度。"""
-    scenes = [PROJ("output", f"vs2_{i:02d}.mp4")
+    scenes = [render_work_path(f"vs2_{i:02d}.mp4")
               for i in range(len(blocks))]
     durs = [scene_time(b) for b in blocks]
     n = len(scenes)
@@ -778,7 +966,7 @@ def finalize(blocks, out_name, seg_points=None):
         t_total = sum(durs) - XD * (n - 1)
         seg_points = [0.0, t_total / 3, 2 * t_total / 3, t_total]
     music_paths = [find_music(i + 1) for i in range(3)]
-    has_music = any(music_paths)
+    has_music = CONTINUOUS_BGM and any(music_paths)
     cmd = ["ffmpeg", "-y"]
     for s in scenes:
         cmd += ["-i", s]
@@ -835,30 +1023,34 @@ def finalize(blocks, out_name, seg_points=None):
     else:
         fc.append(f"[{a_prev}]loudnorm=I=-14:TP=-1.5:LRA=11[a]")
 
+    output_path = output_path or PROJ("output", out_name)
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
     cmd += ["-filter_complex", ";".join(fc),
             "-map", "[vf]", "-map", "[a]",
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
             "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
             "-ar", "44100", "-movflags", "+faststart",
-            "-t", f"{total:.2f}",
-            PROJ("output", out_name)]
+            "-t", f"{total:.2f}", output_path]
     sh(*cmd)
-    return PROJ("output", out_name)
+    return output_path
 
 
-def preview_frames(total, out_name):
-    outdir = PROJ("output", "preview")
+def preview_frames(total, out_name, video_path=None, outdir=None):
+    outdir = outdir or PROJ("output", "preview")
     os.makedirs(outdir, exist_ok=True)
+    video_path = video_path or PROJ("output", out_name)
     n = 10
     for k in range(n):
         t = total * (k + 0.5) / n
         sh("ffmpeg", "-y", "-ss", f"{t:.2f}",
-           "-i", PROJ("output", out_name), "-frames:v", "1",
+           "-i", video_path, "-frames:v", "1",
            "-vf", "scale=960:540", "-update", "1",
            os.path.join(outdir, f"{out_name[:-4]}_{k:02d}.jpg"))
 
 
-def write_reports(blocks, total, out_name):
+def write_reports(blocks, total, out_name, report_dir=None, render_meta=None):
+    report_dir = report_dir or PROJ("output")
+    os.makedirs(report_dir, exist_ok=True)
     rows = []
     for i, b in enumerate(blocks):
         rows.append({
@@ -869,21 +1061,23 @@ def write_reports(blocks, total, out_name):
             "口播字数": len(b["voice"] or ""),
             "时长(秒)": round(scene_time(b), 2),
         })
-    with open(PROJ("output", "storyboard_long.csv"), "w", encoding="utf-8-sig",
+    with open(os.path.join(report_dir, "storyboard_long.csv"), "w",
+              encoding="utf-8-sig",
               newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         w.writeheader()
         w.writerows(rows)
-    with open(PROJ("output", "long_summary.json"),
+    with open(os.path.join(report_dir, "long_summary.json"),
               "w", encoding="utf-8") as f:
         json.dump({"tts": "azure", "voice": azure_voice(),
                    "total_duration": round(total, 2),
-                   "file": out_name, "blocks": rows},
+                   "file": out_name, "render": render_meta or {},
+                   "blocks": rows},
                   f, ensure_ascii=False, indent=2)
 
 
 def main():
-    global NO_TTS, RUN_AZURE_VOICE
+    global NO_TTS, RUN_AZURE_VOICE, RENDER_WORK_DIR, PHASE_ART_DIR
     ap = argparse.ArgumentParser(description="长视频 V5 渲染引擎")
     ap.add_argument("--project", default=None,
                     help="项目 id（默认取环境变量 PROJECT，缺省 001）")
@@ -892,10 +1086,30 @@ def main():
                     help="快速抽帧：全块 2 秒无声片段各抽 3 帧，跳过 TTS 与合成")
     ap.add_argument("--blocks", default=None,
                     help="只渲染指定块（逗号分隔序号），如 0,1,2,3,4,7,8,9,12,13")
+    ap.add_argument("--clip-durations", default=None,
+                    help="与 --blocks 一一对应的预览时长（逗号分隔秒数）")
+    ap.add_argument("--review-id", default=None,
+                    help="写入隔离 review 目录，不覆盖正式分片或成片")
+    ap.add_argument("--revision", default=None,
+                    help="生成版本化正式成片，如 v2")
+    ap.add_argument("--phase-images-dir", default=None,
+                    help="阶段标题候选图目录（phase_01.png 至 phase_05.png）")
     ap.add_argument("--no-tts", action="store_true",
                     help="跳过配音合成：音轨静音，时长按字数估算")
     ap.add_argument("--workflow-run", default=None, help=argparse.SUPPRESS)
     args = ap.parse_args()
+
+    if args.review_id and args.revision:
+        raise ValueError("--review-id 与 --revision 不能同时使用")
+    for value in (args.review_id, args.revision):
+        if value and not re.fullmatch(r"[A-Za-z0-9_-]+", value):
+            raise ValueError("review/revision 只能包含字母、数字、下划线和连字符")
+    if args.clip_durations and not args.blocks:
+        raise ValueError("--clip-durations 必须与 --blocks 一起使用")
+    if args.pilot and (args.review_id or args.revision):
+        raise ValueError("--pilot 不能与 review/revision 混用")
+    if args.phase_images_dir and not (args.review_id or args.revision):
+        raise ValueError("--phase-images-dir 只允许用于 review/revision")
 
     if args.project:
         PJ.CURRENT_ID = args.project
@@ -915,15 +1129,44 @@ def main():
     for i, block in enumerate(blocks):
         block["_source_idx"] = i
     meta = book_meta(blocks)
-    PJ.project_dir(title=meta[0], author=meta[2])
+    project_dir = PJ.project_dir(title=meta[0], author=meta[2])
+    if args.phase_images_dir:
+        PHASE_ART_DIR = os.path.realpath(args.phase_images_dir)
+        if os.path.commonpath((os.path.realpath(project_dir),
+                               PHASE_ART_DIR)) != os.path.realpath(project_dir):
+            raise ValueError("阶段候选图目录必须位于当前项目内")
+        missing = [f"phase_{number:02d}.png" for number in range(1, 6)
+                   if not os.path.exists(os.path.join(
+                       PHASE_ART_DIR, f"phase_{number:02d}.png"))]
+        if missing:
+            raise FileNotFoundError("缺少阶段候选图：" + ", ".join(missing))
     story = load_storyboard()
+    kept = None
     if args.blocks:
         kept = [int(x) for x in args.blocks.split(",") if x.strip()]
+        if len(kept) != len(set(kept)):
+            raise ValueError("--blocks 不允许重复块号")
+        unknown = [x for x in kept if x < 0 or x >= len(blocks)]
+        if unknown:
+            raise ValueError("未知块号：" + ",".join(map(str, unknown)))
         blocks = [b for i, b in enumerate(blocks) if i in kept]
         if story:
             sb_map = {sb["block_idx"]: sb for sb in story["blocks"]}
             kept_sb = [sb_map[i] for i in kept if i in sb_map]
             story = {"blocks": kept_sb}
+    if args.clip_durations:
+        clips = [float(x) for x in args.clip_durations.split(",") if x.strip()]
+        if len(clips) != len(blocks) or any(x <= 0 for x in clips):
+            raise ValueError("--clip-durations 必须为与 --blocks 等长的正数列表")
+        for block, duration in zip(blocks, clips):
+            block["_clip_dur"] = duration
+    variant_dir = None
+    if args.review_id:
+        variant_dir = PROJ("output", "reviews", args.review_id)
+        RENDER_WORK_DIR = os.path.join(variant_dir, "work")
+    elif args.revision:
+        variant_dir = PROJ("output", "revisions", args.revision)
+        RENDER_WORK_DIR = os.path.join(variant_dir, "work")
     if args.frames:
         render_frames_narrative(blocks, meta, story)
         print(f"FRAMES DONE 见 {PROJ('output', 'preview')}/m3n_*.jpg")
@@ -942,17 +1185,34 @@ def main():
                                last=(i == total - 1), meta=meta,
                                story=story)
     output_stem = f"long_{PJ.CURRENT_ID}"
-    if args.blocks:
+    output_path = None
+    if args.review_id:
+        out_name = "review.mp4"
+        output_path = os.path.join(variant_dir, out_name)
+    elif args.revision:
+        out_name = output_stem + f"_{args.revision}.mp4"
+        output_path = PROJ("output", out_name)
+    elif args.blocks:
         out_name = output_stem + "_visual_sample.mp4"
     elif args.pilot:
         out_name = output_stem + "_pilot.mp4"
     else:
         out_name = output_stem + ".mp4"
-    out = finalize(blocks, out_name,
-                   compute_segments(blocks, story))
+    out = finalize(blocks, out_name, compute_segments(blocks, story),
+                   output_path=output_path)
     dur = probe_dur(out)
-    preview_frames(dur, out_name)
-    write_reports(blocks, dur, out_name)
+    preview_dir = (os.path.join(variant_dir, "preview")
+                   if variant_dir else PROJ("output", "preview"))
+    report_dir = variant_dir or PROJ("output")
+    preview_frames(dur, out_name, video_path=out, outdir=preview_dir)
+    write_reports(
+        blocks, dur, out_name, report_dir=report_dir,
+        render_meta={"profile": "immersive_v2", "review_id": args.review_id,
+                     "revision": args.revision, "source_blocks": kept,
+                     "phase_images_dir": PHASE_ART_DIR,
+                     "clip_durations": ([b.get("_clip_dur") for b in blocks]
+                                        if args.clip_durations else None),
+                     "continuous_bgm": CONTINUOUS_BGM})
     print("DONE", out, "duration", round(dur, 2))
 
 

@@ -278,6 +278,37 @@ def make_bottom_gradient(h_ratio=0.15, peak_alpha=102):
     return img
 
 
+def make_phase_title_layer(phase_head):
+    """全屏章节页标题层：只做局部柔和压暗，不绘制卡片或字幕底栏。"""
+    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    center_y = int(H * 0.48)
+    spread = H * 0.24
+    for y in range(H):
+        distance = (y - center_y) / spread
+        alpha = int(94 * math.exp(-(distance * distance)))
+        if alpha:
+            d.line((0, y, W, y), fill=(8, 10, 14, alpha))
+
+    num = phase_num(phase_head) or "01"
+    name = phase_name(phase_head)
+    d.text((W / 2, center_y - 118), f"PHASE {num}",
+           font=font(FONT_BODY, 34), fill=(232, 182, 76, 235), anchor="mm")
+    d.rounded_rectangle((W / 2 - 105, center_y - 74,
+                         W / 2 + 105, center_y - 68),
+                        radius=3, fill=(232, 182, 76, 220))
+    title_font = font(FONT_TITLE, 86)
+    lines = wrap(d, name, title_font, 1380)
+    start_y = center_y + 22 - (len(lines) - 1) * 54
+    for index, line in enumerate(lines):
+        y = start_y + index * 108
+        d.text((W / 2 + 3, y + 4), line, font=title_font,
+               fill=(0, 0, 0, 155), anchor="mm")
+        d.text((W / 2, y), line, font=title_font,
+               fill=(250, 244, 232, 255), anchor="mm")
+    return img
+
+
 def make_sweep_layer():
     """阶段页金色斜向光带（透明底），渲染时从左向右扫过。"""
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
