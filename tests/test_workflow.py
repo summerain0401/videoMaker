@@ -57,6 +57,54 @@ def sample_storyboard():
 
 
 class ContractTests(unittest.TestCase):
+    @staticmethod
+    def _density_story(chars, beat_sizes=None, block_type="CARD", sentence_count=None):
+        sizes = beat_sizes or [chars]
+        if sentence_count is None:
+            sentence_count = len(sizes)
+        subtitles = []
+        cursor = 0
+        for idx in range(sentence_count):
+            size = sizes[idx] if idx < len(sizes) else 1
+            subtitles.append({"id": idx, "text": "甲" * size,
+                              "start_char": cursor, "end_char": cursor + size})
+            cursor += size
+        beats = []
+        cursor = 0
+        for idx, size in enumerate(sizes):
+            beats.append({"beat_idx": idx, "shot": "medium",
+                          "visual_description": "画面",
+                          "sentence_ids": [idx] if idx < sentence_count else [],
+                          "start_char": cursor, "end_char": cursor + size,
+                          "character_ids": ["hero"], "emotion": "neutral",
+                          "segment": "insight"})
+            cursor += size
+        return {"version": 1, "blocks": [{"block_idx": 0, "type": block_type,
+            "head": block_type, "voice_chars": chars, "subtitles": subtitles,
+            "beats": beats}]}
+
+    def test_storyboard_density_boundaries(self):
+        for chars, minimum in ((120, 1), (121, 2), (220, 2),
+                               (221, 3), (320, 3), (321, 4)):
+            base, remainder = divmod(chars, minimum)
+            sizes = [base + (1 if i < remainder else 0) for i in range(minimum)]
+            self.assertEqual(validate_storyboard(
+                self._density_story(chars, sizes), known_character_ids={"hero"}), [], chars)
+
+    def test_storyboard_density_rejects_overlong_five_sentence_and_phase(self):
+        errors = validate_storyboard(self._density_story(121, [121]), known_character_ids={"hero"})
+        self.assertTrue(any("至少需要 2 拍" in error for error in errors))
+        five = self._density_story(50, [50], sentence_count=5)
+        five["blocks"][0]["subtitles"] = [
+            {"id": i, "text": "甲" * 10, "start_char": i * 10, "end_char": (i + 1) * 10}
+            for i in range(5)]
+        five["blocks"][0]["beats"][0]["sentence_ids"] = list(range(5))
+        errors = validate_storyboard(five, known_character_ids={"hero"})
+        self.assertTrue(any("最多覆盖 4 句" in error for error in errors))
+        phase = self._density_story(0, [0, 0], block_type="PHASE", sentence_count=0)
+        self.assertTrue(any("PHASE 必须且只能包含一拍" in error
+                            for error in validate_storyboard(phase)))
+
     def test_long_narrative_beats_use_one_continuous_zoompan(self):
         source = inspect.getsource(build_long.render_scene_narrative)
         self.assertIn("每个 beat 始终使用一条完整 zoompan 轨迹", source)
@@ -277,6 +325,48 @@ class WorkflowStateTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             with redirect_stdout(io.StringIO()):
                 workflow.cmd_create(args)
+
+    def test_storyboard_revision_inherits_hashes_and_supersedes_source(self):
+        create = SimpleNamespace(project="007", llm="codex", llm_model=None,
+                                 image="imagegen", image_model=None,
+                                 azure_voice="voice-A")
+        with redirect_stdout(io.StringIO()):
+            workflow.cmd_create(create)
+            workflow.cmd_init(SimpleNamespace(project="007", run_id="run_source"))
+        project = workflow.project_for_id("007")
+        paths = workflow.state_paths(project, "run_source")
+        formal = workflow.formal_paths(project)
+        os.makedirs(os.path.dirname(formal["topic"]), exist_ok=True)
+        write_json(formal["topic"], {"book_title": "测试书"})
+        write_json(formal["copy"], {"thesis": "测试"})
+        with open(formal["script"], "w", encoding="utf-8") as handle:
+            handle.write("# TITLE\n## 测试\nvoice：测试正文。\n# END\n")
+        os.makedirs(os.path.join(project, "assets", "scenes"), exist_ok=True)
+        with open(os.path.join(project, "assets", "scenes", "00_0.png"), "wb") as handle:
+            handle.write(b"source-scene")
+        state = read_json(paths["state"])
+        for stage in ("topic", "copy", "script"):
+            state["stages"][stage]["status"] = "promoted"
+        workflow.save_state(paths, state)
+        with redirect_stdout(io.StringIO()):
+            workflow.cmd_revise(SimpleNamespace(source_run_id="run_source",
+                                                stage="storyboard", project="007",
+                                                run_id="run_revision"))
+        new_paths, new_state = workflow.locate_run("run_revision", "007")
+        self.assertEqual(new_state["lineage"]["source_run"], "run_source")
+        for stage in ("topic", "copy", "script"):
+            inherited = new_state["lineage"]["inherited_assets"][stage]
+            self.assertEqual(inherited["sha256"], workflow._sha256(formal[stage]))
+            self.assertEqual(new_state["stages"][stage]["status"], "promoted")
+        self.assertNotEqual(new_paths["storyboard"], paths["storyboard"])
+        self.assertTrue(os.path.exists(os.path.join(project, "assets", "scenes", "00_0.png")))
+        source_state = read_json(paths["state"])
+        self.assertEqual(source_state["superseded_by"], "run_revision")
+        for func, args in ((workflow.cmd_run, SimpleNamespace(run_id="run_source", project="007", stage="storyboard")),
+                           (workflow.cmd_verify, SimpleNamespace(run_id="run_source", project="007", stage="storyboard")),
+                           (workflow.cmd_promote, SimpleNamespace(run_id="run_source", project="007", stage="storyboard", replace=False))):
+            with self.assertRaises(RuntimeError), redirect_stderr(io.StringIO()):
+                func(args)
 
     def test_interactive_topic_verify_promote_and_safe_rename(self):
         create = SimpleNamespace(project="005", llm="codex", llm_model=None,
@@ -530,7 +620,8 @@ class MigrationRegressionTests(unittest.TestCase):
                 self.assertEqual(errors, [])
                 storyboard = read_json(
                     os.path.join(project, "input", "storyboard.json"))
-                self.assertEqual(validate_storyboard(storyboard, blocks), [])
+                self.assertEqual(validate_storyboard(storyboard, blocks,
+                                                     enforce_density=False), [])
                 current_keys = sorted(
                     os.path.splitext(name)[0]
                     for name in os.listdir(

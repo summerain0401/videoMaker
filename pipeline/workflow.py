@@ -132,6 +132,46 @@ def require_dependencies(state, stage):
         raise RuntimeError(f"阶段 {stage} 被阻断，需先提升：{', '.join(missing)}")
 
 
+def ensure_active_run(state, action):
+    if state.get("superseded_by"):
+        raise RuntimeError(f"源 run 已被 {state['superseded_by']} supersede，不能执行 {action}，仅允许 status")
+
+
+def cmd_revise(args):
+    if args.stage != "storyboard":
+        raise ValueError("revise 目前只支持 storyboard")
+    source_paths, source = locate_run(args.source_run_id, args.project)
+    ensure_active_run(source, "revision")
+    if source["stages"]["script"]["status"] != "promoted":
+        raise RuntimeError("源 run 的 script 必须已提升")
+    run_id = args.run_id or now_run_id()
+    paths = state_paths(source_paths["project"], run_id)
+    if os.path.exists(paths["state"]):
+        raise FileExistsError(f"run 已存在：{run_id}")
+    formal = formal_paths(source_paths["project"])
+    stages = {}
+    for stage in ALL_STAGES:
+        stages[stage] = {"status": "blocked", "note": "由 storyboard revision 阻断", "artifact": None}
+    for stage in ("topic", "copy", "script"):
+        stages[stage] = {"status": "promoted", "note": "继承源 run 正式资产", "artifact": os.path.abspath(formal[stage])}
+    stages["storyboard"] = {"status": "pending", "note": "等待重新生成", "artifact": None}
+    stages["voice"] = {"status": "pending", "note": "继承 script 后可继续", "artifact": None}
+    state = {"version": STATE_VERSION, "run_id": run_id, "project_id": str(args.project),
+             "created_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+             "updated_at": "", "providers": source["providers"], "current_stage": "storyboard",
+             "lineage": {"source_run": args.source_run_id, "restart_stage": "storyboard",
+                         "inherited_assets": {stage: {"path": os.path.abspath(formal[stage]),
+                             "sha256": _sha256(formal[stage])} for stage in ("topic", "copy", "script")}},
+             "stages": stages}
+    os.makedirs(paths["tasks"], exist_ok=True)
+    os.makedirs(os.path.dirname(paths["storyboard"]), exist_ok=True)
+    save_state(paths, state)
+    source["superseded_by"] = run_id
+    save_state(source_paths, source)
+    print(json.dumps({"run_id": run_id, "source_run": args.source_run_id,
+                      "state": paths["state"]}, ensure_ascii=False, indent=2))
+
+
 def cmd_create(args):
     PJ.CURRENT_ID = args.project
     PJ._CACHE.clear()
@@ -248,7 +288,9 @@ def build_task(paths, state, stage):
                                     "sentence_ids", "start_char", "end_char",
                                     "character_ids", "emotion", "segment"],
                     "requirements": "逐块对应剧本；每句按顺序恰好覆盖一次；"
-                                    "shot=wide/medium/close；"
+                                    "PHASE 只能 1 beat；非 PHASE 有口播块按字数至少"
+                                    " 1+ceil((voice_chars-120)/100) 拍（不超过 120 字/拍、"
+                                    "每拍 1-4 句）；shot=wide/medium/close；"
                                     "segment=hook/insight/action",
                     "forbidden_fields": ["provider", "model", "final_image_prompt",
                                          "negative_prompt", "api_request"],
@@ -258,6 +300,7 @@ def build_task(paths, state, stage):
 
 def cmd_run(args):
     paths, state = locate_run(args.run_id, args.project)
+    ensure_active_run(state, "run")
     stage = args.stage
     review_render = stage == "render" and bool(getattr(args, "review_id", None))
     revision_render = stage == "render" and bool(getattr(args, "revision", None))
@@ -339,6 +382,7 @@ def cmd_run(args):
 
 def cmd_select_topic(args):
     paths, state = locate_run(args.run_id, args.project)
+    ensure_active_run(state, "select-topic")
     if state["stages"]["topic"]["status"] not in {
             "awaiting_external", "generated", "failed"}:
         raise RuntimeError("topic 尚未生成或已经提升，不能选择候选")
@@ -377,6 +421,7 @@ def _verify_images(paths, project):
 
 def cmd_verify(args):
     paths, state = locate_run(args.run_id, args.project)
+    ensure_active_run(state, "verify")
     stage = args.stage
     if state["stages"][stage]["status"] == "promoted":
         raise RuntimeError(f"{stage} 已提升，无需重复校验")
@@ -434,6 +479,7 @@ def unlock(state):
 
 def cmd_promote(args):
     paths, state = locate_run(args.run_id, args.project)
+    ensure_active_run(state, "promote")
     stage = args.stage
     if state["stages"][stage]["status"] != "verified":
         raise RuntimeError(f"{stage} 尚未 verified，禁止提升")
@@ -885,6 +931,12 @@ def parser():
     ap = argparse.ArgumentParser(description="可插拔长视频生产工作流")
     ap.add_argument("--project", default=None, help=argparse.SUPPRESS)
     sub = ap.add_subparsers(dest="command", required=True)
+    revise = sub.add_parser("revise", help="从现有 run 重新启动单一内容阶段")
+    revise.add_argument("source_run_id")
+    revise.add_argument("stage", choices=["storyboard"])
+    revise.add_argument("--project", required=True)
+    revise.add_argument("--run-id", default=None)
+    revise.set_defaults(func=cmd_revise)
     create = sub.add_parser("create", help="创建项目并固定 provider")
     create.add_argument("--project", required=True)
     create.add_argument("--llm", choices=sorted(LLM_PROVIDERS), default="codex")

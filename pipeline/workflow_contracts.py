@@ -190,7 +190,8 @@ def _walk_keys(value):
             yield from _walk_keys(child)
 
 
-def validate_storyboard(data, script_blocks=None, known_character_ids=None):
+def validate_storyboard(data, script_blocks=None, known_character_ids=None,
+                        enforce_density=True):
     problems = []
     if not isinstance(data, dict):
         return ["storyboard 必须是 JSON object"]
@@ -244,6 +245,10 @@ def validate_storyboard(data, script_blocks=None, known_character_ids=None):
             problems.append(f"块 {pos} 必须至少包含一拍")
         if block.get("type") == "PHASE" and len(beats) != 1:
             problems.append(f"块 {pos} PHASE 必须且只能包含一拍")
+        if enforce_density and block.get("type") != "PHASE" and voice_chars > 0:
+            minimum = 1 if voice_chars <= 120 else 1 + ((voice_chars - 120 + 99) // 100)
+            if len(beats) < minimum:
+                problems.append(f"块 {pos} 口播 {voice_chars} 字至少需要 {minimum} 拍")
         if voice_chars and not subtitles:
             problems.append(f"块 {pos} 有口播但无 subtitles")
         if not all(isinstance(s, dict) for s in subtitles):
@@ -306,6 +311,10 @@ def validate_storyboard(data, script_blocks=None, known_character_ids=None):
                 problems.append(
                     f"块 {pos} 拍 {beat.get('beat_idx')} sentence_ids 非整数数组")
                 ids = []
+            if enforce_density and voice_chars and block.get("type") != "PHASE" and not ids:
+                problems.append(f"块 {pos} 拍 {beat.get('beat_idx')} 至少覆盖一句字幕")
+            if enforce_density and voice_chars and block.get("type") != "PHASE" and len(ids) > 4:
+                problems.append(f"块 {pos} 拍 {beat.get('beat_idx')} 最多覆盖 4 句字幕")
             covered_sentence_ids.extend(ids)
             if not set(ids).issubset(sub_ids):
                 problems.append(f"块 {pos} 拍 {beat.get('beat_idx')} 引用了未知句子")
@@ -316,6 +325,8 @@ def validate_storyboard(data, script_blocks=None, known_character_ids=None):
                         beat.get("end_char") != last.get("end_char"):
                     problems.append(
                         f"块 {pos} 拍 {beat.get('beat_idx')} 区间与句子覆盖不一致")
+                if enforce_density and beat.get("end_char", 0) - beat.get("start_char", 0) > 120:
+                    problems.append(f"块 {pos} 拍 {beat.get('beat_idx')} 覆盖口播超过 120 字")
         if beat_ids != list(range(len(beats))):
             problems.append(f"块 {pos} beat_idx 必须从 0 连续编号")
         if voice_chars and beats:

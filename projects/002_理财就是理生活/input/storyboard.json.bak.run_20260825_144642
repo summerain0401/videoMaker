@@ -1,0 +1,1354 @@
+{
+  "version": 1,
+  "blocks": [
+    {
+      "block_idx": 0,
+      "type": "TITLE",
+      "head": "TITLE",
+      "voice_chars": 294,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "每次一谈理财，你是不是马上想到基金、股票、利率，或者某个“该不该买”的产品？",
+          "start_char": 0,
+          "end_char": 38
+        },
+        {
+          "id": 1,
+          "text": "可很多人真正卡住的地方，不在于不会挑产品，而在于工资一到账，钱就已经被房租、分期、订阅、外卖和临时想买的东西带走了。",
+          "start_char": 38,
+          "end_char": 96
+        },
+        {
+          "id": 2,
+          "text": "到了月底，账户里剩下多少，才决定了你有没有选择。",
+          "start_char": 96,
+          "end_char": 120
+        },
+        {
+          "id": 3,
+          "text": "于是问题不是“我该买什么”，而是“我想让钱替我过怎样的生活”。",
+          "start_char": 120,
+          "end_char": 151
+        },
+        {
+          "id": 4,
+          "text": "《理财就是理生活》给了一个很朴素的提醒：理财不是把生活压缩到只剩数字，也不是照搬一条万能比例；它是把有限的收入，主动放到你真正重视的地方。",
+          "start_char": 151,
+          "end_char": 220
+        },
+        {
+          "id": 5,
+          "text": "今天我们不讨论哪个产品最好，也不承诺任何收益。",
+          "start_char": 220,
+          "end_char": 243
+        },
+        {
+          "id": 6,
+          "text": "我们只做一件更靠前的事：画出你的钱流，给生活目标留位置，让每一笔钱不再只是悄悄离开，而是开始替你服务。",
+          "start_char": 243,
+          "end_char": 294
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "medium",
+          "visual_description": "年轻上班族在工资到账提示、房租账单、分期与订阅图标之间犹豫，最后看向一本打开的生活规划册。",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "start_char": 0,
+          "end_char": 294,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "focused",
+          "segment": "hook"
+        }
+      ]
+    },
+    {
+      "block_idx": 1,
+      "type": "PHASE",
+      "head": "PHASE 01 · 你以为在理财，其实只是在找产品",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "暖色晨光中的年轻上班族站在岔路口，一边是产品图表，一边是安全感、搬家与学习的生活路标。",
+          "sentence_ids": [],
+          "start_char": 0,
+          "end_char": 0,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "focused",
+          "segment": "hook"
+        }
+      ]
+    },
+    {
+      "block_idx": 2,
+      "type": "CARD",
+      "head": "CARD 产品不是起点",
+      "voice_chars": 302,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "想象一下，两个刚工作的人，每月都能剩下两千元。",
+          "start_char": 0,
+          "end_char": 23
+        },
+        {
+          "id": 1,
+          "text": "第一个人一看到结余，就开始研究收益率，担心自己错过机会。",
+          "start_char": 23,
+          "end_char": 51
+        },
+        {
+          "id": 2,
+          "text": "第二个人先问：未来一年，我最需要钱替我解决什么？",
+          "start_char": 51,
+          "end_char": 75
+        },
+        {
+          "id": 3,
+          "text": "是避免突发情况时借钱，是准备一次搬家，是给自己留出学习新技能的空间，还是支持一段重要关系？",
+          "start_char": 75,
+          "end_char": 120
+        },
+        {
+          "id": 4,
+          "text": "同样是两千元，答案不同，安排就不该一样。",
+          "start_char": 120,
+          "end_char": 140
+        },
+        {
+          "id": 5,
+          "text": "理财的第一步不是打开产品页面，而是给生活排优先级。",
+          "start_char": 140,
+          "end_char": 165
+        },
+        {
+          "id": 6,
+          "text": "因为产品只是一种工具，不能替你决定目的。",
+          "start_char": 165,
+          "end_char": 185
+        },
+        {
+          "id": 7,
+          "text": "还没有缓冲就把全部结余锁进长期计划，可能会在一次生病、换工作或搬家时被迫高成本周转；有高成本债务的人，也未必适合先讨论长期回报。",
+          "start_char": 185,
+          "end_char": 249
+        },
+        {
+          "id": 8,
+          "text": "先定义生活，不代表放弃投资，而是让之后的储蓄、保障和投资都能回答一个问题：它究竟在支持我的哪一种现实需要？",
+          "start_char": 249,
+          "end_char": 302
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "medium",
+          "visual_description": "年轻上班族坐在桌前，产品页面淡出，他把安全感、学习和家庭计划写进三张小卡片。",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "start_char": 0,
+          "end_char": 302,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 3,
+      "type": "QUOTE",
+      "head": "QUOTE",
+      "voice_chars": 160,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "这件事听起来很普通，却能改变很多焦虑。",
+          "start_char": 0,
+          "end_char": 19
+        },
+        {
+          "id": 1,
+          "text": "因为一旦没有目标，所有信息都会变成噪音：别人说某个方法好，你怕落后；别人晒出收益，你怀疑自己；看到一笔消费，又立刻自责。",
+          "start_char": 19,
+          "end_char": 79
+        },
+        {
+          "id": 2,
+          "text": "可当你先写下自己想守住的安全感、想完成的计划和愿意投入的成长，钱就不再只是“该不该花”的道德题，而是资源分配题。",
+          "start_char": 79,
+          "end_char": 135
+        },
+        {
+          "id": 3,
+          "text": "你不是要比谁更节省，而是要知道什么值得被优先照顾。",
+          "start_char": 135,
+          "end_char": 160
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "close",
+          "visual_description": "暖色手写笔记上浮现生活优先级，年轻上班族从焦虑转为平静，身后的信息噪音逐渐淡去。",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 160,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "calm",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 4,
+      "type": "CARD",
+      "head": "CARD 三个生活问题",
+      "voice_chars": 240,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "如果不知道从哪里开始，可以只回答三个问题。",
+          "start_char": 0,
+          "end_char": 21
+        },
+        {
+          "id": 1,
+          "text": "第一，什么事情一旦发生，我最不希望因为没钱而手忙脚乱？",
+          "start_char": 21,
+          "end_char": 48
+        },
+        {
+          "id": 2,
+          "text": "这会帮你找到安全缓冲的意义。",
+          "start_char": 48,
+          "end_char": 62
+        },
+        {
+          "id": 3,
+          "text": "第二，未来一年有哪些明确而重要的生活计划，例如搬家、学习、照顾家人或一段必要的休息？",
+          "start_char": 62,
+          "end_char": 104
+        },
+        {
+          "id": 4,
+          "text": "这会让目标不再只是模糊愿望。",
+          "start_char": 104,
+          "end_char": 118
+        },
+        {
+          "id": 5,
+          "text": "第三，哪些能力或关系值得长期投入？",
+          "start_char": 118,
+          "end_char": 135
+        },
+        {
+          "id": 6,
+          "text": "也许是一门课程、一次体检、一个工作工具，或者和家人相处的时间。",
+          "start_char": 135,
+          "end_char": 166
+        },
+        {
+          "id": 7,
+          "text": "答案不需要宏大，但必须真实。",
+          "start_char": 166,
+          "end_char": 180
+        },
+        {
+          "id": 8,
+          "text": "把它们写下来之后，你会发现，理财不是要求你把每一笔钱都变成数字上的增长，而是让有限资源不再总被最紧急、最响亮的事情抢走。",
+          "start_char": 180,
+          "end_char": 240
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "medium",
+          "visual_description": "一张温暖的手账展开为三条生活时间线：紧急缓冲、年度计划和能力成长，人物逐一贴上优先级标签。",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "start_char": 0,
+          "end_char": 240,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "focused",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 5,
+      "type": "PHASE",
+      "head": "PHASE 02 · 先画钱流地图，不急着砍掉一杯咖啡",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "由工资单、房租、订阅和购物袋组成的钱流长廊，年轻上班族带着笔记本走入其中。",
+          "sentence_ids": [],
+          "start_char": 0,
+          "end_char": 0,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "focused",
+          "segment": "hook"
+        }
+      ]
+    },
+    {
+      "block_idx": 6,
+      "type": "CARD",
+      "head": "CARD 四格钱流地图",
+      "voice_chars": 252,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "很多理财建议喜欢从一杯咖啡开始，好像只要少买一点，问题就会消失。",
+          "start_char": 0,
+          "end_char": 32
+        },
+        {
+          "id": 1,
+          "text": "但真正决定压力的，常常不是最显眼的小支出，而是那些默认自动发生、很少被重新审视的固定承诺。",
+          "start_char": 32,
+          "end_char": 77
+        },
+        {
+          "id": 2,
+          "text": "你可以先用四格钱流地图看自己的一个月。",
+          "start_char": 77,
+          "end_char": 96
+        },
+        {
+          "id": 3,
+          "text": "第一格是到手收入；第二格是固定承诺，例如房租、还款、长期合约、自动续费；第三格是必要生活，例如吃饭、通勤、基本医疗和照顾家庭；第四格才是可以自由调整的支出，例如娱乐、购物和临时犒劳。",
+          "start_char": 96,
+          "end_char": 187
+        },
+        {
+          "id": 4,
+          "text": "这个地图不是为了让你把每一笔钱分到完美类别，更不是为了证明你不够自律。",
+          "start_char": 187,
+          "end_char": 222
+        },
+        {
+          "id": 5,
+          "text": "它的作用是让模糊的“钱不知道去哪了”，变成可以被看见的路径。",
+          "start_char": 222,
+          "end_char": 252
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "medium",
+          "visual_description": "年轻上班族把银行流水、房租、订阅和购物袋摆在桌面，四个颜色清晰的格子从纸上展开。",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "start_char": 0,
+          "end_char": 252,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 7,
+      "type": "TABLE",
+      "head": "TABLE 看起来显眼 | 更值得复盘",
+      "voice_chars": 170,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "当你把账单摊开，可能会发现每天一杯咖啡其实不是最大的变量；几个忘记取消的会员、一笔当初觉得没问题的分期，或者一项已经不适合现在生活的长期承诺，才是真正占据空间的东西。",
+          "start_char": 0,
+          "end_char": 83
+        },
+        {
+          "id": 1,
+          "text": "记录支出不会自动让你变富，它只是给调整提供证据。",
+          "start_char": 83,
+          "end_char": 107
+        },
+        {
+          "id": 2,
+          "text": "先看金额最大的三项，再问它们是否还在服务现在的你。",
+          "start_char": 107,
+          "end_char": 132
+        },
+        {
+          "id": 3,
+          "text": "这个顺序很重要：别从最容易羞耻的地方开始，而要从最有机会重新设计的地方开始。",
+          "start_char": 132,
+          "end_char": 170
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "medium",
+          "visual_description": "分屏呈现一杯咖啡与自动续费、分期账单，人物用放大镜发现后者占据更大的钱流。",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 170,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 8,
+      "type": "CARD",
+      "head": "CARD 先观察，不急着判决",
+      "voice_chars": 207,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "第一次做钱流地图，很可能会看到一些不想看的数字。",
+          "start_char": 0,
+          "end_char": 24
+        },
+        {
+          "id": 1,
+          "text": "这时最容易犯的错，是立刻宣布下个月什么都不买，或者把每一次消费都当成失败。",
+          "start_char": 24,
+          "end_char": 61
+        },
+        {
+          "id": 2,
+          "text": "可过度严格的计划往往只能坚持几天，之后又回到原来的节奏。",
+          "start_char": 61,
+          "end_char": 89
+        },
+        {
+          "id": 3,
+          "text": "更好的做法是先观察一个完整周期：哪些钱是稳定发生的，哪些钱总在某个情绪或场景出现，哪些支出其实已经带来足够价值。",
+          "start_char": 89,
+          "end_char": 145
+        },
+        {
+          "id": 4,
+          "text": "你是在收集自己的决策证据，不是在接受审判。",
+          "start_char": 145,
+          "end_char": 166
+        },
+        {
+          "id": 5,
+          "text": "只有当你看清模式，才能选择删掉一项、替换一项，或者给一项本来很重要的支出更多空间。",
+          "start_char": 166,
+          "end_char": 207
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "medium",
+          "visual_description": "年轻上班族平静地看着账单，用铅笔圈出可以重新设计的一项支出，而不是焦虑地撕掉清单。",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "start_char": 0,
+          "end_char": 207,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "calm",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 9,
+      "type": "PHASE",
+      "head": "PHASE 03 · 给每一笔钱一个生活位置",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "四格钱流地图化作一扇门，年轻上班族走向四个写着生活位置的暖色空间。",
+          "sentence_ids": [],
+          "start_char": 0,
+          "end_char": 0,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "focused",
+          "segment": "hook"
+        }
+      ]
+    },
+    {
+      "block_idx": 10,
+      "type": "CARD",
+      "head": "CARD 分配不是万能比例",
+      "voice_chars": 240,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "看清钱流之后，下一步不是套进某个网络比例，而是给每一笔可用的钱一个生活位置。",
+          "start_char": 0,
+          "end_char": 38
+        },
+        {
+          "id": 1,
+          "text": "你可以把它想成四个信封：当下生活，保证日常运转；必要缓冲，应对收入波动和意外开支；重要目标，支持搬家、学习、家庭计划或其他你真正想完成的事；自由消费，允许快乐和弹性存在。",
+          "start_char": 38,
+          "end_char": 123
+        },
+        {
+          "id": 2,
+          "text": "四个信封的金额不会一成不变。",
+          "start_char": 123,
+          "end_char": 137
+        },
+        {
+          "id": 3,
+          "text": "收入不稳定的人，缓冲可能要更靠前；有高成本债务的人，降低负担可能更紧急；刚承担家庭责任的人，也许要为照顾与保障预留更多。",
+          "start_char": 137,
+          "end_char": 197
+        },
+        {
+          "id": 4,
+          "text": "重点不是比例看起来是否漂亮，而是你能说清楚每一格的任务，并且总额不超过现实可用的结余。",
+          "start_char": 197,
+          "end_char": 240
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "medium",
+          "visual_description": "四格钱流地图铺满桌面，年轻上班族把硬币分别放进当下生活、缓冲、目标和自由消费的透明罐子。",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "start_char": 0,
+          "end_char": 240,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 11,
+      "type": "QUOTE",
+      "head": "QUOTE",
+      "voice_chars": 166,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "很多人讨厌预算，是因为他们把预算理解成禁止。",
+          "start_char": 0,
+          "end_char": 22
+        },
+        {
+          "id": 1,
+          "text": "其实更有用的预算，是在发薪日就把一部分钱交给未来的自己，剩下的部分才可以安心使用。",
+          "start_char": 22,
+          "end_char": 63
+        },
+        {
+          "id": 2,
+          "text": "比如你决定这个月先给缓冲留一点，再给一个明确目标留一点，最后为自由消费留一点。",
+          "start_char": 63,
+          "end_char": 102
+        },
+        {
+          "id": 3,
+          "text": "这样看到想买的东西时，你不是在问“我配不配”，而是在问“它属于哪个信封，这个信封还够不够”。",
+          "start_char": 102,
+          "end_char": 148
+        },
+        {
+          "id": 4,
+          "text": "当消费有位置，克制就不再全靠意志力。",
+          "start_char": 148,
+          "end_char": 166
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "close",
+          "visual_description": "人物在发薪日把几枚硬币先放进写着未来的信封，剩余的钱留在可以安心使用的钱包里。",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "start_char": 0,
+          "end_char": 166,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 12,
+      "type": "CARD",
+      "head": "CARD 允许比例变化",
+      "voice_chars": 198,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "这里没有一个数字能适用于每个人。",
+          "start_char": 0,
+          "end_char": 16
+        },
+        {
+          "id": 1,
+          "text": "有人在收入很稳定、家庭负担较轻时，可以把更多结余放进长期目标；有人正在还债、收入有波动，优先补足缓冲反而更重要。",
+          "start_char": 16,
+          "end_char": 72
+        },
+        {
+          "id": 2,
+          "text": "生活变了，分配也应该变。",
+          "start_char": 72,
+          "end_char": 84
+        },
+        {
+          "id": 3,
+          "text": "真正值得警惕的不是比例改变，而是从来没有主动决定过比例，只能任由账单和临时欲望把钱切走。",
+          "start_char": 84,
+          "end_char": 128
+        },
+        {
+          "id": 4,
+          "text": "你可以从很小的数额开始，甚至只是先把一部分钱单独放出来。",
+          "start_char": 128,
+          "end_char": 156
+        },
+        {
+          "id": 5,
+          "text": "重点不是第一天分得多漂亮，而是让自己每个月都能看到：这些钱在替我的哪一部分生活站岗。",
+          "start_char": 156,
+          "end_char": 198
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "medium",
+          "visual_description": "不同生活阶段的普通人围着各自的钱流地图调整信封大小，背景是家庭、工作与自由职业的日常场景。",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "start_char": 0,
+          "end_char": 198,
+          "character_ids": [
+            "young_pro",
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 13,
+      "type": "PHASE",
+      "head": "PHASE 04 · 消费不是敌人，失去选择才是",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "城市消费橱窗的明暗交替，年轻上班族停下脚步，把购物袋放下并拿出自己的需求清单。",
+          "sentence_ids": [],
+          "start_char": 0,
+          "end_char": 0,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "focused",
+          "segment": "hook"
+        }
+      ]
+    },
+    {
+      "block_idx": 14,
+      "type": "CARD",
+      "head": "CARD 不问该不该花",
+      "voice_chars": 237,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "理财不等于把所有快乐支出都当成敌人。",
+          "start_char": 0,
+          "end_char": 18
+        },
+        {
+          "id": 1,
+          "text": "一门真正坚持的运动课、一件高频使用且耐用的工具、一次帮助你恢复精力的旅行，都可能在支持生活本身。",
+          "start_char": 18,
+          "end_char": 66
+        },
+        {
+          "id": 2,
+          "text": "问题不是花了钱，而是我们常常在没有决定的情况下，让默认设置和短暂情绪替我们做决定。",
+          "start_char": 66,
+          "end_char": 107
+        },
+        {
+          "id": 3,
+          "text": "一个订阅刚开通时很便宜，于是一直续费；一次冲动下单带来短暂安慰，东西却从不进入日常；一个看似低月费的服务，背后有长期合约和退出成本。",
+          "start_char": 107,
+          "end_char": 173
+        },
+        {
+          "id": 4,
+          "text": "面对这些支出，别急着给自己贴“冲动”或“浪费”的标签。",
+          "start_char": 173,
+          "end_char": 200
+        },
+        {
+          "id": 5,
+          "text": "先问三个问题：它服务了哪个目标？",
+          "start_char": 200,
+          "end_char": 216
+        },
+        {
+          "id": 6,
+          "text": "我用得够不够？",
+          "start_char": 216,
+          "end_char": 223
+        },
+        {
+          "id": 7,
+          "text": "下个月我还愿不愿意为它续费？",
+          "start_char": 223,
+          "end_char": 237
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "medium",
+          "visual_description": "年轻上班族比较运动课、耐用工具和旅行照片，表情从冲动变为认真衡量。",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "start_char": 0,
+          "end_char": 237,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 15,
+      "type": "TABLE",
+      "head": "TABLE 消费判断的两种语言",
+      "voice_chars": 154,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "这三个问题会把消费从情绪反应，变成可复盘的选择。",
+          "start_char": 0,
+          "end_char": 24
+        },
+        {
+          "id": 1,
+          "text": "你不必为了证明自己理性，就故意买最便宜的；也不必因为有预算，就强迫自己把钱全部花掉。",
+          "start_char": 24,
+          "end_char": 66
+        },
+        {
+          "id": 2,
+          "text": "真正重要的是保留选择权：知道为什么买，也知道什么条件变化时应该停止。",
+          "start_char": 66,
+          "end_char": 100
+        },
+        {
+          "id": 3,
+          "text": "自由消费不是预算的漏洞，恰恰是让计划长期可执行的一部分。",
+          "start_char": 100,
+          "end_char": 128
+        },
+        {
+          "id": 4,
+          "text": "把一点钱明确留给快乐，通常比全面禁止、然后反弹更稳。",
+          "start_char": 128,
+          "end_char": 154
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "medium",
+          "visual_description": "购物页面的热销与折扣标签退到背景，人物面前浮现使用频率、总成本和替代方案三张清晰卡片。",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "start_char": 0,
+          "end_char": 154,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 16,
+      "type": "CARD",
+      "head": "CARD 给冲动留一个出口",
+      "voice_chars": 198,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "有些消费很难完全用表格解释。",
+          "start_char": 0,
+          "end_char": 14
+        },
+        {
+          "id": 1,
+          "text": "忙了一周，想吃一顿好饭；看到一件喜欢的东西，想给自己一点奖励，这些都很正常。",
+          "start_char": 14,
+          "end_char": 52
+        },
+        {
+          "id": 2,
+          "text": "你不需要把快乐从计划里赶出去，只需要给冲动留一个更安全的出口。",
+          "start_char": 52,
+          "end_char": 83
+        },
+        {
+          "id": 3,
+          "text": "对于非紧急的购买，可以先把它放进清单，等二十四小时或一周，再问自己是否仍然愿意从自由消费的信封里拿出这笔钱。",
+          "start_char": 83,
+          "end_char": 137
+        },
+        {
+          "id": 4,
+          "text": "延迟不是惩罚，它是在把“现在想要”与“真的值得”分开。",
+          "start_char": 137,
+          "end_char": 164
+        },
+        {
+          "id": 5,
+          "text": "留下来的需求，通常更值得被认真满足；消失的冲动，也不必再靠自责处理。",
+          "start_char": 164,
+          "end_char": 198
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "medium",
+          "visual_description": "年轻上班族把想买的物品放入等待清单，窗外从傍晚变成第二天清晨，心情变得平静。",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "start_char": 0,
+          "end_char": 198,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "calm",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 17,
+      "type": "PHASE",
+      "head": "PHASE 05 · 从一次复盘开始，而不是从完美计划开始",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "月历与四格钱流地图并排，年轻上班族在安静的餐桌前做十五分钟复盘。",
+          "sentence_ids": [],
+          "start_char": 0,
+          "end_char": 0,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "focused",
+          "segment": "hook"
+        }
+      ]
+    },
+    {
+      "block_idx": 18,
+      "type": "STEPS",
+      "head": "STEPS 十五分钟月度复盘",
+      "voice_chars": 247,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "最后，我们把这一切收成一个不需要完美的行动。",
+          "start_char": 0,
+          "end_char": 22
+        },
+        {
+          "id": 1,
+          "text": "下一次发薪日后的七天里，给自己十五分钟。",
+          "start_char": 22,
+          "end_char": 42
+        },
+        {
+          "id": 2,
+          "text": "先更新一次钱流地图：收入是多少，固定承诺有哪些，必要生活花了多少，可调整支出去了哪里。",
+          "start_char": 42,
+          "end_char": 85
+        },
+        {
+          "id": 3,
+          "text": "然后不要急着推翻全部计划，先找一件做得好的事保留下来。",
+          "start_char": 85,
+          "end_char": 112
+        },
+        {
+          "id": 4,
+          "text": "也许你按时留出了一小笔缓冲，也许你取消了不再使用的订阅，也许你终于知道某项支出为什么总会超出预期。",
+          "start_char": 112,
+          "end_char": 161
+        },
+        {
+          "id": 5,
+          "text": "接着，只调整一个最大的摩擦点。",
+          "start_char": 161,
+          "end_char": 176
+        },
+        {
+          "id": 6,
+          "text": "可能是给目标资金单独放一个位置，可能是停止一笔无计划分期，也可能是给外卖和娱乐设一个自己愿意接受的区间。",
+          "start_char": 176,
+          "end_char": 228
+        },
+        {
+          "id": 7,
+          "text": "一次只改一件事，才能知道变化从哪里来。",
+          "start_char": 228,
+          "end_char": 247
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "medium",
+          "visual_description": "循环箭头围绕更新地图、保留有效安排和调整摩擦点三张卡片，人物只移动一个小积木。",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "start_char": 0,
+          "end_char": 247,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "focused",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 19,
+      "type": "QUOTE",
+      "head": "QUOTE",
+      "voice_chars": 201,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "当钱流开始稳定，你才更有余地学习保障、长期储蓄或投资。",
+          "start_char": 0,
+          "end_char": 27
+        },
+        {
+          "id": 1,
+          "text": "那时你面对产品信息，不再是因为焦虑而随便抓住一个答案，而是能把它放回自己的生活里衡量。",
+          "start_char": 27,
+          "end_char": 70
+        },
+        {
+          "id": 2,
+          "text": "理财没有统一终点：有人希望减少月末的慌张，有人想获得换工作的底气，有人想为家庭计划留出空间。",
+          "start_char": 70,
+          "end_char": 116
+        },
+        {
+          "id": 3,
+          "text": "你不需要等到收入很高才开始，也不需要做出完美表格才算合格。",
+          "start_char": 116,
+          "end_char": 145
+        },
+        {
+          "id": 4,
+          "text": "今天只要完成一张钱流地图，给一个重要目标留出一小块位置，再在下个月复盘一次，你就在把钱从自动流走，变成主动安排。",
+          "start_char": 145,
+          "end_char": 201
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "close",
+          "visual_description": "凌乱的硬币流线被整理成稳定路径，通向缓冲、学习和家庭计划三处温暖的小场景。",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "start_char": 0,
+          "end_char": 201,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "hopeful",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 20,
+      "type": "CARD",
+      "head": "CARD 一个循环胜过一份完美表格",
+      "voice_chars": 217,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "把这件事想成一个循环，而不是一次性考试。",
+          "start_char": 0,
+          "end_char": 20
+        },
+        {
+          "id": 1,
+          "text": "先看见：用钱流地图辨认现实。",
+          "start_char": 20,
+          "end_char": 34
+        },
+        {
+          "id": 2,
+          "text": "再安排：给缓冲、目标和自由消费分配位置。",
+          "start_char": 34,
+          "end_char": 54
+        },
+        {
+          "id": 3,
+          "text": "最后复盘：保留有效的安排，只修改一个最大的摩擦点。",
+          "start_char": 54,
+          "end_char": 79
+        },
+        {
+          "id": 4,
+          "text": "下个月再重复。",
+          "start_char": 79,
+          "end_char": 86
+        },
+        {
+          "id": 5,
+          "text": "这个循环会随着收入、家庭和生活阶段变化，但它始终把决定权留在你手里。",
+          "start_char": 86,
+          "end_char": 120
+        },
+        {
+          "id": 6,
+          "text": "你不必因为这个月没有做到理想数字就放弃；只要比上个月更清楚一笔钱为什么留下、为什么离开，理财就已经在发生。",
+          "start_char": 120,
+          "end_char": 173
+        },
+        {
+          "id": 7,
+          "text": "真正的从容，不是账户里永远没有波动，而是遇到变化时，你知道下一步该先看哪里、先调整什么。",
+          "start_char": 173,
+          "end_char": 217
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "medium",
+          "visual_description": "循环箭头围绕“看见、安排、复盘”三张卡片，年轻上班族每次只移动一个小积木。",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "start_char": 0,
+          "end_char": 217,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "hopeful",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 21,
+      "type": "CARD",
+      "head": "CARD 今天就能开始",
+      "voice_chars": 177,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "如果你现在觉得账目很乱，也不必等到下个月或等到收入增加。",
+          "start_char": 0,
+          "end_char": 28
+        },
+        {
+          "id": 1,
+          "text": "今天只做三个小动作就够了：写下一件希望钱支持的生活目标，打开账单找出一条最稳定的钱流，再决定一个愿意尝试的微小调整。",
+          "start_char": 28,
+          "end_char": 86
+        },
+        {
+          "id": 2,
+          "text": "它可以是暂停一个不用的服务，也可以是在发薪日先留出一点缓冲。",
+          "start_char": 86,
+          "end_char": 116
+        },
+        {
+          "id": 3,
+          "text": "不要把起点设成彻底改变人生，而要设成下一次面对消费和账单时，自己能多一个选择。",
+          "start_char": 116,
+          "end_char": 155
+        },
+        {
+          "id": 4,
+          "text": "小动作被重复，才会慢慢变成更可靠的生活秩序。",
+          "start_char": 155,
+          "end_char": 177
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "medium",
+          "visual_description": "年轻上班族在手机账单旁写下生活目标，划掉闲置服务，并把一枚硬币放进缓冲小罐。",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "start_char": 0,
+          "end_char": 177,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "hopeful",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 22,
+      "type": "CARD",
+      "head": "CARD 把钱用在你想过的生活上",
+      "voice_chars": 160,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "所以，理财不是研究基金的代名词。",
+          "start_char": 0,
+          "end_char": 16
+        },
+        {
+          "id": 1,
+          "text": "它更像一种日常练习：看清钱流向哪里，承认生活有变化，给安全感、目标和快乐都留出位置，然后用一次次小调整把选择权拿回来。",
+          "start_char": 16,
+          "end_char": 75
+        },
+        {
+          "id": 2,
+          "text": "别急着问“哪种方法最厉害”。",
+          "start_char": 75,
+          "end_char": 89
+        },
+        {
+          "id": 3,
+          "text": "先问今天这笔钱，能不能让明天的你更从容一点。",
+          "start_char": 89,
+          "end_char": 111
+        },
+        {
+          "id": 4,
+          "text": "做完这张地图之后，在评论区写下你最想让钱支持的一件生活目标。",
+          "start_char": 111,
+          "end_char": 141
+        },
+        {
+          "id": 5,
+          "text": "下一次发薪日，就从给它留一个位置开始。",
+          "start_char": 141,
+          "end_char": 160
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "medium",
+          "visual_description": "阳光下的年轻上班族带着整理好的钱流地图走向城市日常，安全感、目标和选择权以简洁图标陪伴。",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "start_char": 0,
+          "end_char": 160,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "hopeful",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 23,
+      "type": "END",
+      "head": "END",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "medium",
+          "visual_description": "温暖收束画面：一张写着生活目标的卡片放在钱包旁，年轻上班族微笑着准备下一次发薪日安排。",
+          "sentence_ids": [],
+          "start_char": 0,
+          "end_char": 0,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "hopeful",
+          "segment": "action"
+        }
+      ]
+    }
+  ]
+}
