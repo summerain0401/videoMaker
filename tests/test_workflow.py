@@ -249,6 +249,37 @@ class RenderRegressionTests(unittest.TestCase):
         self.assertTrue(all("iw-iw/zoom" in item for item in
                             (wide[1], medium[1], close[1])))
 
+    def test_motion_v2_uses_smoothstep_and_explicit_direction(self):
+        forward = build_long.motion_exprs(3, 120, "medium", "alert", "hook",
+                                           direction=1)
+        backward = build_long.motion_exprs(99, 120, "medium", "alert", "hook",
+                                            direction=-1)
+        self.assertIn("min(1,max(0,on/119.000))", forward[0])
+        self.assertNotEqual(forward[1], backward[1])
+        self.assertIn("0.140", forward[0])
+        calm_a = build_long.motion_exprs(3, 120, "medium", "calm", "hook",
+                                         direction=1)
+        calm_b = build_long.motion_exprs(3, 120, "medium", "calm", "hook",
+                                         direction=1)
+        self.assertEqual(calm_a, calm_b)
+        self.assertIn("0.140", calm_a[0])
+
+    def test_motion_long_beats_use_five_second_multiaxis_legs(self):
+        short = build_long.motion_exprs(1, 150, "medium", "alert", "hook")
+        long = build_long.motion_exprs(1, 750, "medium", "alert", "hook")
+        self.assertNotIn("gte(on,", short[0])
+        self.assertIn("gte(on,149.800)", long[1])
+        self.assertIn("gte(on,299.600)", long[1])
+        self.assertNotIn("gte(on,", long[0])
+        self.assertGreaterEqual(long[1].count("if(gte(on,"), 3)
+        self.assertNotIn("sin", long[0] + long[1] + long[2])
+        self.assertEqual(long, build_long.motion_exprs(
+            1, 750, "medium", "alert", "hook", direction=1))
+        mirrored = build_long.motion_exprs(
+            1, 750, "medium", "alert", "hook", direction=-1)
+        self.assertNotEqual(long[1], mirrored[1])
+        self.assertEqual(long[2], mirrored[2])
+
     def test_subtitle_keeps_source_ranges_and_never_splits_book_title(self):
         text = ("今天我们用威廉·庞德斯通的《无价》，拆开价格背后的锚定效应。"
                 "你会买吗？")

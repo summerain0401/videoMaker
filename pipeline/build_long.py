@@ -241,38 +241,47 @@ def palette_for(b):
 
 
 def motion_exprs(idx, nframes, shot="medium", emotion="neutral",
-                 segment="insight", continuation=False):
-    """按景别与语义生成稳定、可复现且不露边的推拉摇移表达式。"""
+                 segment="insight", continuation=False, direction=1):
+    """单调缩放配合五秒一腿的多轴、非重复安全路径。"""
     n = max(nframes - 1, 1)
-    p = f"(1-pow(1-min(1,on/{n}),2))"
-    seed_text = f"{idx}:{shot}:{emotion}:{segment}".encode("utf-8")
-    seed = int(hashlib.md5(seed_text).hexdigest()[:8], 16)
-    reverse = seed % 2 == 1
+    # direction 由内容块决定；不要用 beat 索引随机反向，避免块内镜头来回抖动。
+    direction = -1 if direction < 0 else 1
 
-    if shot == "wide":
-        z0, z1, x0, x1, y0, y1 = 1.00, 1.09, 0.18, 0.78, 0.34, 0.28
-    elif shot == "close":
-        z0, z1, x0, x1, y0, y1 = 1.14, 1.05, 0.43, 0.57, 0.30, 0.38
-    else:
-        z0, z1, x0, x1, y0, y1 = 1.03, 1.12, 0.34, 0.66, 0.34, 0.28
-    if continuation:
-        if shot == "wide":
-            z0, z1, x0, x1 = 1.065, 1.12, 0.54, 0.34
-        elif shot == "close":
-            z0, z1, x0, x1 = 1.08, 1.035, 0.52, 0.44
-        else:
-            z0, z1, x0, x1 = 1.085, 1.14, 0.52, 0.40
-    if reverse:
-        x0, x1 = 1.0 - x0, 1.0 - x1
-        y0, y1 = y1, y0
+    if shot == "wide": z0, z1 = 1.05, 1.18
+    elif shot == "close": z0, z1 = 1.18, 1.05
+    else: z0, z1 = 1.06, 1.20
     if segment == "action":
         z1 += 0.015
     elif emotion in {"calm", "balanced", "reflective"}:
-        z1 = z0 + (z1 - z0) * 0.72
+        # V2 保持约 13–18% 的可见推拉；情绪不压回旧版幅度。
+        z1 = z0 + (z1 - z0)
 
-    z = f"{z0:.3f}+({z1 - z0:.3f})*({p})"
-    cx = f"'(iw-iw/zoom)*({x0:.3f}+({x1 - x0:.3f})*({p}))'"
-    cy = f"'(ih-ih/zoom)*({y0:.3f}+({y1 - y0:.3f})*({p}))'"
+    patterns = (((.28, .34), (.56, .27), (.72, .46), (.48, .62), (.68, .70)),
+                ((.70, .30), (.44, .25), (.27, .48), (.52, .68), (.32, .74)),
+                ((.32, .68), (.68, .56), (.55, .28), (.28, .40), (.72, .72)))
+    points = list(patterns[idx % len(patterns)])
+    if shot == "close":
+        points = [(0.38 + (x - .5) * .55, 0.42 + (y - .5) * .55) for x, y in points]
+    if direction < 0:
+        points = [(1.0 - x, y) for x, y in points]
+    legs = max(1, math.ceil(nframes / (5 * FPS)))
+    points = points[:legs + 1]
+    while len(points) < legs + 1: points.append(points[-1])
+
+    def path_expr(values):
+        result = f"{values[0]:.3f}"
+        for leg in range(legs):
+            start, span = leg * n / legs, max(n / legs, 1)
+            q = f"min(1,max(0,(on-{start:.3f})/{span:.3f}))"
+            smooth = f"(3*({q})*({q})-2*({q})*({q})*({q}))"
+            result = (f"if(gte(on,{start:.3f}),{values[leg]:.3f}+"
+                      f"{values[leg + 1] - values[leg]:.3f}*{smooth},{result})")
+        return result
+    q = f"min(1,max(0,on/{n:.3f}))"
+    smooth = f"(3*({q})*({q})-2*({q})*({q})*({q}))"
+    z = f"{z0:.3f}+({z1-z0:.3f})*{smooth}"
+    cx = f"'(iw-iw/zoom)*({path_expr([p[0] for p in points])})'"
+    cy = f"'(ih-ih/zoom)*({path_expr([p[1] for p in points])})'"
     return z, cx, cy
 
 
@@ -586,7 +595,8 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
         # 每个 beat 始终使用一条完整 zoompan 轨迹。长 beat 不再按句子边界
         # split 成两段后 concat，避免中段重新构图造成画面顿挫。
         z, cx, cy = motion_exprs(
-            source_idx * 7 + k, nframes, *motion_args)
+            source_idx * 7 + k, nframes, *motion_args,
+            direction=1 if source_idx % 2 == 0 else -1)
         fc.append(
             f"[{k}:v]scale={2 * W}:{2 * H},"
             f"zoompan=z='{z}':x={cx}:y={cy}:d={nframes}:"
@@ -600,9 +610,8 @@ def render_scene_narrative(blocks, idx, total, first, last, meta, story):
     else:
         o_prev = "b0"
     bi = n
-    # deco 光斑视差层（相对卡点画面漂移，制造纵深）
-    fc.append(f"[{o_prev}][{bi}:v]overlay=x='34*sin(t/4)':"
-              f"y='22*cos(t/3.5)'[d0]")
+    # deco 光斑保持静止叠加；独立漂移会被感知为画面抖动。
+    fc.append(f"[{o_prev}][{bi}:v]overlay=x=0:y=0[d0]")
     o_prev = "d0"
     bi += 1
     if phase_title:
