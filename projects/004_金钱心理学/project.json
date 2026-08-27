@@ -1,0 +1,21 @@
+{
+  "id": "004",
+  "title": "金钱心理学",
+  "author": "摩根·豪泽尔",
+  "status": "进行中",
+  "created_at": "2026-08-27 15:57:30",
+  "providers": {
+    "llm": {
+      "name": "codex",
+      "model": null
+    },
+    "image": {
+      "name": "imagegen",
+      "model": null
+    },
+    "speech": {
+      "name": "azure",
+      "voice": "zh-CN-Xiaochen:DragonHDFlashLatestNeural"
+    }
+  }
+}

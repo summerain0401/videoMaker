@@ -1,0 +1,2139 @@
+{
+  "version": 1,
+  "blocks": [
+    {
+      "block_idx": 0,
+      "type": "TITLE",
+      "head": "TITLE",
+      "voice_chars": 207,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "你有没有发现，很多让人后悔的金钱决定，当时看起来都很合理。",
+          "start_char": 0,
+          "end_char": 29
+        },
+        {
+          "id": 1,
+          "text": "别人抓住了机会，你怕错过；",
+          "start_char": 29,
+          "end_char": 42
+        },
+        {
+          "id": 2,
+          "text": "收入刚多一点，你就想把生活立刻升级；",
+          "start_char": 42,
+          "end_char": 60
+        },
+        {
+          "id": 3,
+          "text": "账户里还有余额，你便觉得暂时不用留后路。",
+          "start_char": 60,
+          "end_char": 80
+        },
+        {
+          "id": 4,
+          "text": "可真正让人陷入被动的，往往不是一次没赚到，而是一次意外就让自己没有选择。",
+          "start_char": 80,
+          "end_char": 116
+        },
+        {
+          "id": 5,
+          "text": "今天我们不讲预测市场，也不推荐任何具体产品。",
+          "start_char": 116,
+          "end_char": 138
+        },
+        {
+          "id": 6,
+          "text": "我们借《金钱心理学》讨论一件更朴素的事：怎样让自己的生活不必依赖每次都判断正确。",
+          "start_char": 138,
+          "end_char": 178
+        },
+        {
+          "id": 7,
+          "text": "因为长期留下来的人，未必最聪明，却往往最懂得给变化留位置。",
+          "start_char": 178,
+          "end_char": 207
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, young_pro presents the unified idea of “TITLE” with a coherent everyday metaphor for subtitle sentences 1–4; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 80,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "焦虑、警觉",
+          "segment": "hook"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, young_pro presents the unified idea of “TITLE” with a coherent everyday metaphor for subtitle sentences 5–7; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            4,
+            5,
+            6
+          ],
+          "start_char": 80,
+          "end_char": 178,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "焦虑、警觉",
+          "segment": "hook"
+        },
+        {
+          "beat_idx": 2,
+          "shot": "close",
+          "visual_description": "16:9 2D chibi editorial illustration, young_pro presents the unified idea of “TITLE” with a coherent everyday metaphor for subtitle sentences 8–8; close framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            7
+          ],
+          "start_char": 178,
+          "end_char": 207,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "焦虑、警觉",
+          "segment": "hook"
+        }
+      ]
+    },
+    {
+      "block_idx": 1,
+      "type": "PHASE",
+      "head": "PHASE 01 · 先看清：结果里不只有能力",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, Chinese title “PHASE 01 · 先看清：结果里不只有能力” physically integrated on a real street sign or office wall, young_pro nearby, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [],
+          "start_char": 0,
+          "end_char": 0,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "转场、平静",
+          "segment": "hook"
+        }
+      ]
+    },
+    {
+      "block_idx": 2,
+      "type": "CARD",
+      "head": "CARD 别急着复制别人的答案",
+      "voice_chars": 160,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "看到别人收入上涨、买到合适的房子，或者在某个机会里获得好结果，我们很容易把结果直接翻译成一套万能方法：他做到了，所以我也应该立刻照做。",
+          "start_char": 0,
+          "end_char": 67
+        },
+        {
+          "id": 1,
+          "text": "但同一个选择，放在不同的时间、行业、家庭责任和运气里，结果可能完全不同。",
+          "start_char": 67,
+          "end_char": 103
+        },
+        {
+          "id": 2,
+          "text": "成功故事可以给我们启发，却不该替我们做决定。",
+          "start_char": 103,
+          "end_char": 125
+        },
+        {
+          "id": 3,
+          "text": "真正值得学习的，不是他最后拿到多少，而是他做了哪些自己也能重复的准备。",
+          "start_char": 125,
+          "end_char": 160
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, young_pro presents the unified idea of “CARD 别急着复制别人的答案” with a coherent everyday metaphor for subtitle sentences 1–2; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1
+          ],
+          "start_char": 0,
+          "end_char": 103,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "焦虑、警觉",
+          "segment": "hook"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, young_pro presents the unified idea of “CARD 别急着复制别人的答案” with a coherent everyday metaphor for subtitle sentences 3–4; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            2,
+            3
+          ],
+          "start_char": 103,
+          "end_char": 160,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "焦虑、警觉",
+          "segment": "hook"
+        }
+      ]
+    },
+    {
+      "block_idx": 3,
+      "type": "QUOTE",
+      "head": "QUOTE",
+      "voice_chars": 95,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "这也意味着，一次不顺利不必被解释成“我完全不行”。",
+          "start_char": 0,
+          "end_char": 25
+        },
+        {
+          "id": 1,
+          "text": "很多结果由能力、环境和时点一起塑造。",
+          "start_char": 25,
+          "end_char": 43
+        },
+        {
+          "id": 2,
+          "text": "你能负责的是准备、边界和复盘，不能负责所有风向。",
+          "start_char": 43,
+          "end_char": 67
+        },
+        {
+          "id": 3,
+          "text": "把这两部分分开，会让你少一点盲目自信，也少一点无谓自责。",
+          "start_char": 67,
+          "end_char": 95
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, young_pro presents the unified idea of “QUOTE” with a coherent everyday metaphor for subtitle sentences 1–4; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 95,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "焦虑、警觉",
+          "segment": "hook"
+        }
+      ]
+    },
+    {
+      "block_idx": 4,
+      "type": "STEPS",
+      "head": "STEPS 两栏复盘法",
+      "voice_chars": 127,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "找一件最近让你得意或懊恼的金钱结果，写两栏。",
+          "start_char": 0,
+          "end_char": 22
+        },
+        {
+          "id": 1,
+          "text": "第一栏是你的准备：是否做过调查，是否留出预算，是否给决定留过时间。",
+          "start_char": 22,
+          "end_char": 55
+        },
+        {
+          "id": 2,
+          "text": "第二栏是无法控制的条件：行情、他人的选择、突发事件和时点。",
+          "start_char": 55,
+          "end_char": 84
+        },
+        {
+          "id": 3,
+          "text": "第二栏不是借口，它提醒你别把偶然当成公式。",
+          "start_char": 84,
+          "end_char": 105
+        },
+        {
+          "id": 4,
+          "text": "下一次，把精力用在第一栏，才会真正积累能力。",
+          "start_char": 105,
+          "end_char": 127
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, young_pro presents the unified idea of “STEPS 两栏复盘法” with a coherent everyday metaphor for subtitle sentences 1–4; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 105,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "焦虑、警觉",
+          "segment": "hook"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, young_pro presents the unified idea of “STEPS 两栏复盘法” with a coherent everyday metaphor for subtitle sentences 5–5; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            4
+          ],
+          "start_char": 105,
+          "end_char": 127,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "焦虑、警觉",
+          "segment": "hook"
+        }
+      ]
+    },
+    {
+      "block_idx": 5,
+      "type": "CARD",
+      "head": "CARD 少听结论，多看过程",
+      "voice_chars": 146,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "当你听到一个令人羡慕的结果时，可以多追问几层：这个人起点是什么？",
+          "start_char": 0,
+          "end_char": 32
+        },
+        {
+          "id": 1,
+          "text": "中间经历过哪些看不见的帮助？",
+          "start_char": 32,
+          "end_char": 46
+        },
+        {
+          "id": 2,
+          "text": "他能承受多大的波动？",
+          "start_char": 46,
+          "end_char": 56
+        },
+        {
+          "id": 3,
+          "text": "如果这条路径连续三个月没有回报，他还能不能继续？",
+          "start_char": 56,
+          "end_char": 80
+        },
+        {
+          "id": 4,
+          "text": "这些问题不是为了否定别人，而是把聚光灯从结果移回过程。",
+          "start_char": 80,
+          "end_char": 107
+        },
+        {
+          "id": 5,
+          "text": "你会发现，真正可借鉴的常常不是某一次大胆决定，而是长期积累的能力、节制和耐心。",
+          "start_char": 107,
+          "end_char": 146
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, young_pro presents the unified idea of “CARD 少听结论，多看过程” with a coherent everyday metaphor for subtitle sentences 1–4; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 80,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "焦虑、警觉",
+          "segment": "hook"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, young_pro presents the unified idea of “CARD 少听结论，多看过程” with a coherent everyday metaphor for subtitle sentences 5–6; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            4,
+            5
+          ],
+          "start_char": 80,
+          "end_char": 146,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "焦虑、警觉",
+          "segment": "hook"
+        }
+      ]
+    },
+    {
+      "block_idx": 6,
+      "type": "PHASE",
+      "head": "PHASE 02 · 风险不是坏事，是承受不起的后果",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, Chinese title “PHASE 02 · 风险不是坏事，是承受不起的后果” physically integrated on a real street sign or office wall, young_pro nearby, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [],
+          "start_char": 0,
+          "end_char": 0,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "转场、平静",
+          "segment": "hook"
+        }
+      ]
+    },
+    {
+      "block_idx": 7,
+      "type": "CARD",
+      "head": "CARD 同一个选择，不是同一种风险",
+      "voice_chars": 143,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "风险并不只是“会不会发生坏事”。",
+          "start_char": 0,
+          "end_char": 16
+        },
+        {
+          "id": 1,
+          "text": "更重要的问题是：如果它发生，我能不能承受？",
+          "start_char": 16,
+          "end_char": 37
+        },
+        {
+          "id": 2,
+          "text": "朋友可以接受一段收入波动，可能因为他没有固定支出压力；",
+          "start_char": 37,
+          "end_char": 64
+        },
+        {
+          "id": 3,
+          "text": "你不愿意冒同样的险，可能因为你要付房租、照顾家人，或还没有稳定缓冲。",
+          "start_char": 64,
+          "end_char": 98
+        },
+        {
+          "id": 4,
+          "text": "两种选择都未必错误。",
+          "start_char": 98,
+          "end_char": 108
+        },
+        {
+          "id": 5,
+          "text": "危险的是把别人的底线，当成自己的标准，然后在变化来临时才发现没有退路。",
+          "start_char": 108,
+          "end_char": 143
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, stressed_worker presents the unified idea of “CARD 同一个选择，不是同一种风险” with a coherent everyday metaphor for subtitle sentences 1–4; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 98,
+          "character_ids": [
+            "stressed_worker"
+          ],
+          "emotion": "冷静、自省",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, stressed_worker presents the unified idea of “CARD 同一个选择，不是同一种风险” with a coherent everyday metaphor for subtitle sentences 5–6; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            4,
+            5
+          ],
+          "start_char": 98,
+          "end_char": 143,
+          "character_ids": [
+            "stressed_worker"
+          ],
+          "emotion": "冷静、自省",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 8,
+      "type": "CARD",
+      "head": "CARD 先给最坏结果命名",
+      "voice_chars": 129,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "在做任何重要支出或长期承诺前，先问一个不那么兴奋的问题：最坏情况是什么？",
+          "start_char": 0,
+          "end_char": 36
+        },
+        {
+          "id": 1,
+          "text": "不是为了把自己吓住，而是为了判断它会不会击穿基本生活。",
+          "start_char": 36,
+          "end_char": 63
+        },
+        {
+          "id": 2,
+          "text": "你不必把每一步都算到极致，只要知道哪些钱不能动、哪些支出不能断、哪些承诺一旦开始就很难退出。",
+          "start_char": 63,
+          "end_char": 109
+        },
+        {
+          "id": 3,
+          "text": "边界越清楚，面对诱惑时越不需要临场硬撑。",
+          "start_char": 109,
+          "end_char": 129
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, stressed_worker presents the unified idea of “CARD 先给最坏结果命名” with a coherent everyday metaphor for subtitle sentences 1–3; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 109,
+          "character_ids": [
+            "stressed_worker"
+          ],
+          "emotion": "冷静、自省",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, stressed_worker presents the unified idea of “CARD 先给最坏结果命名” with a coherent everyday metaphor for subtitle sentences 4–4; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            3
+          ],
+          "start_char": 109,
+          "end_char": 129,
+          "character_ids": [
+            "stressed_worker"
+          ],
+          "emotion": "冷静、自省",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 9,
+      "type": "CARD",
+      "head": "CARD 为自己写一句底线",
+      "voice_chars": 103,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "你可以试着写下一句个人底线：任何决定，都不动用哪一部分生活资金；",
+          "start_char": 0,
+          "end_char": 32
+        },
+        {
+          "id": 1,
+          "text": "或者，无论多想抓住机会，都不让哪项基本支出失去保障。",
+          "start_char": 32,
+          "end_char": 58
+        },
+        {
+          "id": 2,
+          "text": "这不是保守，而是承认生活并不是一张可以无限重来的试卷。",
+          "start_char": 58,
+          "end_char": 85
+        },
+        {
+          "id": 3,
+          "text": "守住底线，你才有资格等待下一次机会。",
+          "start_char": 85,
+          "end_char": 103
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, stressed_worker presents the unified idea of “CARD 为自己写一句底线” with a coherent everyday metaphor for subtitle sentences 1–4; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 103,
+          "character_ids": [
+            "stressed_worker"
+          ],
+          "emotion": "冷静、自省",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 10,
+      "type": "CARD",
+      "head": "CARD 先把压力说清楚",
+      "voice_chars": 134,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "很多焦虑来自一句模糊的“万一不够怎么办”。",
+          "start_char": 0,
+          "end_char": 21
+        },
+        {
+          "id": 1,
+          "text": "不妨把它拆开：下个月有哪些固定承诺？",
+          "start_char": 21,
+          "end_char": 39
+        },
+        {
+          "id": 2,
+          "text": "哪一笔支出可以调整？",
+          "start_char": 39,
+          "end_char": 49
+        },
+        {
+          "id": 3,
+          "text": "谁会受到这个决定影响？",
+          "start_char": 49,
+          "end_char": 60
+        },
+        {
+          "id": 4,
+          "text": "当问题被写下来，压力不一定立刻消失，但它会从一团雾变成几件可以处理的事。",
+          "start_char": 60,
+          "end_char": 96
+        },
+        {
+          "id": 5,
+          "text": "比起在脑中反复演练最坏结果，先确认自己真正要守住的是什么，往往更能恢复平静。",
+          "start_char": 96,
+          "end_char": 134
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, stressed_worker presents the unified idea of “CARD 先把压力说清楚” with a coherent everyday metaphor for subtitle sentences 1–4; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 60,
+          "character_ids": [
+            "stressed_worker"
+          ],
+          "emotion": "冷静、自省",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, stressed_worker presents the unified idea of “CARD 先把压力说清楚” with a coherent everyday metaphor for subtitle sentences 5–6; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            4,
+            5
+          ],
+          "start_char": 60,
+          "end_char": 134,
+          "character_ids": [
+            "stressed_worker"
+          ],
+          "emotion": "冷静、自省",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 11,
+      "type": "QUOTE",
+      "head": "QUOTE",
+      "voice_chars": 159,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "有边界的人并不是从不动摇，而是在自己状态最好、信息最完整的时候，替未来疲惫或焦虑的自己先做一部分决定。",
+          "start_char": 0,
+          "end_char": 51
+        },
+        {
+          "id": 1,
+          "text": "这样，当促销、比较或他人的催促出现时，你不必每次都从零开始判断。",
+          "start_char": 51,
+          "end_char": 83
+        },
+        {
+          "id": 2,
+          "text": "你只需要回到那条已经想清楚的原则：这件事会不会影响我最要紧的承诺？",
+          "start_char": 83,
+          "end_char": 116
+        },
+        {
+          "id": 3,
+          "text": "如果会，就让它先等等。",
+          "start_char": 116,
+          "end_char": 127
+        },
+        {
+          "id": 4,
+          "text": "提前决定，能把很多冲动从一场意志力较量，变成一个简单的执行动作。",
+          "start_char": 127,
+          "end_char": 159
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, stressed_worker presents the unified idea of “QUOTE” with a coherent everyday metaphor for subtitle sentences 1–3; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 116,
+          "character_ids": [
+            "stressed_worker"
+          ],
+          "emotion": "冷静、自省",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, stressed_worker presents the unified idea of “QUOTE” with a coherent everyday metaphor for subtitle sentences 4–5; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            3,
+            4
+          ],
+          "start_char": 116,
+          "end_char": 159,
+          "character_ids": [
+            "stressed_worker"
+          ],
+          "emotion": "冷静、自省",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 12,
+      "type": "CARD",
+      "head": "CARD 把拒绝当成一种保护",
+      "voice_chars": 118,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "拒绝一件不适合的消费、承诺或机会，并不代表你错过了人生。",
+          "start_char": 0,
+          "end_char": 28
+        },
+        {
+          "id": 1,
+          "text": "它只是说明，你愿意把有限资源留给更重要的事。",
+          "start_char": 28,
+          "end_char": 50
+        },
+        {
+          "id": 2,
+          "text": "每一次不被催促带着走的决定，都会让自己的原则更清晰。",
+          "start_char": 50,
+          "end_char": 76
+        },
+        {
+          "id": 3,
+          "text": "久而久之，你会少一些“为什么又这样”的后悔，多一点“我知道自己为什么这样选”的安定。",
+          "start_char": 76,
+          "end_char": 118
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, stressed_worker presents the unified idea of “CARD 把拒绝当成一种保护” with a coherent everyday metaphor for subtitle sentences 1–4; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 118,
+          "character_ids": [
+            "stressed_worker"
+          ],
+          "emotion": "冷静、自省",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 13,
+      "type": "QUOTE",
+      "head": "QUOTE",
+      "voice_chars": 89,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "请记住，稳并不等于停。",
+          "start_char": 0,
+          "end_char": 11
+        },
+        {
+          "id": 1,
+          "text": "你是在给自己保留继续学习、继续尝试和继续选择的资格。",
+          "start_char": 11,
+          "end_char": 37
+        },
+        {
+          "id": 2,
+          "text": "只要还在场上，今天看似很小的准备，就可能在未来成为真正的底气。",
+          "start_char": 37,
+          "end_char": 68
+        },
+        {
+          "id": 3,
+          "text": "每一次守住边界，都是在为下一段路积累自由。",
+          "start_char": 68,
+          "end_char": 89
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, stressed_worker presents the unified idea of “QUOTE” with a coherent everyday metaphor for subtitle sentences 1–4; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 89,
+          "character_ids": [
+            "stressed_worker"
+          ],
+          "emotion": "冷静、自省",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 14,
+      "type": "PHASE",
+      "head": "PHASE 03 · 余量看似闲置，其实是选择权",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, Chinese title “PHASE 03 · 余量看似闲置，其实是选择权” physically integrated on a real street sign or office wall, frugal_girl nearby, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [],
+          "start_char": 0,
+          "end_char": 0,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "转场、平静",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 15,
+      "type": "CARD",
+      "head": "CARD 别把资源用到百分之百",
+      "voice_chars": 133,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "我们常把资源利用到极限，当成一种高效：日程排满，钱花满，精力也用满。",
+          "start_char": 0,
+          "end_char": 34
+        },
+        {
+          "id": 1,
+          "text": "短期看起来没有浪费，变化一来却最没有弹性。",
+          "start_char": 34,
+          "end_char": 55
+        },
+        {
+          "id": 2,
+          "text": "一笔临时开支、一场疾病、一段收入空档，都可能迫使你做出本来不想做的选择。",
+          "start_char": 55,
+          "end_char": 91
+        },
+        {
+          "id": 3,
+          "text": "余量的价值，不是保证意外永远不来，而是让意外来了以后，你仍然有时间、现金和精力调整。",
+          "start_char": 91,
+          "end_char": 133
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “CARD 别把资源用到百分之百” with a coherent everyday metaphor for subtitle sentences 1–3; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 91,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "冷静、自省",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “CARD 别把资源用到百分之百” with a coherent everyday metaphor for subtitle sentences 4–4; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            3
+          ],
+          "start_char": 91,
+          "end_char": 133,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "冷静、自省",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 16,
+      "type": "TABLE",
+      "head": "TABLE 三种可以慢慢建立的余量",
+      "voice_chars": 122,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "余量不一定是很大的存款。",
+          "start_char": 0,
+          "end_char": 12
+        },
+        {
+          "id": 1,
+          "text": "它可以是每次收入到账时，先留下的一小笔缓冲；",
+          "start_char": 12,
+          "end_char": 34
+        },
+        {
+          "id": 2,
+          "text": "可以是一周里不被临时邀约占满的一段时间；",
+          "start_char": 34,
+          "end_char": 54
+        },
+        {
+          "id": 3,
+          "text": "也可以是一项不依赖单一岗位的能力准备。",
+          "start_char": 54,
+          "end_char": 73
+        },
+        {
+          "id": 4,
+          "text": "它们一开始都很小，也不会马上让生活翻盘。",
+          "start_char": 73,
+          "end_char": 93
+        },
+        {
+          "id": 5,
+          "text": "但每一份余量都在告诉未来的你：变化发生时，你不必立刻慌张。",
+          "start_char": 93,
+          "end_char": 122
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “TABLE 三种可以慢慢建立的余量” with a coherent everyday metaphor for subtitle sentences 1–4; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 73,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "冷静、自省",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “TABLE 三种可以慢慢建立的余量” with a coherent everyday metaphor for subtitle sentences 5–6; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            4,
+            5
+          ],
+          "start_char": 73,
+          "end_char": 122,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "冷静、自省",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 17,
+      "type": "CARD",
+      "head": "CARD 先留，再安排",
+      "voice_chars": 115,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "很多人说，等收入高一点再留余量。",
+          "start_char": 0,
+          "end_char": 16
+        },
+        {
+          "id": 1,
+          "text": "可如果每次都是先把所有钱安排出去，收入变高后，生活成本往往也会一起长大。",
+          "start_char": 16,
+          "end_char": 52
+        },
+        {
+          "id": 2,
+          "text": "更现实的做法是先留一小格，再安排剩下的部分。",
+          "start_char": 52,
+          "end_char": 74
+        },
+        {
+          "id": 3,
+          "text": "数额不需要和别人比较；",
+          "start_char": 74,
+          "end_char": 85
+        },
+        {
+          "id": 4,
+          "text": "关键是让“未来的缓冲”从一句愿望，变成发薪日就会发生的动作。",
+          "start_char": 85,
+          "end_char": 115
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “CARD 先留，再安排” with a coherent everyday metaphor for subtitle sentences 1–4; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 85,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "冷静、自省",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “CARD 先留，再安排” with a coherent everyday metaphor for subtitle sentences 5–5; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            4
+          ],
+          "start_char": 85,
+          "end_char": 115,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "冷静、自省",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 18,
+      "type": "CARD",
+      "head": "CARD 余量也包括精力",
+      "voice_chars": 130,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "除了钱，精力同样需要缓冲。",
+          "start_char": 0,
+          "end_char": 13
+        },
+        {
+          "id": 1,
+          "text": "一个每晚都被工作和琐事塞满的人，很难在重要决定前认真思考，只能用最方便的选项解决眼前问题。",
+          "start_char": 13,
+          "end_char": 58
+        },
+        {
+          "id": 2,
+          "text": "给一周留一段不被安排的时间，看起来没有产出，却可能让你有机会整理账单、处理拖延的事项，或者只是好好休息。",
+          "start_char": 58,
+          "end_char": 110
+        },
+        {
+          "id": 3,
+          "text": "清醒的判断力，本身就是一种很珍贵的资源。",
+          "start_char": 110,
+          "end_char": 130
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “CARD 余量也包括精力” with a coherent everyday metaphor for subtitle sentences 1–3; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 110,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "冷静、自省",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “CARD 余量也包括精力” with a coherent everyday metaphor for subtitle sentences 4–4; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            3
+          ],
+          "start_char": 110,
+          "end_char": 130,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "冷静、自省",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 19,
+      "type": "CARD",
+      "head": "CARD 不必等到危机才开始缓冲",
+      "voice_chars": 158,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "很多人把缓冲理解成“等一切都稳定了以后再做”的事。",
+          "start_char": 0,
+          "end_char": 25
+        },
+        {
+          "id": 1,
+          "text": "但现实往往相反：越是没有缓冲的时候，越需要从最小的地方开始。",
+          "start_char": 25,
+          "end_char": 55
+        },
+        {
+          "id": 2,
+          "text": "你不必一下解决所有压力，只要让一个小动作重复出现。",
+          "start_char": 55,
+          "end_char": 80
+        },
+        {
+          "id": 3,
+          "text": "比如每周固定看一次账户，而不是等余额紧张才打开；",
+          "start_char": 80,
+          "end_char": 104
+        },
+        {
+          "id": 4,
+          "text": "比如每次有额外收入时，先留下一部分，而不是全部立刻奖励自己。",
+          "start_char": 104,
+          "end_char": 134
+        },
+        {
+          "id": 5,
+          "text": "小缓冲的意义，是让你开始相信自己有能力应对变化。",
+          "start_char": 134,
+          "end_char": 158
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, young_pro presents the unified idea of “CARD 不必等到危机才开始缓冲” with a coherent everyday metaphor for subtitle sentences 1–4; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 104,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, young_pro presents the unified idea of “CARD 不必等到危机才开始缓冲” with a coherent everyday metaphor for subtitle sentences 5–6; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            4,
+            5
+          ],
+          "start_char": 104,
+          "end_char": 158,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 20,
+      "type": "PHASE",
+      "head": "PHASE 04 · 不追最优，先避免被迫选择",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, Chinese title “PHASE 04 · 不追最优，先避免被迫选择” physically integrated on a real street sign or office wall, young_pro nearby, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [],
+          "start_char": 0,
+          "end_char": 0,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "转场、平静",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 21,
+      "type": "CARD",
+      "head": "CARD 好机会也要经过你的生活",
+      "voice_chars": 135,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "最容易让人冲动的，是看起来不容错过的机会。",
+          "start_char": 0,
+          "end_char": 21
+        },
+        {
+          "id": 1,
+          "text": "它可能来自朋友推荐、社交媒体的故事，或一串令人羡慕的数字。",
+          "start_char": 21,
+          "end_char": 50
+        },
+        {
+          "id": 2,
+          "text": "可在问“能不能赚到”之前，更该问“它适不适合我的生活”。",
+          "start_char": 50,
+          "end_char": 78
+        },
+        {
+          "id": 3,
+          "text": "如果一个选择会让你夜夜睡不好，会挤掉必要的缓冲，或者需要你承担自己并不理解的后果，那么它再热闹，也未必是你的机会。",
+          "start_char": 78,
+          "end_char": 135
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, young_pro presents the unified idea of “CARD 好机会也要经过你的生活” with a coherent everyday metaphor for subtitle sentences 1–3; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 78,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, young_pro presents the unified idea of “CARD 好机会也要经过你的生活” with a coherent everyday metaphor for subtitle sentences 4–4; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            3
+          ],
+          "start_char": 78,
+          "end_char": 135,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 22,
+      "type": "STEPS",
+      "head": "STEPS 给重大决定一个冷静期",
+      "voice_chars": 141,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "对一笔非必要的大额消费，或一个让你兴奋的金钱决定，给自己至少一个冷静期。",
+          "start_char": 0,
+          "end_char": 36
+        },
+        {
+          "id": 1,
+          "text": "先不立刻承诺；",
+          "start_char": 36,
+          "end_char": 43
+        },
+        {
+          "id": 2,
+          "text": "把最坏情况写下来；",
+          "start_char": 43,
+          "end_char": 52
+        },
+        {
+          "id": 3,
+          "text": "隔一天再问自己：我还愿意承担这个后果吗？",
+          "start_char": 52,
+          "end_char": 72
+        },
+        {
+          "id": 4,
+          "text": "冷静期不会让所有选择都正确，但能把情绪的音量调低一点。",
+          "start_char": 72,
+          "end_char": 99
+        },
+        {
+          "id": 5,
+          "text": "很多真正适合你的事，经得起多等一天；",
+          "start_char": 99,
+          "end_char": 117
+        },
+        {
+          "id": 6,
+          "text": "很多只靠焦虑推动的事，等一等就会露出原来的样子。",
+          "start_char": 117,
+          "end_char": 141
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, young_pro presents the unified idea of “STEPS 给重大决定一个冷静期” with a coherent everyday metaphor for subtitle sentences 1–4; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 72,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, young_pro presents the unified idea of “STEPS 给重大决定一个冷静期” with a coherent everyday metaphor for subtitle sentences 5–7; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            4,
+            5,
+            6
+          ],
+          "start_char": 72,
+          "end_char": 141,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 23,
+      "type": "CARD",
+      "head": "CARD 决定前，先问退出成本",
+      "voice_chars": 149,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "还有一个常被忽略的问题：如果后来发现不适合，我能不能退出？",
+          "start_char": 0,
+          "end_char": 29
+        },
+        {
+          "id": 1,
+          "text": "有些承诺一旦开始，时间、金钱和精力都会被持续锁住；",
+          "start_char": 29,
+          "end_char": 54
+        },
+        {
+          "id": 2,
+          "text": "有些选择则可以随时暂停、重新调整。",
+          "start_char": 54,
+          "end_char": 71
+        },
+        {
+          "id": 3,
+          "text": "比较两个方案时，不只看最理想的收益，也看退出成本。",
+          "start_char": 71,
+          "end_char": 96
+        },
+        {
+          "id": 4,
+          "text": "能保留退出权的决定，通常会让你更从容。",
+          "start_char": 96,
+          "end_char": 115
+        },
+        {
+          "id": 5,
+          "text": "因为真正的安全感，不是永远不用改变，而是改变时不必付出毁灭性的代价。",
+          "start_char": 115,
+          "end_char": 149
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, young_pro presents the unified idea of “CARD 决定前，先问退出成本” with a coherent everyday metaphor for subtitle sentences 1–4; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 96,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, young_pro presents the unified idea of “CARD 决定前，先问退出成本” with a coherent everyday metaphor for subtitle sentences 5–6; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            4,
+            5
+          ],
+          "start_char": 96,
+          "end_char": 149,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 24,
+      "type": "QUOTE",
+      "head": "QUOTE",
+      "voice_chars": 91,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "这不是劝你拒绝成长，也不是把生活缩成只求安全。",
+          "start_char": 0,
+          "end_char": 23
+        },
+        {
+          "id": 1,
+          "text": "恰恰相反，只有不轻易出局，长期的尝试才有意义。",
+          "start_char": 23,
+          "end_char": 46
+        },
+        {
+          "id": 2,
+          "text": "你不需要每次都站在最前面；",
+          "start_char": 46,
+          "end_char": 59
+        },
+        {
+          "id": 3,
+          "text": "你需要确保自己还有下一次选择、下一次学习、下一次重新开始的机会。",
+          "start_char": 59,
+          "end_char": 91
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, young_pro presents the unified idea of “QUOTE” with a coherent everyday metaphor for subtitle sentences 1–4; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 91,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 25,
+      "type": "CARD",
+      "head": "CARD 用小实验代替孤注一掷",
+      "voice_chars": 138,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "面对一个新想法，不一定只有全做或不做两种选择。",
+          "start_char": 0,
+          "end_char": 23
+        },
+        {
+          "id": 1,
+          "text": "很多时候，可以先把它缩小成一个自己承受得起的小实验：先用有限预算尝试，先花一段固定时间学习，先观察几个周期再决定要不要继续。",
+          "start_char": 23,
+          "end_char": 85
+        },
+        {
+          "id": 2,
+          "text": "小实验不保证成功，但它能把“如果错了就完了”的压力降下来。",
+          "start_char": 85,
+          "end_char": 114
+        },
+        {
+          "id": 3,
+          "text": "留下试错空间，反而更容易让你长期做出更好的选择。",
+          "start_char": 114,
+          "end_char": 138
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “CARD 用小实验代替孤注一掷” with a coherent everyday metaphor for subtitle sentences 1–3; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 114,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “CARD 用小实验代替孤注一掷” with a coherent everyday metaphor for subtitle sentences 4–4; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            3
+          ],
+          "start_char": 114,
+          "end_char": 138,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 26,
+      "type": "PHASE",
+      "head": "PHASE 05 · 给“够了”一个属于你的定义",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, Chinese title “PHASE 05 · 给“够了”一个属于你的定义” physically integrated on a real street sign or office wall, frugal_girl nearby, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [],
+          "start_char": 0,
+          "end_char": 0,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "转场、平静",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 27,
+      "type": "CARD",
+      "head": "CARD 比较会不断抬高终点",
+      "voice_chars": 160,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "金钱焦虑常常不是因为完全没有进展，而是因为我们总能看到比自己更快的人。",
+          "start_char": 0,
+          "end_char": 35
+        },
+        {
+          "id": 1,
+          "text": "有人收入更高，有人消费更体面，有人似乎每一步都踩中节奏。",
+          "start_char": 35,
+          "end_char": 63
+        },
+        {
+          "id": 2,
+          "text": "比较会悄悄把“够了”的门槛抬高，让本来已经稳定的生活也显得不够。",
+          "start_char": 63,
+          "end_char": 95
+        },
+        {
+          "id": 3,
+          "text": "可每个人想守住的东西不同：有人在乎陪伴家人的时间，有人在乎职业转换的自由，有人只想晚上能安心睡觉。",
+          "start_char": 95,
+          "end_char": 144
+        },
+        {
+          "id": 4,
+          "text": "这些目标，不能用同一把尺子衡量。",
+          "start_char": 144,
+          "end_char": 160
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “CARD 比较会不断抬高终点” with a coherent everyday metaphor for subtitle sentences 1–3; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 95,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “CARD 比较会不断抬高终点” with a coherent everyday metaphor for subtitle sentences 4–5; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            3,
+            4
+          ],
+          "start_char": 95,
+          "end_char": 160,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 28,
+      "type": "CARD",
+      "head": "CARD 把钱放回生活目标里",
+      "voice_chars": 135,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "试着完成一句属于自己的话：为了什么，我愿意长期积累；",
+          "start_char": 0,
+          "end_char": 26
+        },
+        {
+          "id": 1,
+          "text": "但我不会用什么去交换。",
+          "start_char": 26,
+          "end_char": 37
+        },
+        {
+          "id": 2,
+          "text": "前半句可以是一次职业转型、一个家庭计划，或者更安稳的日常；",
+          "start_char": 37,
+          "end_char": 66
+        },
+        {
+          "id": 3,
+          "text": "后半句可以是健康、陪伴、睡眠，或不让自己陷入无法承受的压力。",
+          "start_char": 66,
+          "end_char": 96
+        },
+        {
+          "id": 4,
+          "text": "有了这句话，储蓄、消费和努力就不再只是跟别人赛跑，而开始服务你真正想过的生活。",
+          "start_char": 96,
+          "end_char": 135
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “CARD 把钱放回生活目标里” with a coherent everyday metaphor for subtitle sentences 1–4; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 96,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “CARD 把钱放回生活目标里” with a coherent everyday metaphor for subtitle sentences 5–5; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            4
+          ],
+          "start_char": 96,
+          "end_char": 135,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 29,
+      "type": "CARD",
+      "head": "CARD 稳定不是没有欲望",
+      "voice_chars": 134,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "给自己定义“够了”，并不是从此拒绝更好的机会，也不是要求生活停在原地。",
+          "start_char": 0,
+          "end_char": 35
+        },
+        {
+          "id": 1,
+          "text": "它只是让欲望不再自动替你做决定。",
+          "start_char": 35,
+          "end_char": 51
+        },
+        {
+          "id": 2,
+          "text": "你仍然可以学习、尝试、争取更高的收入；",
+          "start_char": 51,
+          "end_char": 70
+        },
+        {
+          "id": 3,
+          "text": "只是每一步都知道，自己究竟想得到什么，又愿意为此付出什么。",
+          "start_char": 70,
+          "end_char": 99
+        },
+        {
+          "id": 4,
+          "text": "这样，当外界的声音变大时，你不用立刻跟着加速，而能回到自己的方向盘上。",
+          "start_char": 99,
+          "end_char": 134
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “CARD 稳定不是没有欲望” with a coherent everyday metaphor for subtitle sentences 1–4; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 99,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “CARD 稳定不是没有欲望” with a coherent everyday metaphor for subtitle sentences 5–5; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            4
+          ],
+          "start_char": 99,
+          "end_char": 134,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 30,
+      "type": "STEPS",
+      "head": "STEPS 七天不出局练习",
+      "voice_chars": 156,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "接下来七天，不需要改变所有习惯。",
+          "start_char": 0,
+          "end_char": 16
+        },
+        {
+          "id": 1,
+          "text": "只做一个小练习：当你因为别人的收入、消费或机会感到焦虑时，先记下触发点；",
+          "start_char": 16,
+          "end_char": 52
+        },
+        {
+          "id": 2,
+          "text": "然后重读自己的底线，确认它是否仍被守住；",
+          "start_char": 52,
+          "end_char": 72
+        },
+        {
+          "id": 3,
+          "text": "最后留下一点你本来会立刻花掉的时间、精力或现金。",
+          "start_char": 72,
+          "end_char": 96
+        },
+        {
+          "id": 4,
+          "text": "七天后回看，你会发现，真正值得调整的未必是你的全部生活，而可能只是一个总在压力下自动发生的动作。",
+          "start_char": 96,
+          "end_char": 144
+        },
+        {
+          "id": 5,
+          "text": "改变从看清自动反应开始。",
+          "start_char": 144,
+          "end_char": 156
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “STEPS 七天不出局练习” with a coherent everyday metaphor for subtitle sentences 1–4; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 96,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “STEPS 七天不出局练习” with a coherent everyday metaphor for subtitle sentences 5–6; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            4,
+            5
+          ],
+          "start_char": 96,
+          "end_char": 156,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 31,
+      "type": "CARD",
+      "head": "CARD 今天的最小行动",
+      "voice_chars": 140,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "今天不必重做全部财务计划。",
+          "start_char": 0,
+          "end_char": 13
+        },
+        {
+          "id": 1,
+          "text": "你只要完成三个很小的动作之一：用两栏复盘最近一次金钱结果；",
+          "start_char": 13,
+          "end_char": 42
+        },
+        {
+          "id": 2,
+          "text": "写下一条自己不愿跨过的底线；",
+          "start_char": 42,
+          "end_char": 56
+        },
+        {
+          "id": 3,
+          "text": "或者给下次收入先留出一小格缓冲。",
+          "start_char": 56,
+          "end_char": 72
+        },
+        {
+          "id": 4,
+          "text": "七天后再看，它有没有让你少一点被动、多一点清楚。",
+          "start_char": 72,
+          "end_char": 96
+        },
+        {
+          "id": 5,
+          "text": "真正的金钱能力，不是证明你永远正确，而是在世界不按计划运行时，依然把选择权留在自己手里。",
+          "start_char": 96,
+          "end_char": 140
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “CARD 今天的最小行动” with a coherent everyday metaphor for subtitle sentences 1–4; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 72,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “CARD 今天的最小行动” with a coherent everyday metaphor for subtitle sentences 5–6; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            4,
+            5
+          ],
+          "start_char": 72,
+          "end_char": 140,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 32,
+      "type": "QUOTE",
+      "head": "QUOTE",
+      "voice_chars": 153,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "建立余量不会让焦虑一夜消失，也不意味着以后再也不会做错决定。",
+          "start_char": 0,
+          "end_char": 30
+        },
+        {
+          "id": 1,
+          "text": "有些月份你能留下缓冲，有些月份会被生活打乱；",
+          "start_char": 30,
+          "end_char": 52
+        },
+        {
+          "id": 2,
+          "text": "有些计划顺利，有些计划必须暂停。",
+          "start_char": 52,
+          "end_char": 68
+        },
+        {
+          "id": 3,
+          "text": "重要的不是从此完美，而是每次失去节奏后，都知道怎样回到最小动作：看看现实，守住底线，再留一点空间。",
+          "start_char": 68,
+          "end_char": 117
+        },
+        {
+          "id": 4,
+          "text": "一个可以反复回来的系统，比一套只能在状态最好时执行的计划，更能陪你走远。",
+          "start_char": 117,
+          "end_char": 153
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “QUOTE” with a coherent everyday metaphor for subtitle sentences 1–4; wide framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 117,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "16:9 2D chibi editorial illustration, frugal_girl presents the unified idea of “QUOTE” with a coherent everyday metaphor for subtitle sentences 5–5; medium framing, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [
+            4
+          ],
+          "start_char": 117,
+          "end_char": 153,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "坚定、轻松",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 33,
+      "type": "END",
+      "head": "END",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "16:9 2D chibi editorial illustration, Chinese title “为生活留下选择权” physically integrated on a real street sign or office wall, frugal_girl nearby, bold clean outlines, matte flat colors, full-frame composition, no subtitles, watermark, dense UI, or dense text",
+          "sentence_ids": [],
+          "start_char": 0,
+          "end_char": 0,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "转场、平静",
+          "segment": "action"
+        }
+      ]
+    }
+  ]
+}
