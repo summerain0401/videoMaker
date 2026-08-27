@@ -105,6 +105,11 @@ class ContractTests(unittest.TestCase):
         self.assertTrue(any("PHASE 必须且只能包含一拍" in error
                             for error in validate_storyboard(phase)))
 
+    def test_storyboard_density_rejects_sentence_per_image_over_split(self):
+        story = self._density_story(121, [31, 30, 30, 30])
+        errors = validate_storyboard(story, known_character_ids={"hero"})
+        self.assertTrue(any("避免逐句一图" in error for error in errors))
+
     def test_long_narrative_beats_use_one_continuous_zoompan(self):
         source = inspect.getsource(build_long.render_scene_narrative)
         self.assertIn("每个 beat 始终使用一条完整 zoompan 轨迹", source)

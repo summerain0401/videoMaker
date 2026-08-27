@@ -249,6 +249,13 @@ def validate_storyboard(data, script_blocks=None, known_character_ids=None,
             minimum = 1 if voice_chars <= 120 else 1 + ((voice_chars - 120 + 99) // 100)
             if len(beats) < minimum:
                 problems.append(f"块 {pos} 口播 {voice_chars} 字至少需要 {minimum} 拍")
+            # 图片任务一拍对应一张候选图。允许多一拍处理真实的语义转折，
+            # 但不能把每个短句机械拆成一张图，避免生成成本随句号失控。
+            maximum = minimum + 1
+            if len(beats) > maximum:
+                problems.append(
+                    f"块 {pos} 口播 {voice_chars} 字至多允许 {maximum} 拍；"
+                    "请合并连续语义，避免逐句一图")
         if voice_chars and not subtitles:
             problems.append(f"块 {pos} 有口播但无 subtitles")
         if not all(isinstance(s, dict) for s in subtitles):
