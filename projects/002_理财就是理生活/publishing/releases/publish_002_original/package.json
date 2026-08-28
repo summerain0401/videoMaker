@@ -1,0 +1,138 @@
+{
+  "version": 1,
+  "publish_id": "publish_002_original",
+  "channel_id": "main",
+  "source": {
+    "project_id": "002",
+    "video_run_id": "run_20260825_144642",
+    "revision": "original",
+    "video_artifact": "/Volumes/Samsung/codexProjects/videoMaker/projects/002_理财就是理生活/output/long_002.mp4",
+    "hashes": {
+      "topic": "7777582173cc452660df5104779aaab6b5ec55c1253c0c335aeebe02bb7a29d2",
+      "copy": "bbd521fb673fb41e0e5581f78be0186f8691eb700946bb2f1e99fd7156e74ec1",
+      "script": "ed1a73196cd9e96ab620c69fde36d574aef31cfbc8bab45d1730082d29daf93a",
+      "storyboard": "06166ab5c451e21578cb45b1d97ff6de163e3c910a5ef142d784897b0b91082b",
+      "brand": "f483b5c45385da206bcb1687527358e90b20edafe82fe5d42480d8bbaa870fbb"
+    }
+  },
+  "fact_core": {
+    "summary": "理财的起点不是寻找产品，而是先看清钱流、安排生活优先级，并通过持续复盘保留选择权。",
+    "claim_refs": [
+      0,
+      2,
+      3,
+      5
+    ],
+    "script_evidence": [
+      "理财的第一步不是打开产品页面，而是给生活排优先级。",
+      "预算不是限制生活，是提前为生活留位置",
+      "从一次复盘开始，而不是从完美计划开始"
+    ]
+  },
+  "cover": {
+    "aspect_ratio": "16:9",
+    "copy_lines": [
+      "理财先理生活",
+      "别急着买基金"
+    ],
+    "concept": "年轻上班族坐在暖色书桌前，把工资、房租、订阅和生活目标整理进四格钱流地图；从焦虑到清晰。",
+    "subject": "成片同款的黑发圆金框眼镜、深蓝西装年轻上班族，与四格钱流地图和生活目标卡片。",
+    "composition": "左侧人物与摊开的钱流地图，右侧两行大字；底部中央避开关键内容供字幕使用。",
+    "contrast": "左侧凌乱账单与右侧清晰的目标、缓冲、生活和自由消费分区形成对照。",
+    "brand_anchor": "右下角使用书页罗盘抽象符号，不添加致富暗示。",
+    "safe_zone": "标题置于右上至中部，避开人物面部、钱流地图与平台裁切边缘。",
+    "forbidden_elements": [
+      "夸张致富暗示",
+      "密集文字",
+      "钱币雨",
+      "涨幅图表"
+    ],
+    "style_references": [
+      {
+        "path": "assets/scenes/00_0.png",
+        "sha256": "93a0ed489df1dce8d9669f96b24fd48d975494669a46c9b47c1823e1240732ee",
+        "purpose": "正式成片风格与角色身份参考"
+      },
+      {
+        "path": "assets/scenes/00_1.png",
+        "sha256": "f9a8aab130161573b12ef1139a27ccac020898a0837c58dcc7e37a81b15a7105",
+        "purpose": "正式成片风格与角色身份参考"
+      },
+      {
+        "path": "assets/scenes/00_2.png",
+        "sha256": "d95fb16b6ebb0c90c4ec6ac1d4ee31bdb93e3c729760726f2e17ead919874faa",
+        "purpose": "正式成片风格与角色身份参考"
+      }
+    ],
+    "style_requirements": "必须将三张正式场景作为输入参考，保持同一2D画风、主角身份、比例、线条、色彩与光影；禁止写实、油画感、极简或3D视觉。",
+    "asset": {
+      "path": "covers/cover_002_original_v2.png",
+      "sha256": "f61ef4351d5b3ff2505cb89a0309e75ad377e17f027788c2069d4e412a5983d0",
+      "status": "accepted"
+    }
+  },
+  "platforms": {
+    "youtube": {
+      "primary_title": "理财不是研究基金：先把钱用在你想过的生活上",
+      "alternate_titles": [
+        "工资一到账就没了？你缺的不是自制力",
+        "别套理财公式：先画出你的钱流地图"
+      ],
+      "description": "认知生财解读《理财就是理生活》：理财的起点不是追产品，而是看清钱流、安排生活优先级，再用一次次复盘保留选择权。",
+      "tags": [
+        "理财入门",
+        "钱流地图",
+        "消费决策",
+        "财富认知",
+        "读书"
+      ],
+      "cta": "关注认知生财，把钱用在你真正想过的生活上。"
+    },
+    "bilibili": {
+      "primary_title": "《理财就是理生活》：别急着买基金，先把钱流理清",
+      "alternate_titles": [
+        "为什么工资涨了，还是存不下钱？",
+        "理财入门第一步：给每一笔钱一个生活位置"
+      ],
+      "description": "从《理财就是理生活》出发，拆解收入、固定承诺、必要生活与自由消费的关系。理财不是苦行，也不是万能比例。",
+      "tags": [
+        "理财",
+        "财商入门",
+        "消费",
+        "读书",
+        "认知生财"
+      ],
+      "cta": "关注认知生财，把书里的方法用到下次发薪日。"
+    },
+    "douyin": {
+      "primary_title": "理财第一步，不是买基金",
+      "alternate_titles": [
+        "工资到账后，先做这件事",
+        "你缺的不是自制力，是钱流地图"
+      ],
+      "description": "先看清钱流，再给安全感、生活目标和自由消费留位置。",
+      "tags": [
+        "理财入门",
+        "钱流地图",
+        "消费",
+        "认知生财"
+      ],
+      "cta": "关注认知生财，看懂钱的日常规则。"
+    },
+    "wechat": {
+      "primary_title": "理财不是找产品，而是安排生活",
+      "alternate_titles": [
+        "工资到账后，先画一张钱流地图",
+        "别套万能比例：给每一笔钱一个位置"
+      ],
+      "description": "从《理财就是理生活》出发，建立一套不靠焦虑的日常收支整理方法。",
+      "tags": [
+        "理财入门",
+        "财富认知",
+        "消费决策",
+        "认知生财"
+      ],
+      "cta": "关注认知生财，一起建立更从容的选择。"
+    }
+  }
+}
