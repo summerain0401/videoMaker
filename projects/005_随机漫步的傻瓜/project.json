@@ -1,0 +1,21 @@
+{
+  "id": "005",
+  "title": "随机漫步的傻瓜",
+  "author": "纳西姆·尼古拉斯·塔勒布",
+  "status": "进行中",
+  "created_at": "2026-08-28 10:00:33",
+  "providers": {
+    "llm": {
+      "name": "codex",
+      "model": null
+    },
+    "image": {
+      "name": "imagegen",
+      "model": null
+    },
+    "speech": {
+      "name": "azure",
+      "voice": "zh-CN-Xiaochen:DragonHDFlashLatestNeural"
+    }
+  }
+}
