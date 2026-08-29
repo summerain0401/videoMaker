@@ -1,0 +1,2070 @@
+{
+  "version": "1.0",
+  "blocks": [
+    {
+      "block_idx": 0,
+      "type": "TITLE",
+      "head": "TITLE",
+      "voice_chars": 198,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "你有没有卡在这样的时刻：一份新工作摆在眼前，条件看上去不错，却怕换了以后更糟；",
+          "start_char": 0,
+          "end_char": 39
+        },
+        {
+          "id": 1,
+          "text": "想开始副业，又担心投入时间没有回报；",
+          "start_char": 39,
+          "end_char": 57
+        },
+        {
+          "id": 2,
+          "text": "看中一门价格不低的课程，买怕浪费，不买又怕错过。",
+          "start_char": 57,
+          "end_char": 81
+        },
+        {
+          "id": 3,
+          "text": "你不断查资料、问朋友、比较利弊，最后还是不敢按下确认键。",
+          "start_char": 81,
+          "end_char": 109
+        },
+        {
+          "id": 4,
+          "text": "我们常以为，自己缺的是更多信息。",
+          "start_char": 109,
+          "end_char": 125
+        },
+        {
+          "id": 5,
+          "text": "但安妮·杜克在《对赌》里提醒我们：多数重要决定，都等不到信息齐全的那一天。",
+          "start_char": 125,
+          "end_char": 162
+        },
+        {
+          "id": 6,
+          "text": "真正要学的，不是怎样保证永远选对，而是怎样在不确定里，把选择做得更清醒。",
+          "start_char": 162,
+          "end_char": 198
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "办公室窗前，年轻上班族盯着两份工作合同，窗外道路分成两条；画面呼应：“你有没有卡在这样的时刻：一份新工作摆在眼前，条件看上去不”",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 109,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "hook"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "夜晚书桌旁，女性把合同条款、预算和日程卡片排成两组；画面呼应：“我们常以为，自己缺的是更多信息。但安妮·杜克在《对赌》里”",
+          "sentence_ids": [
+            4,
+            5,
+            6
+          ],
+          "start_char": 109,
+          "end_char": 198,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "hook"
+        }
+      ]
+    },
+    {
+      "block_idx": 1,
+      "type": "PHASE",
+      "head": "PHASE 01 · 你不是不会选，是在等一个不会错的答案",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": []
+    },
+    {
+      "block_idx": 2,
+      "type": "CARD",
+      "head": "CARD 重要决定没有标准答案",
+      "voice_chars": 147,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "拿跳槽来说，你可以查行业、了解薪资、和未来同事聊天，却无法提前知道半年后的团队变化，也无法精确预测自己会不会喜欢那份工作。",
+          "start_char": 0,
+          "end_char": 61
+        },
+        {
+          "id": 1,
+          "text": "副业、搬家、学习新技能也是一样。",
+          "start_char": 61,
+          "end_char": 77
+        },
+        {
+          "id": 2,
+          "text": "你能收集的信息，永远只是现实的一部分。",
+          "start_char": 77,
+          "end_char": 96
+        },
+        {
+          "id": 3,
+          "text": "问题不在于你做得不够认真，而在于我们经常拿“绝对确定”当作行动门槛。",
+          "start_char": 96,
+          "end_char": 130
+        },
+        {
+          "id": 4,
+          "text": "可这个门槛太高，现实几乎无法满足。",
+          "start_char": 130,
+          "end_char": 147
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "地铁站长椅上，年轻人握着手机在等待与出发之间犹豫；画面呼应：“拿跳槽来说，你可以查行业、了解薪资、和未来同事聊天，却无”",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 96,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "白板前的导师画出分岔箭头，主角逐项圈出未知因素；画面呼应：“问题不在于你做得不够认真，而在于我们经常拿“绝对确定”当”",
+          "sentence_ids": [
+            3,
+            4
+          ],
+          "start_char": 96,
+          "end_char": 147,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 3,
+      "type": "QUOTE",
+      "head": "QUOTE",
+      "voice_chars": 144,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "当我们说“我再等等”，听起来像什么都没做。",
+          "start_char": 0,
+          "end_char": 21
+        },
+        {
+          "id": 1,
+          "text": "其实，等待本身也是一个决定：你决定继续留在原来的工作里，继续不开始那项尝试，继续让机会成本慢慢累积。",
+          "start_char": 21,
+          "end_char": 71
+        },
+        {
+          "id": 2,
+          "text": "等待有时当然合理，比如你很快能得到一条关键事实。",
+          "start_char": 71,
+          "end_char": 95
+        },
+        {
+          "id": 3,
+          "text": "但如果两周、两个月以后，信息仍不会显著增加，那么反复等待就不再是谨慎，而是在用拖延替自己承担决定。",
+          "start_char": 95,
+          "end_char": 144
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "咖啡馆桌面铺开课程目录和时间表，女性用荧光笔标记重点；画面呼应：“当我们说“我再等等”，听起来像什么都没做。其实，等待本身”",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 95,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "屏幕上浮现概率刻度，主角将模糊的我觉得改写成百分比；画面呼应：“但如果两周、两个月以后，信息仍不会显著增加，那么反复等待”",
+          "sentence_ids": [
+            3
+          ],
+          "start_char": 95,
+          "end_char": 144,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 4,
+      "type": "STEPS",
+      "head": "STEPS 先分清两种信息",
+      "voice_chars": 139,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "下一次犹豫时，先把未知分成两类。",
+          "start_char": 0,
+          "end_char": 16
+        },
+        {
+          "id": 1,
+          "text": "第一类是能查到的事实，例如合同条款、预算、通勤时间、课程大纲；",
+          "start_char": 16,
+          "end_char": 47
+        },
+        {
+          "id": 2,
+          "text": "这类信息值得补齐。",
+          "start_char": 47,
+          "end_char": 56
+        },
+        {
+          "id": 3,
+          "text": "第二类是只能在行动中知道的感受，例如适不适应新团队、能否长期坚持、是否真的喜欢；",
+          "start_char": 56,
+          "end_char": 96
+        },
+        {
+          "id": 4,
+          "text": "这类信息无法靠继续搜索解决。",
+          "start_char": 96,
+          "end_char": 110
+        },
+        {
+          "id": 5,
+          "text": "分清以后，你就知道该继续调查，还是该设计一次小行动去验证。",
+          "start_char": 110,
+          "end_char": 139
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "账本旁摆着骰子与放大镜，年轻人比较证据和愿望的差别；画面呼应：“下一次犹豫时，先把未知分成两类。第一类是能查到的事实，例”",
+          "sentence_ids": [
+            0,
+            1
+          ],
+          "start_char": 0,
+          "end_char": 47,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "wide",
+          "visual_description": "小型工作室里，女性把担忧写成三张具体问题卡；画面呼应：“这类信息值得补齐。第二类是只能在行动中知道的感受，例如适”",
+          "sentence_ids": [
+            2,
+            3,
+            4
+          ],
+          "start_char": 47,
+          "end_char": 110,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 2,
+          "shot": "medium",
+          "visual_description": "家庭餐桌上朋友交换建议，主角低头核对自己的时间与储备；画面呼应：“分清以后，你就知道该继续调查，还是该设计一次小行动去验证”",
+          "sentence_ids": [
+            5
+          ],
+          "start_char": 110,
+          "end_char": 139,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 5,
+      "type": "CARD",
+      "head": "CARD 不要把焦虑当成风险提示",
+      "voice_chars": 166,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "还有一种常见误会，是把强烈的焦虑当成“这个选择很危险”的证据。",
+          "start_char": 0,
+          "end_char": 31
+        },
+        {
+          "id": 1,
+          "text": "焦虑当然值得被认真对待，但它有时只是因为事情还没有被说清。",
+          "start_char": 31,
+          "end_char": 60
+        },
+        {
+          "id": 2,
+          "text": "你担心的究竟是收入下降、能力跟不上，还是怕身边人不认可？",
+          "start_char": 60,
+          "end_char": 88
+        },
+        {
+          "id": 3,
+          "text": "把担心逐条写出来，有些能通过调查解决，有些能靠小实验验证，有些则只是任何变化都会带来的不适。",
+          "start_char": 88,
+          "end_char": 134
+        },
+        {
+          "id": 4,
+          "text": "把模糊焦虑翻译成具体问题，决定才不会一直被一种说不清的害怕卡住。",
+          "start_char": 134,
+          "end_char": 166
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "办公桌前的风险护栏模型，主角把最坏损失写在红线上；画面呼应：“还有一种常见误会，是把强烈的焦虑当成“这个选择很危险”的”",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 88,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "副业实验现场，年轻人用小额预算测试一个新点子；画面呼应：“把担心逐条写出来，有些能通过调查解决，有些能靠小实验验证”",
+          "sentence_ids": [
+            3,
+            4
+          ],
+          "start_char": 88,
+          "end_char": 166,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 6,
+      "type": "PHASE",
+      "head": "PHASE 02 · 第一步：把“我觉得”翻译成把握度",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": []
+    },
+    {
+      "block_idx": 7,
+      "type": "CARD",
+      "head": "CARD 感觉不是判断的终点",
+      "voice_chars": 131,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "概率思维不是要你预测命运，更不是假装自己很精确。",
+          "start_char": 0,
+          "end_char": 24
+        },
+        {
+          "id": 1,
+          "text": "它只是邀请你诚实地承认：我的判断有多大把握？",
+          "start_char": 24,
+          "end_char": 46
+        },
+        {
+          "id": 2,
+          "text": "不要只说“这份工作应该不错”，试着写成“根据目前的面试、岗位内容和通勤条件，我有六成把握它更适合我”。",
+          "start_char": 46,
+          "end_char": 97
+        },
+        {
+          "id": 3,
+          "text": "这句话一写出来，你就能继续追问：这六成来自哪里？",
+          "start_char": 97,
+          "end_char": 121
+        },
+        {
+          "id": 4,
+          "text": "还有哪四成的不确定？",
+          "start_char": 121,
+          "end_char": 131
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "日历翻到第八周，女性观察反馈曲线并按下暂停按钮；画面呼应：“概率思维不是要你预测命运，更不是假装自己很精确。它只是邀”",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 97,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "狭窄礁石水道中的小船，象征选择保留回头的出口；画面呼应：“这句话一写出来，你就能继续追问：这六成来自哪里？还有哪四”",
+          "sentence_ids": [
+            3,
+            4
+          ],
+          "start_char": 97,
+          "end_char": 131,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 8,
+      "type": "CARD",
+      "head": "CARD 数字会暴露信息缺口",
+      "voice_chars": 139,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "如果你给一项选择八成把握，却说不清理由，那可能只是愿望。",
+          "start_char": 0,
+          "end_char": 28
+        },
+        {
+          "id": 1,
+          "text": "反过来，如果你只敢给四成，也不代表必须放弃。",
+          "start_char": 28,
+          "end_char": 50
+        },
+        {
+          "id": 2,
+          "text": "它可能意味着你需要缩小投入，或者先验证最关键的假设。",
+          "start_char": 50,
+          "end_char": 76
+        },
+        {
+          "id": 3,
+          "text": "把握度的价值，不是逼你选一个漂亮数字，而是逼你把模糊的“我觉得”拆成证据、担忧和未知。",
+          "start_char": 76,
+          "end_char": 119
+        },
+        {
+          "id": 4,
+          "text": "判断从这里开始变得可以讨论，也可以改进。",
+          "start_char": 119,
+          "end_char": 139
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "镜头特写三行决策卡，手写把握度、边界和复盘日期；画面呼应：“如果你给一项选择八成把握，却说不清理由，那可能只是愿望。”",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 119,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "相册里的成功与失败两张照片交错，人物意识到记忆会改写过程；画面呼应：“判断从这里开始变得可以讨论，也可以改进。”",
+          "sentence_ids": [
+            4
+          ],
+          "start_char": 119,
+          "end_char": 139,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 9,
+      "type": "STEPS",
+      "head": "STEPS 写下这一句",
+      "voice_chars": 124,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "例如购买一门高价课程前，可以分开写两件事：课程内容能解决我当前问题，我有几成把握；",
+          "start_char": 0,
+          "end_char": 41
+        },
+        {
+          "id": 1,
+          "text": "我会完成学习并实际使用，我又有几成把握。",
+          "start_char": 41,
+          "end_char": 61
+        },
+        {
+          "id": 2,
+          "text": "很多人只评估第一件事，却忽略了自己的时间和执行条件。",
+          "start_char": 61,
+          "end_char": 87
+        },
+        {
+          "id": 3,
+          "text": "把两件事分开，你会发现有些选择不是内容不好，而是此刻的自己并不适合承担它。",
+          "start_char": 87,
+          "end_char": 124
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "复盘墙上贴满证据便签，主角用蓝笔圈出可改进之处；画面呼应：“例如购买一门高价课程前，可以分开写两件事：课程内容能解决”",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 87,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "硬币落在桌面但旁边放着检查清单，人物拆解运气成分；画面呼应：“把两件事分开，你会发现有些选择不是内容不好，而是此刻的自”",
+          "sentence_ids": [
+            3
+          ],
+          "start_char": 87,
+          "end_char": 124,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 10,
+      "type": "QUOTE",
+      "head": "QUOTE",
+      "voice_chars": 160,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "把握度不是承诺书。",
+          "start_char": 0,
+          "end_char": 9
+        },
+        {
+          "id": 1,
+          "text": "今天根据有限信息给六成，明天得到新证据后改成四成或八成，都不是摇摆，而是正常的学习。",
+          "start_char": 9,
+          "end_char": 51
+        },
+        {
+          "id": 2,
+          "text": "真正需要警惕的，是为了显得果断，明明发现新情况却死守最初判断。",
+          "start_char": 51,
+          "end_char": 82
+        },
+        {
+          "id": 3,
+          "text": "很多人的困境不在于最初估错，而在于把“我已经决定了”误解成“我不能再调整”。",
+          "start_char": 82,
+          "end_char": 120
+        },
+        {
+          "id": 4,
+          "text": "会更新判断的人，并没有更不坚定，只是把坚定放在了方法上，而不是放在第一次猜测上。",
+          "start_char": 120,
+          "end_char": 160
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "清晨办公室，年轻人带着疑虑迈向一扇半开的门；画面呼应：“把握度不是承诺书。今天根据有限信息给六成，明天得到新证据”",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 120,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "背包里装着备用钥匙和计划表，女性为未来保留选择权；画面呼应：“会更新判断的人，并没有更不坚定，只是把坚定放在了方法上，”",
+          "sentence_ids": [
+            4
+          ],
+          "start_char": 120,
+          "end_char": 160,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 11,
+      "type": "CARD",
+      "head": "CARD 别借别人的确定感替你决定",
+      "voice_chars": 167,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "朋友的建议、网上的经验，当然能提供信息；",
+          "start_char": 0,
+          "end_char": 20
+        },
+        {
+          "id": 1,
+          "text": "但它们无法替你承担后果。",
+          "start_char": 20,
+          "end_char": 32
+        },
+        {
+          "id": 2,
+          "text": "别人说这份工作“很有前景”，可能基于他的能力、城市和家庭条件；",
+          "start_char": 32,
+          "end_char": 63
+        },
+        {
+          "id": 3,
+          "text": "别人说副业“很容易做”，也许忽略了他的资源和起点。",
+          "start_char": 63,
+          "end_char": 88
+        },
+        {
+          "id": 4,
+          "text": "听建议时，不妨问清它适用的前提，再回到自己的约束：我有什么时间、储备和风险承受能力？",
+          "start_char": 88,
+          "end_char": 130
+        },
+        {
+          "id": 5,
+          "text": "参考别人的判断，不是为了借来一个确定答案，而是为了补足自己没有看见的角度。",
+          "start_char": 130,
+          "end_char": 167
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "评论区风格的问号卡片漂浮在安静书桌上，邀请观众写下答案；画面呼应：“朋友的建议、网上的经验，当然能提供信息；但它们无法替你承”",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 88,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "办公室窗前，年轻上班族盯着两份工作合同，窗外道路分成两条；画面呼应：“听建议时，不妨问清它适用的前提，再回到自己的约束：我有什”",
+          "sentence_ids": [
+            4,
+            5
+          ],
+          "start_char": 88,
+          "end_char": 167,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 12,
+      "type": "PHASE",
+      "head": "PHASE 03 · 第二步：先保护下行，再给选择留出口",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": []
+    },
+    {
+      "block_idx": 13,
+      "type": "CARD",
+      "head": "CARD 不确定时，别把人生押成一道题",
+      "voice_chars": 139,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "信息不足时，最重要的不是猜中最好的结果，而是即使判断错了，自己还能不能继续生活。",
+          "start_char": 0,
+          "end_char": 40
+        },
+        {
+          "id": 1,
+          "text": "想做副业，不必一开始就辞职；",
+          "start_char": 40,
+          "end_char": 54
+        },
+        {
+          "id": 2,
+          "text": "想进入新领域，不必一次性报满昂贵的项目；",
+          "start_char": 54,
+          "end_char": 74
+        },
+        {
+          "id": 3,
+          "text": "想改变工作，也不必把全部希望压在一家公司上。",
+          "start_char": 74,
+          "end_char": 96
+        },
+        {
+          "id": 4,
+          "text": "把选择从“成或败”改成“试一试、看一看、再调整”，不等于缺乏勇气，而是让勇气有了边界。",
+          "start_char": 96,
+          "end_char": 139
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "夜晚书桌旁，女性把合同条款、预算和日程卡片排成两组；画面呼应：“信息不足时，最重要的不是猜中最好的结果，而是即使判断错了”",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 96,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "地铁站长椅上，年轻人握着手机在等待与出发之间犹豫；画面呼应：“把选择从“成或败”改成“试一试、看一看、再调整”，不等于”",
+          "sentence_ids": [
+            4
+          ],
+          "start_char": 96,
+          "end_char": 139,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 14,
+      "type": "TABLE",
+      "head": "TABLE 三个下行问题",
+      "voice_chars": 146,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "你可以用三个问题给每个重要选择加一道护栏。",
+          "start_char": 0,
+          "end_char": 21
+        },
+        {
+          "id": 1,
+          "text": "第一，最坏的情况具体是什么，不要只写“失败”。",
+          "start_char": 21,
+          "end_char": 44
+        },
+        {
+          "id": 2,
+          "text": "第二，我最多能承受多少时间、金钱、精力和情绪成本。",
+          "start_char": 44,
+          "end_char": 69
+        },
+        {
+          "id": 3,
+          "text": "第三，出现什么信号时我就暂停或调整。",
+          "start_char": 69,
+          "end_char": 87
+        },
+        {
+          "id": 4,
+          "text": "比如副业连续八周没有任何有效反馈，并不等于你这个人不行，但它可以是一个提醒：先停下来复盘，而不是继续在焦虑里追加投入。",
+          "start_char": 87,
+          "end_char": 146
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "白板前的导师画出分岔箭头，主角逐项圈出未知因素；画面呼应：“你可以用三个问题给每个重要选择加一道护栏。第一，最坏的情”",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 87,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "咖啡馆桌面铺开课程目录和时间表，女性用荧光笔标记重点；画面呼应：“比如副业连续八周没有任何有效反馈，并不等于你这个人不行，”",
+          "sentence_ids": [
+            4
+          ],
+          "start_char": 87,
+          "end_char": 146,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 15,
+      "type": "CARD",
+      "head": "CARD 小实验不是退缩",
+      "voice_chars": 147,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "好的小实验，能让你用较小代价换来关键反馈。",
+          "start_char": 0,
+          "end_char": 21
+        },
+        {
+          "id": 1,
+          "text": "你想做内容，可以先连续四周完成四条作品；",
+          "start_char": 21,
+          "end_char": 41
+        },
+        {
+          "id": 2,
+          "text": "想转行，可以先做一个真实的小项目；",
+          "start_char": 41,
+          "end_char": 58
+        },
+        {
+          "id": 3,
+          "text": "想学一项技能，可以先固定每周两小时，而不是一上来承诺一年。",
+          "start_char": 58,
+          "end_char": 87
+        },
+        {
+          "id": 4,
+          "text": "小实验的目的不是拖延真正的选择，而是把一场无法承受的豪赌，变成一串能学习的行动。",
+          "start_char": 87,
+          "end_char": 127
+        },
+        {
+          "id": 5,
+          "text": "你获得的不是保证，而是下一步更好的信息。",
+          "start_char": 127,
+          "end_char": 147
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "屏幕上浮现概率刻度，主角将模糊的我觉得改写成百分比；画面呼应：“好的小实验，能让你用较小代价换来关键反馈。你想做内容，可”",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 87,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "账本旁摆着骰子与放大镜，年轻人比较证据和愿望的差别；画面呼应：“小实验的目的不是拖延真正的选择，而是把一场无法承受的豪赌”",
+          "sentence_ids": [
+            4,
+            5
+          ],
+          "start_char": 87,
+          "end_char": 147,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 16,
+      "type": "CARD",
+      "head": "CARD 退出条件要在情绪平静时写",
+      "voice_chars": 169,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "人一旦投入了时间和精力，就很容易只盯着已经付出的部分，觉得现在停下太可惜。",
+          "start_char": 0,
+          "end_char": 37
+        },
+        {
+          "id": 1,
+          "text": "可过去付出的成本，通常不会因为你继续投入就自动回来。",
+          "start_char": 37,
+          "end_char": 63
+        },
+        {
+          "id": 2,
+          "text": "所以退出条件最好在开始前就写好：试到什么程度仍没有反馈，我就暂停；",
+          "start_char": 63,
+          "end_char": 96
+        },
+        {
+          "id": 3,
+          "text": "超过多少预算，我就不再加码；",
+          "start_char": 96,
+          "end_char": 110
+        },
+        {
+          "id": 4,
+          "text": "一旦影响睡眠和基本生活，我就重新评估。",
+          "start_char": 110,
+          "end_char": 129
+        },
+        {
+          "id": 5,
+          "text": "它不是让你轻易放弃，而是防止你在情绪最重的时候，把“舍不得”误当成“值得坚持”。",
+          "start_char": 129,
+          "end_char": 169
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "小型工作室里，女性把担忧写成三张具体问题卡；画面呼应：“人一旦投入了时间和精力，就很容易只盯着已经付出的部分，觉”",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 110,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "家庭餐桌上朋友交换建议，主角低头核对自己的时间与储备；画面呼应：“一旦影响睡眠和基本生活，我就重新评估。它不是让你轻易放弃”",
+          "sentence_ids": [
+            4,
+            5
+          ],
+          "start_char": 110,
+          "end_char": 169,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 17,
+      "type": "STEPS",
+      "head": "STEPS 先选可逆的那一步",
+      "voice_chars": 169,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "如果两个方案看起来都不错，优先问哪一个更容易回头。",
+          "start_char": 0,
+          "end_char": 25
+        },
+        {
+          "id": 1,
+          "text": "可逆不等于没有成本，而是成本还在你能管理的范围内。",
+          "start_char": 25,
+          "end_char": 50
+        },
+        {
+          "id": 2,
+          "text": "比如先和目标行业的人做一次深聊，再决定是否报班；",
+          "start_char": 50,
+          "end_char": 74
+        },
+        {
+          "id": 3,
+          "text": "先接一个小型合作，再判断是否扩大；",
+          "start_char": 74,
+          "end_char": 91
+        },
+        {
+          "id": 4,
+          "text": "先租住一段时间，再决定是否长期搬迁。",
+          "start_char": 91,
+          "end_char": 109
+        },
+        {
+          "id": 5,
+          "text": "我们不是要把每件事都做得保守，而是要把不可逆的大承诺，放在获得更多真实反馈之后。",
+          "start_char": 109,
+          "end_char": 149
+        },
+        {
+          "id": 6,
+          "text": "先走一小步，常常比原地想很久更接近答案。",
+          "start_char": 149,
+          "end_char": 169
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "办公桌前的风险护栏模型，主角把最坏损失写在红线上；画面呼应：“如果两个方案看起来都不错，优先问哪一个更容易回头。可逆不”",
+          "sentence_ids": [
+            0,
+            1
+          ],
+          "start_char": 0,
+          "end_char": 50,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "wide",
+          "visual_description": "副业实验现场，年轻人用小额预算测试一个新点子；画面呼应：“比如先和目标行业的人做一次深聊，再决定是否报班；先接一个”",
+          "sentence_ids": [
+            2,
+            3,
+            4
+          ],
+          "start_char": 50,
+          "end_char": 109,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 2,
+          "shot": "medium",
+          "visual_description": "日历翻到第八周，女性观察反馈曲线并按下暂停按钮；画面呼应：“我们不是要把每件事都做得保守，而是要把不可逆的大承诺，放”",
+          "sentence_ids": [
+            5,
+            6
+          ],
+          "start_char": 109,
+          "end_char": 169,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 18,
+      "type": "PHASE",
+      "head": "PHASE 04 · 第三步：在结果出来前，约好复盘",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": []
+    },
+    {
+      "block_idx": 19,
+      "type": "CARD",
+      "head": "CARD 结果会倒过来修改记忆",
+      "voice_chars": 146,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "人很容易被结果欺骗。",
+          "start_char": 0,
+          "end_char": 10
+        },
+        {
+          "id": 1,
+          "text": "买了一样东西以后觉得很有用，我们会忘记当初其实没有比较；",
+          "start_char": 10,
+          "end_char": 38
+        },
+        {
+          "id": 2,
+          "text": "一次仓促跳槽恰好顺利，我们会以为冲动就是果断。",
+          "start_char": 38,
+          "end_char": 61
+        },
+        {
+          "id": 3,
+          "text": "反过来，一次认真准备的尝试没有成功，我们又会把当初所有理由都否定掉。",
+          "start_char": 61,
+          "end_char": 95
+        },
+        {
+          "id": 4,
+          "text": "结果发生以后，大脑会替它补上因果，让我们误以为自己早就知道结局。",
+          "start_char": 95,
+          "end_char": 127
+        },
+        {
+          "id": 5,
+          "text": "没有记录，复盘很容易变成对输赢的辩护。",
+          "start_char": 127,
+          "end_char": 146
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "狭窄礁石水道中的小船，象征选择保留回头的出口；画面呼应：“人很容易被结果欺骗。买了一样东西以后觉得很有用，我们会忘”",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 95,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "镜头特写三行决策卡，手写把握度、边界和复盘日期；画面呼应：“结果发生以后，大脑会替它补上因果，让我们误以为自己早就知”",
+          "sentence_ids": [
+            4,
+            5
+          ],
+          "start_char": 95,
+          "end_char": 146,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 20,
+      "type": "QUOTE",
+      "head": "QUOTE",
+      "voice_chars": 145,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "承认这一点不是给自己找借口。",
+          "start_char": 0,
+          "end_char": 14
+        },
+        {
+          "id": 1,
+          "text": "你仍然要为可控部分负责：信息有没有查清，理由能不能说通，最坏损失有没有保护。",
+          "start_char": 14,
+          "end_char": 52
+        },
+        {
+          "id": 2,
+          "text": "但你不必把所有外部变化都背在身上。",
+          "start_char": 52,
+          "end_char": 69
+        },
+        {
+          "id": 3,
+          "text": "一个好决定可能因为环境变化而没有好结果；",
+          "start_char": 69,
+          "end_char": 89
+        },
+        {
+          "id": 4,
+          "text": "一个坏决定也可能被好运暂时托住。",
+          "start_char": 89,
+          "end_char": 105
+        },
+        {
+          "id": 5,
+          "text": "把过程和结果分开看，才能既不因一次顺利而过度自信，也不因一次失利而全盘否定自己。",
+          "start_char": 105,
+          "end_char": 145
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "相册里的成功与失败两张照片交错，人物意识到记忆会改写过程；画面呼应：“承认这一点不是给自己找借口。你仍然要为可控部分负责：信息”",
+          "sentence_ids": [
+            0,
+            1
+          ],
+          "start_char": 0,
+          "end_char": 52,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "wide",
+          "visual_description": "复盘墙上贴满证据便签，主角用蓝笔圈出可改进之处；画面呼应：“但你不必把所有外部变化都背在身上。一个好决定可能因为环境”",
+          "sentence_ids": [
+            2,
+            3,
+            4
+          ],
+          "start_char": 52,
+          "end_char": 105,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 2,
+          "shot": "medium",
+          "visual_description": "硬币落在桌面但旁边放着检查清单，人物拆解运气成分；画面呼应：“把过程和结果分开看，才能既不因一次顺利而过度自信，也不因”",
+          "sentence_ids": [
+            5
+          ],
+          "start_char": 105,
+          "end_char": 145,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 21,
+      "type": "STEPS",
+      "head": "STEPS 在行动前写一张决策卡",
+      "voice_chars": 137,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "决定前只要写三行就够了：我现在知道什么；",
+          "start_char": 0,
+          "end_char": 20
+        },
+        {
+          "id": 1,
+          "text": "我为什么倾向这个选择；",
+          "start_char": 20,
+          "end_char": 31
+        },
+        {
+          "id": 2,
+          "text": "我将在什么时间，用什么证据判断继续、暂停还是调整。",
+          "start_char": 31,
+          "end_char": 56
+        },
+        {
+          "id": 3,
+          "text": "比如开始副业后的第八周，检查投入时间、用户反馈和身心负担是否符合假设，而不是只看某一天有没有收入。",
+          "start_char": 56,
+          "end_char": 105
+        },
+        {
+          "id": 4,
+          "text": "这样，结果到来时，你能回到当时的证据，而不是让情绪替你解释过去。",
+          "start_char": 105,
+          "end_char": 137
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "清晨办公室，年轻人带着疑虑迈向一扇半开的门；画面呼应：“决定前只要写三行就够了：我现在知道什么；我为什么倾向这个”",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 105,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "背包里装着备用钥匙和计划表，女性为未来保留选择权；画面呼应：“这样，结果到来时，你能回到当时的证据，而不是让情绪替你解”",
+          "sentence_ids": [
+            4
+          ],
+          "start_char": 105,
+          "end_char": 137,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 22,
+      "type": "CARD",
+      "head": "CARD 复盘只问可以改进的部分",
+      "voice_chars": 153,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "复盘时可以问：我遗漏了哪条本可获得的信息？",
+          "start_char": 0,
+          "end_char": 21
+        },
+        {
+          "id": 1,
+          "text": "我是否高估了某项能力，或低估了某种成本？",
+          "start_char": 21,
+          "end_char": 41
+        },
+        {
+          "id": 2,
+          "text": "下一次能把实验缩小在哪里？",
+          "start_char": 41,
+          "end_char": 54
+        },
+        {
+          "id": 3,
+          "text": "这些问题会带来改进。",
+          "start_char": 54,
+          "end_char": 64
+        },
+        {
+          "id": 4,
+          "text": "相反，“我怎么这么笨”“我果然不适合”这类结论，没有给出任何可操作的线索。",
+          "start_char": 64,
+          "end_char": 101
+        },
+        {
+          "id": 5,
+          "text": "复盘不是给过去的自己打分，而是给未来的自己留下更好的说明书。",
+          "start_char": 101,
+          "end_char": 131
+        },
+        {
+          "id": 6,
+          "text": "只有当复盘足够具体，失败才不会只剩下挫败感。",
+          "start_char": 131,
+          "end_char": 153
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "评论区风格的问号卡片漂浮在安静书桌上，邀请观众写下答案；画面呼应：“复盘时可以问：我遗漏了哪条本可获得的信息？我是否高估了某”",
+          "sentence_ids": [
+            0,
+            1
+          ],
+          "start_char": 0,
+          "end_char": 41,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "wide",
+          "visual_description": "办公室窗前，年轻上班族盯着两份工作合同，窗外道路分成两条；画面呼应：“下一次能把实验缩小在哪里？这些问题会带来改进。相反，“我”",
+          "sentence_ids": [
+            2,
+            3,
+            4
+          ],
+          "start_char": 41,
+          "end_char": 101,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 2,
+          "shot": "medium",
+          "visual_description": "夜晚书桌旁，女性把合同条款、预算和日程卡片排成两组；画面呼应：“复盘不是给过去的自己打分，而是给未来的自己留下更好的说明”",
+          "sentence_ids": [
+            5,
+            6
+          ],
+          "start_char": 101,
+          "end_char": 153,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 23,
+      "type": "CARD",
+      "head": "CARD 失败不是唯一需要复盘的结果",
+      "voice_chars": 158,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "复盘还有一个容易忽略的时刻：事情刚好很顺利的时候。",
+          "start_char": 0,
+          "end_char": 25
+        },
+        {
+          "id": 1,
+          "text": "一次选择成功，当然值得开心，但也要问一问，究竟是哪些判断发挥了作用，哪些条件只是恰好帮了忙。",
+          "start_char": 25,
+          "end_char": 71
+        },
+        {
+          "id": 2,
+          "text": "如果没有这一步，我们很容易把偶然成功升级成固定方法，下次便在更大的风险上重复它。",
+          "start_char": 71,
+          "end_char": 111
+        },
+        {
+          "id": 3,
+          "text": "好结果不需要被怀疑，却值得被拆开看。",
+          "start_char": 111,
+          "end_char": 129
+        },
+        {
+          "id": 4,
+          "text": "这样你带走的是可复用的过程，而不是一段可能无法复制的好运。",
+          "start_char": 129,
+          "end_char": 158
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "地铁站长椅上，年轻人握着手机在等待与出发之间犹豫；画面呼应：“复盘还有一个容易忽略的时刻：事情刚好很顺利的时候。一次选”",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 111,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "白板前的导师画出分岔箭头，主角逐项圈出未知因素；画面呼应：“好结果不需要被怀疑，却值得被拆开看。这样你带走的是可复用”",
+          "sentence_ids": [
+            3,
+            4
+          ],
+          "start_char": 111,
+          "end_char": 158,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 24,
+      "type": "PHASE",
+      "head": "PHASE 05 · 不必永远选对，要越来越会选",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": []
+    },
+    {
+      "block_idx": 25,
+      "type": "CARD",
+      "head": "CARD 成熟不是没有不确定",
+      "voice_chars": 128,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "我们总希望有一天，自己见得足够多、准备得足够好，就再也不会选错。",
+          "start_char": 0,
+          "end_char": 32
+        },
+        {
+          "id": 1,
+          "text": "但真正成熟的人并不是没有疑虑，而是知道怎样带着疑虑向前：能查的事实就查，查不到的部分就标注把握度；",
+          "start_char": 32,
+          "end_char": 81
+        },
+        {
+          "id": 2,
+          "text": "先把最坏损失限制在承受范围内；",
+          "start_char": 81,
+          "end_char": 96
+        },
+        {
+          "id": 3,
+          "text": "然后用一个小行动交换新信息。",
+          "start_char": 96,
+          "end_char": 110
+        },
+        {
+          "id": 4,
+          "text": "你不需要等到恐惧消失，才有资格开始。",
+          "start_char": 110,
+          "end_char": 128
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "咖啡馆桌面铺开课程目录和时间表，女性用荧光笔标记重点；画面呼应：“我们总希望有一天，自己见得足够多、准备得足够好，就再也不”",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 110,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "屏幕上浮现概率刻度，主角将模糊的我觉得改写成百分比；画面呼应：“你不需要等到恐惧消失，才有资格开始。”",
+          "sentence_ids": [
+            4
+          ],
+          "start_char": 110,
+          "end_char": 128,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 26,
+      "type": "CARD",
+      "head": "CARD 把选择权留给未来的自己",
+      "voice_chars": 123,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "有一点缓冲，有一个退出条件，有一次提前约好的复盘，都在帮你保留选择权。",
+          "start_char": 0,
+          "end_char": 35
+        },
+        {
+          "id": 1,
+          "text": "这样即使这次判断不如预期，你仍有资源更新看法、调整方向、尝试下一步。",
+          "start_char": 35,
+          "end_char": 69
+        },
+        {
+          "id": 2,
+          "text": "真正危险的不是犯一次错，而是为了证明自己没错，把时间、精力和退路一次用尽。",
+          "start_char": 69,
+          "end_char": 106
+        },
+        {
+          "id": 3,
+          "text": "能留在场上，往往比一次押中更重要。",
+          "start_char": 106,
+          "end_char": 123
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "账本旁摆着骰子与放大镜，年轻人比较证据和愿望的差别；画面呼应：“有一点缓冲，有一个退出条件，有一次提前约好的复盘，都在帮”",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 106,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "小型工作室里，女性把担忧写成三张具体问题卡；画面呼应：“能留在场上，往往比一次押中更重要。”",
+          "sentence_ids": [
+            3
+          ],
+          "start_char": 106,
+          "end_char": 123,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 27,
+      "type": "CARD",
+      "head": "CARD 给自己一点决策缓冲",
+      "voice_chars": 145,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "所谓缓冲，不一定是一大笔钱。",
+          "start_char": 0,
+          "end_char": 14
+        },
+        {
+          "id": 1,
+          "text": "它可以是一段不被日程塞满的时间，一项能带到新环境的能力，一个愿意讨论的朋友，或一份备用方案。",
+          "start_char": 14,
+          "end_char": 60
+        },
+        {
+          "id": 2,
+          "text": "有缓冲的人不是从不冒险，而是在变化出现时还有空间重新选择。",
+          "start_char": 60,
+          "end_char": 89
+        },
+        {
+          "id": 3,
+          "text": "你不必因为别人看起来跑得很快，就立刻押上全部资源。",
+          "start_char": 89,
+          "end_char": 114
+        },
+        {
+          "id": 4,
+          "text": "先留下能调整的余地，反而能让你更从容地看见真正适合自己的机会。",
+          "start_char": 114,
+          "end_char": 145
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "家庭餐桌上朋友交换建议，主角低头核对自己的时间与储备；画面呼应：“所谓缓冲，不一定是一大笔钱。它可以是一段不被日程塞满的时”",
+          "sentence_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "start_char": 0,
+          "end_char": 114,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "办公桌前的风险护栏模型，主角把最坏损失写在红线上；画面呼应：“先留下能调整的余地，反而能让你更从容地看见真正适合自己的”",
+          "sentence_ids": [
+            4
+          ],
+          "start_char": 114,
+          "end_char": 145,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 28,
+      "type": "QUOTE",
+      "head": "QUOTE",
+      "voice_chars": 94,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "你可以认真比较，也可以请求帮助，但不需要把每一次选择都做成对自我价值的考试。",
+          "start_char": 0,
+          "end_char": 38
+        },
+        {
+          "id": 1,
+          "text": "决定只是基于当时信息的一次尝试。",
+          "start_char": 38,
+          "end_char": 54
+        },
+        {
+          "id": 2,
+          "text": "只要你愿意记录、限制损失并持续复盘，今天不完美的判断，也会成为明天更清醒的依据。",
+          "start_char": 54,
+          "end_char": 94
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "副业实验现场，年轻人用小额预算测试一个新点子；画面呼应：“你可以认真比较，也可以请求帮助，但不需要把每一次选择都做”",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 94,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 29,
+      "type": "STEPS",
+      "head": "STEPS 今天就做一个小决定",
+      "voice_chars": 136,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "最后，把《对赌》的方法收成三句话。",
+          "start_char": 0,
+          "end_char": 17
+        },
+        {
+          "id": 1,
+          "text": "第一，写下你的把握度，并说明理由。",
+          "start_char": 17,
+          "end_char": 34
+        },
+        {
+          "id": 2,
+          "text": "第二，写下你能承受的最坏损失，以及退出信号。",
+          "start_char": 34,
+          "end_char": 56
+        },
+        {
+          "id": 3,
+          "text": "第三，在行动前就约好复盘日期。",
+          "start_char": 56,
+          "end_char": 71
+        },
+        {
+          "id": 4,
+          "text": "今天就选一件让你犹豫的事，花五分钟写完这三行，然后做一个足够小的下一步。",
+          "start_char": 71,
+          "end_char": 107
+        },
+        {
+          "id": 5,
+          "text": "你不必从此永远选对；",
+          "start_char": 107,
+          "end_char": 117
+        },
+        {
+          "id": 6,
+          "text": "你只需要在每一次不确定里，越来越会选。",
+          "start_char": 117,
+          "end_char": 136
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "日历翻到第八周，女性观察反馈曲线并按下暂停按钮；画面呼应：“最后，把《对赌》的方法收成三句话。第一，写下你的把握度，”",
+          "sentence_ids": [
+            0,
+            1,
+            2
+          ],
+          "start_char": 0,
+          "end_char": 56,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "wide",
+          "visual_description": "狭窄礁石水道中的小船，象征选择保留回头的出口；画面呼应：“第三，在行动前就约好复盘日期。今天就选一件让你犹豫的事，”",
+          "sentence_ids": [
+            3,
+            4,
+            5
+          ],
+          "start_char": 56,
+          "end_char": 117,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "action"
+        },
+        {
+          "beat_idx": 2,
+          "shot": "medium",
+          "visual_description": "镜头特写三行决策卡，手写把握度、边界和复盘日期；画面呼应：“你只需要在每一次不确定里，越来越会选。”",
+          "sentence_ids": [
+            6
+          ],
+          "start_char": 117,
+          "end_char": 136,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "action"
+        }
+      ]
+    },
+    {
+      "block_idx": 30,
+      "type": "QUOTE",
+      "head": "QUOTE",
+      "voice_chars": 153,
+      "subtitles": [
+        {
+          "id": 0,
+          "text": "这套方法不会让生活突然变得可预测，也不会替你免去选择的代价。",
+          "start_char": 0,
+          "end_char": 30
+        },
+        {
+          "id": 1,
+          "text": "但它会把注意力从“万一错了怎么办”移到“如果错了，我是否还能承受、学习和调整”。",
+          "start_char": 30,
+          "end_char": 70
+        },
+        {
+          "id": 2,
+          "text": "这就是《对赌》给普通人的价值：不是教我们把人生变成赌博，而是提醒我们，在所有信息都不完整的世界里，真正可靠的能力，是不把未知当成瘫痪的理由，也不把勇气误解成孤注一掷。",
+          "start_char": 70,
+          "end_char": 153
+        }
+      ],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "相册里的成功与失败两张照片交错，人物意识到记忆会改写过程；画面呼应：“这套方法不会让生活突然变得可预测，也不会替你免去选择的代”",
+          "sentence_ids": [
+            0,
+            1
+          ],
+          "start_char": 0,
+          "end_char": 70,
+          "character_ids": [
+            "young_pro"
+          ],
+          "emotion": "anxious",
+          "segment": "insight"
+        },
+        {
+          "beat_idx": 1,
+          "shot": "medium",
+          "visual_description": "复盘墙上贴满证据便签，主角用蓝笔圈出可改进之处；画面呼应：“这就是《对赌》给普通人的价值：不是教我们把人生变成赌博，”",
+          "sentence_ids": [
+            2
+          ],
+          "start_char": 70,
+          "end_char": 153,
+          "character_ids": [
+            "frugal_girl"
+          ],
+          "emotion": "focused",
+          "segment": "insight"
+        }
+      ]
+    },
+    {
+      "block_idx": 31,
+      "type": "END",
+      "head": "END",
+      "voice_chars": 0,
+      "subtitles": [],
+      "beats": [
+        {
+          "beat_idx": 0,
+          "shot": "wide",
+          "visual_description": "硬币落在桌面但旁边放着检查清单，人物拆解运气成分；画面呼应：“”",
+          "sentence_ids": [],
+          "start_char": 0,
+          "end_char": 0,
+          "character_ids": [
+            "none"
+          ],
+          "emotion": "calm",
+          "segment": "insight"
+        }
+      ]
+    }
+  ]
+}
