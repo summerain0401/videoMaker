@@ -87,6 +87,27 @@ def story_path():
     """当前项目唯一语义分镜路径（--project 覆盖后需动态解析）。"""
     return PROJ("input", "storyboard.json")
 
+
+def uses_direct_phase_transition():
+    """阶段仅作为结构锚点，不渲染独立标题画面。"""
+    path = PROJ("project.json")
+    if not os.path.exists(path):
+        return False
+    with open(path, encoding="utf-8") as handle:
+        meta = json.load(handle)
+    visual = meta.get("visual_style") or {}
+    return visual.get("phase_transition") == "direct"
+
+
+def remove_direct_phase_blocks(blocks, story):
+    """direct 模式不为 PHASE 分配时长、图片或渲染片段。"""
+    kept_blocks = [block for block in blocks if block.get("type") != "PHASE"]
+    if not story:
+        return kept_blocks, story
+    kept_story = [block for block in story.get("blocks", [])
+                  if block.get("type") != "PHASE"]
+    return kept_blocks, {**story, "blocks": kept_story}
+
 PALETTES = {
     "TITLE": ["0x2B2436", "0x3D3152", "0x574B79"],
     "01": ["0x232230", "0x35324A", "0x4A4563"],
@@ -1169,6 +1190,10 @@ def main():
             raise ValueError("--clip-durations 必须为与 --blocks 等长的正数列表")
         for block, duration in zip(blocks, clips):
             block["_clip_dur"] = duration
+    if uses_direct_phase_transition():
+        blocks, story = remove_direct_phase_blocks(blocks, story)
+        if not blocks:
+            raise ValueError("direct 阶段模式下没有可渲染的内容块")
     variant_dir = None
     if args.review_id:
         variant_dir = PROJ("output", "reviews", args.review_id)

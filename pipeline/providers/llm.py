@@ -137,6 +137,7 @@ class DeepSeekProvider:
     def _storyboard(self, task):
         text = task["script_text"]
         blocks = parse_script(text)
+        direct_phase = task.get("phase_transition") == "direct"
         result = {"version": 1, "style": "provider-neutral semantic storyboard",
                   "blocks": []}
         phase = "hook"
@@ -152,15 +153,18 @@ class DeepSeekProvider:
                 else:
                     phase = "action"
                     description = "全片收束画面，人物走向开阔远景，留下思考余韵。"
+                phase_beats = [] if block["type"] == "PHASE" and direct_phase else [{
+                    "beat_idx": 0, "shot": "wide",
+                    "visual_description": description,
+                    "sentence_ids": [],
+                    "start_char": 0, "end_char": 0,
+                    "character_ids": [], "emotion": "neutral",
+                    "segment": phase,
+                }]
                 result["blocks"].append({
                     "block_idx": bi, "type": block["type"], "head": block["head"],
                     "voice_chars": 0, "subtitles": [],
-                    "beats": [{"beat_idx": 0, "shot": "wide",
-                               "visual_description": description,
-                               "sentence_ids": [],
-                               "start_char": 0, "end_char": 0,
-                               "character_ids": [], "emotion": "neutral",
-                               "segment": phase}]})
+                    "beats": phase_beats})
                 continue
             voice = block.get("voice") or ""
             sentences = _sentences(voice)

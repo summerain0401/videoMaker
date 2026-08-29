@@ -72,6 +72,9 @@ def _write_project_json(proj_dir, pid, title, author):
         "author": author,
         "status": "进行中",
         "created_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "visual_style": {
+            "phase_transition": "direct",
+        },
         "providers": {
             "llm": {"name": "codex", "model": None},
             "image": {"name": "imagegen", "model": None},

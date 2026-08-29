@@ -168,7 +168,9 @@ def _storyboard(narrative, output, script_blocks):
         })
     _fill_descriptions(migrated)
     # 旧项目迁移保持原有镜头键与内容；新生成/校验的分镜执行镜头密度契约。
-    problems = validate_storyboard(migrated, script_blocks, enforce_density=False)
+    problems = validate_storyboard(
+        migrated, script_blocks, enforce_density=False,
+        enforce_visual_diversity=False)
     if problems:
         raise ValueError("storyboard 迁移失败：" + "；".join(problems[:20]))
     return migrated

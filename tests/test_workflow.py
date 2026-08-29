@@ -13,6 +13,8 @@ from contextlib import redirect_stderr, redirect_stdout
 from types import SimpleNamespace
 from unittest import mock
 
+from PIL import Image
+
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -28,6 +30,7 @@ from providers import IMAGE_PROVIDERS, LLM_PROVIDERS
 from providers.image import ImageGenProvider, WanxiangProvider
 from workflow_contracts import (
     build_image_tasks, normalize_providers, read_json,
+    validate_image_task_prompt,
     validate_providers, validate_script, validate_storyboard, write_json,
 )
 
@@ -73,7 +76,7 @@ class ContractTests(unittest.TestCase):
         cursor = 0
         for idx, size in enumerate(sizes):
             beats.append({"beat_idx": idx, "shot": "medium",
-                          "visual_description": "画面",
+                          "visual_description": f"画面{idx}",
                           "sentence_ids": [idx] if idx < sentence_count else [],
                           "start_char": cursor, "end_char": cursor + size,
                           "character_ids": ["hero"], "emotion": "neutral",
@@ -219,8 +222,103 @@ class ContractTests(unittest.TestCase):
         self.assertTrue(any("PHASE 必须且只能包含一拍" in error for error in
                             validate_storyboard(storyboard)))
 
+    def test_direct_phase_skips_phase_tasks_and_allows_empty_phase(self):
+        storyboard = {"blocks": [
+            {"block_idx": 0, "type": "PHASE", "head": "PHASE 01 · 开始",
+             "voice_chars": 0, "subtitles": [], "beats": []},
+            {"block_idx": 1, "type": "TITLE", "head": "TITLE",
+             "voice_chars": 1, "subtitles": [{"id": 0, "text": "甲",
+             "start_char": 0, "end_char": 1}], "beats": [{
+                 "beat_idx": 0, "shot": "wide", "visual_description": "独特场景",
+                 "sentence_ids": [0], "start_char": 0, "end_char": 1,
+                 "character_ids": ["hero"], "emotion": "neutral", "segment": "hook"}]}]}
+        meta = {"visual_style": {"phase_transition": "direct"}}
+        self.assertEqual(validate_storyboard(storyboard, project_meta=meta), [])
+        with tempfile.TemporaryDirectory() as tmp:
+            tasks = build_image_tasks(storyboard, meta,
+                                      {"hero": {"prompt": "a hero"}}, tmp)
+        self.assertEqual([task["key"] for task in tasks], ["01_0"])
+
+    def test_direct_phase_rejects_image_beat(self):
+        story = {"blocks": [{
+            "block_idx": 0, "type": "PHASE", "head": "PHASE 01 · 开始",
+            "voice_chars": 0, "subtitles": [], "beats": [{
+                "beat_idx": 0, "shot": "wide", "visual_description": "过渡画面",
+                "sentence_ids": [], "start_char": 0, "end_char": 0,
+                "character_ids": [], "emotion": "neutral", "segment": "hook"}]}]}
+        errors = validate_storyboard(
+            story, project_meta={"visual_style": {"phase_transition": "direct"}})
+        self.assertTrue(any("direct 阶段不得包含图片拍" in error for error in errors))
+
+    def test_storyboard_rejects_duplicate_visual_descriptions(self):
+        story = self._density_story(2, [1, 1], sentence_count=2)
+        story["blocks"][0]["beats"][1]["visual_description"] = "画面0"
+        errors = validate_storyboard(story, known_character_ids={"hero"})
+        self.assertTrue(any("视觉描述重复" in error for error in errors))
+
+    def test_storyboard_rejects_near_duplicate_visual_descriptions(self):
+        story = self._density_story(60, [30, 30], sentence_count=2)
+        first = "深夜厨房里女孩拧紧漏水阀门，接水盘接住冷青色水滴"
+        story["blocks"][0]["beats"][0]["visual_description"] = first
+        story["blocks"][0]["beats"][1]["visual_description"] = (
+            "深夜厨房中女孩拧紧漏水阀门，接水盘接住冷青色水滴")
+        errors = validate_storyboard(story, known_character_ids={"hero"})
+        self.assertTrue(any("视觉描述高度相似" in error for error in errors))
+
+    def test_script_rejects_multiple_voice_lines(self):
+        text = "# TITLE\nvoice：" + "甲" * 1000 + "\nvoice：乙\n# END\n"
+        errors, _, _ = validate_script(text)
+        self.assertTrue(any("多条 voice" in error for error in errors))
+
+    def test_image_prompt_rule_manifest_detects_tampering(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tasks = build_image_tasks(sample_storyboard(), {},
+                                      {"hero": {"prompt": "same person"}}, tmp)
+        self.assertEqual(validate_image_task_prompt(tasks[0]), [])
+        tasks[0]["prompt"] += ", no text"
+        self.assertTrue(validate_image_task_prompt(tasks[0]))
+        tasks[0]["prompt"] = tasks[0]["rule_manifest"]["prompt_sources"]["style"]
+        tasks[0]["negative_prompt"] = "no text"
+        self.assertTrue(validate_image_task_prompt(tasks[0]))
+
+    def test_image_task_packet_rejects_coordinated_prompt_rewrite(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            expected = build_image_tasks(sample_storyboard(), {},
+                                         {"hero": {"prompt": "same person"}}, tmp)
+        actual = copy.deepcopy(expected)
+        actual[0]["rule_manifest"]["prompt_sources"]["text_policy"] += ", no text"
+        actual[0]["prompt"] = actual[0]["prompt"] + ", no text"
+        self.assertTrue(workflow._image_task_packet_problems(expected, actual))
+
 
 class RenderRegressionTests(unittest.TestCase):
+    def test_direct_phase_transition_removes_phase_render_blocks(self):
+        blocks = [{"type": "PHASE", "_source_idx": 1},
+                  {"type": "CARD", "_source_idx": 2}]
+        story = {"blocks": [{"block_idx": 1, "type": "PHASE"},
+                             {"block_idx": 2, "type": "CARD"}]}
+        kept_blocks, kept_story = build_long.remove_direct_phase_blocks(
+            blocks, story)
+        self.assertEqual([item["type"] for item in kept_blocks], ["CARD"])
+        self.assertEqual([item["type"] for item in kept_story["blocks"]],
+                         ["CARD"])
+
+    def test_highly_similar_images_are_blocked(self):
+        image = Image.new("RGB", (160, 90), (50, 80, 120))
+        first = workflow._image_fingerprint(image)
+        second = workflow._image_fingerprint(image.copy())
+        problems = workflow._duplicate_image_problems(
+            [("00_0", first), ("01_0", second)])
+        self.assertTrue(any("候选图片高相似" in problem for problem in problems))
+
+    def test_distinct_color_images_are_not_a_similarity_false_positive(self):
+        first = workflow._image_fingerprint(
+            Image.new("RGB", (160, 90), (20, 30, 220)))
+        second = workflow._image_fingerprint(
+            Image.new("RGB", (160, 90), (220, 210, 20)))
+        self.assertEqual(workflow._duplicate_image_problems(
+            [("00_0", first), ("01_0", second)]), [])
+
     def test_phase_title_layer_and_duration(self):
         layer = build_long.V.make_phase_title_layer(
             "PHASE 03 · 生活中的三类价格锚")

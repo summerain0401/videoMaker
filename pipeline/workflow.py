@@ -12,7 +12,7 @@ import shutil
 import subprocess
 import sys
 
-from PIL import Image
+from PIL import Image, ImageStat
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -23,7 +23,8 @@ from workflow_contracts import (
     ALL_STAGES, APPROVAL_STAGES, STAGE_STATES, build_image_tasks,
     normalize_providers,
     read_json, safe_project_suffix, selected_topic,
-    validate_copy, validate_providers, validate_script, validate_storyboard,
+    validate_copy, validate_image_task_prompt, validate_providers,
+    validate_script, validate_storyboard,
     validate_topic, write_json,
 )
 from publishing_contracts import (PLATFORMS, TITLE_LIMITS, source_hashes,
@@ -277,9 +278,12 @@ def build_task(paths, state, stage):
     if stage == "storyboard":
         with open(formal["script"], encoding="utf-8") as f:
             script = f.read()
+        phase_transition = (project_meta(project).get("visual_style") or {}).get(
+            "phase_transition", "card")
         return {"stage": stage, "script_text": script,
                 "characters_path": os.path.join(ROOT, "assets", "characters.json"),
                 "candidate_path": paths[stage],
+                "phase_transition": phase_transition,
                 "output_contract": {
                     "type": "json", "top_level": ["version", "blocks"],
                     "block_fields": ["block_idx", "type", "head", "voice_chars",
@@ -287,8 +291,10 @@ def build_task(paths, state, stage):
                     "beat_fields": ["beat_idx", "shot", "visual_description",
                                     "sentence_ids", "start_char", "end_char",
                                     "character_ids", "emotion", "segment"],
-                    "requirements": "逐块对应剧本；每句按顺序恰好覆盖一次；"
-                                    "PHASE 只能 1 beat；非 PHASE 有口播块按字数至少"
+                    "requirements": "逐块对应剧本；每句按顺序恰好覆盖一次；" +
+                                    ("PHASE 必须为 0 beat；" if phase_transition == "direct"
+                                     else "PHASE 只能 1 beat；") +
+                                    "非 PHASE 有口播块按字数至少"
                                     " 1+ceil((voice_chars-120)/100) 拍（不超过 120 字/拍、"
                                     "每拍 1-4 句）；shot=wide/medium/close；"
                                     "segment=hook/insight/action",
@@ -404,7 +410,20 @@ def _verify_images(paths, project):
     characters = read_json(chars_path) if os.path.exists(chars_path) else {}
     tasks = build_image_tasks(story, project_meta(project), characters, paths["images"])
     problems = []
+    packet = read_json(paths["image_tasks"]) if os.path.exists(
+        paths["image_tasks"]) else {"tasks": tasks}
+    packet_tasks = packet.get("tasks") if isinstance(packet, dict) else None
+    if not isinstance(packet_tasks, list):
+        return ["图片任务包无效：tasks 必须是数组"]
+    problems.extend(_image_task_packet_problems(tasks, packet_tasks))
+    task_by_key = {task.get("key"): task for task in packet_tasks
+                   if isinstance(task, dict)}
+    fingerprints = []
     for task in tasks:
+        packet_task = task_by_key.get(task["key"])
+        if not packet_task:
+            continue
+        problems.extend(validate_image_task_prompt(packet_task))
         path = task["output_path"]
         if not os.path.exists(path):
             problems.append(f"缺少图片：{task['key']}")
@@ -412,10 +431,58 @@ def _verify_images(paths, project):
         try:
             with Image.open(path) as image:
                 width, height = image.size
+                fingerprint = _image_fingerprint(image)
             if abs(width / height - 16 / 9) > 0.02:
                 problems.append(f"图片比例不是 16:9：{task['key']} {width}x{height}")
+            else:
+                fingerprints.append((task["key"], fingerprint))
         except Exception as exc:
             problems.append(f"图片损坏：{task['key']} {exc}")
+    problems.extend(_duplicate_image_problems(fingerprints))
+    return problems
+
+
+def _image_task_packet_problems(expected_tasks, packet_tasks):
+    """候选图片必须使用正式分镜重新构建出的原始任务，不接受人工改写。"""
+    expected_keys = [task["key"] for task in expected_tasks]
+    actual_keys = [task.get("key") for task in packet_tasks
+                   if isinstance(task, dict)]
+    if actual_keys != expected_keys:
+        return ["图片任务包与正式分镜不一致，禁止使用未溯源任务"]
+    actual_by_key = {task["key"] for task in packet_tasks if isinstance(task, dict)}
+    problems = []
+    for expected, actual in zip(expected_tasks, packet_tasks):
+        if expected["key"] not in actual_by_key or actual != expected:
+            problems.append(
+                f"图片任务被改写：{expected['key']} 必须使用由正式分镜生成的原始规则")
+    return problems
+
+
+def _image_fingerprint(image):
+    """轻量感知指纹：差分哈希与平均 RGB 同时避免单色误报。"""
+    rgb = image.convert("RGB")
+    means = tuple(round(value, 1) for value in ImageStat.Stat(rgb).mean)
+    gray = rgb.convert("L").resize((17, 16), Image.Resampling.LANCZOS)
+    pixels = list(gray.get_flattened_data())
+    bits = 0
+    for y in range(16):
+        row = pixels[y * 17:(y + 1) * 17]
+        for x in range(16):
+            bits = (bits << 1) | int(row[x] > row[x + 1])
+    return bits, means
+
+
+def _duplicate_image_problems(fingerprints, max_hamming=8, max_mean_delta=18):
+    """阻断肉眼近似的候选，阈值保守以免不同场景误伤。"""
+    problems = []
+    for index, (key, (bits, means)) in enumerate(fingerprints):
+        for other_key, (other_bits, other_means) in fingerprints[:index]:
+            hamming = (bits ^ other_bits).bit_count()
+            mean_delta = sum(abs(a - b) for a, b in zip(means, other_means)) / 3
+            if hamming <= max_hamming and mean_delta <= max_mean_delta:
+                problems.append(
+                    f"候选图片高相似：{other_key} / {key} "
+                    f"(感知差异 {hamming}, 色彩差异 {mean_delta:.1f})")
     return problems
 
 
@@ -444,7 +511,8 @@ def cmd_verify(args):
         raw_characters = characters.get("characters", characters)
         known_ids = ([x["id"] for x in raw_characters]
                      if isinstance(raw_characters, list) else raw_characters.keys())
-        problems = validate_storyboard(read_json(paths[stage]), blocks, known_ids)
+        problems = validate_storyboard(read_json(paths[stage]), blocks, known_ids,
+                                       project_meta=project_meta(project))
     elif stage == "images":
         problems = _verify_images(paths, project)
     else:

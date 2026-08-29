@@ -37,6 +37,21 @@ NEGATIVE_PROMPT = (
 )
 
 
+def _normalize_visual_description(value):
+    """用于阻断完全相同的视觉描述，保留语义而不做激进 NLP 改写。"""
+    return re.sub(r"\s+", "", str(value or "")).strip().lower()
+
+
+def _visual_similarity(left, right):
+    """用字符二元组捕捉几乎同一句的改写，短描述不参与近似判断。"""
+    if min(len(left), len(right)) < 18:
+        return 0.0
+    left_pairs = {left[i:i + 2] for i in range(len(left) - 1)}
+    right_pairs = {right[i:i + 2] for i in range(len(right) - 1)}
+    union = left_pairs | right_pairs
+    return len(left_pairs & right_pairs) / len(union) if union else 0.0
+
+
 def phase_identity(block):
     """解析 PHASE 编号和标题；普通块返回 (None, None)。"""
     if block.get("type") != "PHASE":
@@ -191,7 +206,8 @@ def _walk_keys(value):
 
 
 def validate_storyboard(data, script_blocks=None, known_character_ids=None,
-                        enforce_density=True):
+                        enforce_density=True, project_meta=None,
+                        enforce_visual_diversity=True):
     problems = []
     if not isinstance(data, dict):
         return ["storyboard 必须是 JSON object"]
@@ -210,6 +226,9 @@ def validate_storyboard(data, script_blocks=None, known_character_ids=None,
     if script_blocks is not None and len(blocks) != len(script_blocks):
         problems.append(
             f"分镜块数 {len(blocks)} 与剧本块数 {len(script_blocks)} 不一致")
+    direct_phase = (project_meta or {}).get("visual_style", {}).get(
+        "phase_transition") == "direct"
+    seen_visuals = {}
     for pos, block in enumerate(blocks):
         if not isinstance(block, dict):
             problems.append(f"块 {pos} 不是 object")
@@ -241,9 +260,11 @@ def validate_storyboard(data, script_blocks=None, known_character_ids=None,
                 problems.append(f"块 {pos} head 与剧本不一致")
             if voice_chars != len(script_voice):
                 problems.append(f"块 {pos} voice_chars 与剧本不一致")
-        if not beats:
+        if not beats and not (block.get("type") == "PHASE" and direct_phase):
             problems.append(f"块 {pos} 必须至少包含一拍")
-        if block.get("type") == "PHASE" and len(beats) != 1:
+        if block.get("type") == "PHASE" and direct_phase and beats:
+            problems.append(f"块 {pos} direct 阶段不得包含图片拍")
+        if block.get("type") == "PHASE" and not direct_phase and len(beats) != 1:
             problems.append(f"块 {pos} PHASE 必须且只能包含一拍")
         if enforce_density and block.get("type") != "PHASE" and voice_chars > 0:
             minimum = 1 if voice_chars <= 120 else 1 + ((voice_chars - 120 + 99) // 100)
@@ -296,6 +317,22 @@ def validate_storyboard(data, script_blocks=None, known_character_ids=None,
             if not str(beat.get("visual_description") or "").strip():
                 problems.append(
                     f"块 {pos} 拍 {beat.get('beat_idx')} 缺少 visual_description")
+            visual_key = _normalize_visual_description(beat.get("visual_description"))
+            if visual_key:
+                if visual_key in seen_visuals:
+                    problems.append(
+                        f"视觉描述重复：块 {pos} 拍 {beat.get('beat_idx')} 与"
+                        f" {seen_visuals[visual_key]} 相同")
+                else:
+                    near = (next(
+                        (location for prior, location in seen_visuals.items()
+                         if _visual_similarity(visual_key, prior) >= 0.78),
+                        None) if enforce_visual_diversity and enforce_density else None)
+                    if near:
+                        problems.append(
+                            f"视觉描述高度相似：块 {pos} 拍 {beat.get('beat_idx')} 与"
+                            f" {near} 相似，必须改为不同场景、动作或关键物件")
+                    seen_visuals[visual_key] = f"块 {pos} 拍 {beat.get('beat_idx')}"
             if beat.get("shot") not in SHOTS:
                 problems.append(f"块 {pos} 拍 {beat.get('beat_idx')} shot 非法")
             if beat.get("segment") not in SEGMENTS:
@@ -362,7 +399,11 @@ def parse_script(text):
         elif current is not None and line.startswith("## "):
             current["lines"].append(line[3:].strip())
         elif current is not None and line.startswith("voice："):
-            current["voice"] = line[len("voice："):].strip()
+            if current["voice"] is None:
+                current["voice"] = line[len("voice："):].strip()
+            else:
+                current.setdefault("voice_count", 1)
+                current["voice_count"] += 1
         elif current is not None and line.startswith("author："):
             current["author"] = line[len("author："):].strip()
     return blocks
@@ -379,12 +420,50 @@ def validate_script(text):
     if len(phases) != 5:
         problems.append(f"剧本必须包含 5 个 PHASE，实际 {len(phases)}")
     for i, block in enumerate(blocks):
+        if block.get("voice_count", 0) > 1:
+            problems.append(f"块 {i} 含多条 voice：，必须合并为一条")
         if block["type"] not in ("PHASE", "END") and not block.get("voice"):
             problems.append(f"块 {i} {block['type']} 缺少 voice：")
     voice_chars = sum(len(b.get("voice") or "") for b in blocks)
     if not 1000 <= voice_chars <= 8000:
         problems.append(f"口播总字数异常：{voice_chars}")
     return problems, voice_chars, blocks
+
+
+def _build_image_prompt(style, palette, description, char_bits, shot,
+                        emotion, text_policy):
+    return ", ".join(x for x in [
+        style, palette, description,
+        "characters: " + "; ".join(char_bits) if char_bits else "",
+        f"{shot} shot", f"emotion: {emotion}", text_policy,
+        "16:9 horizontal, 1920x1080, full-bleed, clean readable subject; "
+        "compose as a continuous full-frame scene with no reserved caption "
+        "panel or empty bottom band; keep critical faces and indispensable "
+        "semantic details away from the bottom-center subtitle line while "
+        "allowing natural scenery and texture to continue to every edge; "
+        "no logo or watermark",
+    ] if x)
+
+
+def validate_image_task_prompt(task):
+    """验证任务 prompt 只能由其结构化来源确定性构造。"""
+    manifest = task.get("rule_manifest")
+    sources = manifest.get("prompt_sources") if isinstance(manifest, dict) else None
+    if not isinstance(sources, dict):
+        return ["ImageTask 缺少 rule_manifest.prompt_sources"]
+    expected = _build_image_prompt(
+        sources.get("style", ""), sources.get("palette", ""),
+        sources.get("description", ""), sources.get("char_bits", []),
+        sources.get("shot", "medium"), sources.get("emotion", "neutral"),
+        sources.get("text_policy", ""))
+    problems = []
+    if task.get("prompt") != expected:
+        problems.append(
+            f"ImageTask {task.get('key')} prompt 与 rule_manifest 溯源不一致")
+    if manifest.get("negative_prompt") != task.get("negative_prompt"):
+        problems.append(
+            f"ImageTask {task.get('key')} negative_prompt 与 rule_manifest 溯源不一致")
+    return problems
 
 
 def build_image_tasks(storyboard, project_meta, characters, images_dir):
@@ -397,9 +476,12 @@ def build_image_tasks(storyboard, project_meta, characters, images_dir):
     style = visual.get("art_direction") or visual.get("variant") or \
         "clear narrative 2D illustration"
     palette = visual.get("palette") or "colors follow the narrative emotion"
+    direct_phase = visual.get("phase_transition") == "direct"
     tasks = []
     for block in storyboard.get("blocks", []):
         phase_number, phase_title = phase_identity(block)
+        if phase_number is not None and direct_phase:
+            continue
         if phase_number is not None and len(block.get("beats", [])) != 1:
             raise ValueError(
                 f"PHASE {phase_number:02d} 必须且只能包含一个图片任务")
@@ -438,20 +520,13 @@ def build_image_tasks(storyboard, project_meta, characters, images_dir):
                 "secondary, normally no more than about 6 short groups and under "
                 "20 percent of the frame; avoid paragraphs or dense text layouts"
             )
-            prompt = ", ".join(x for x in [
-                style, palette, description,
-                "characters: " + "; ".join(char_bits) if char_bits else "",
-                f"{beat.get('shot', 'medium')} shot",
-                f"emotion: {beat.get('emotion', 'neutral')}",
-                text_policy,
-                "16:9 horizontal, 1920x1080, full-bleed, clean readable subject; "
-                "compose as a continuous full-frame scene with no reserved caption "
-                "panel or empty bottom band; keep critical faces and indispensable "
-                "semantic details away from the bottom-center subtitle line while "
-                "allowing natural scenery and texture to continue to every edge; "
-                "no logo or watermark",
-            ] if x)
-            tasks.append({
+            sources = {"style": style, "palette": palette,
+                       "description": description, "char_bits": char_bits,
+                       "shot": beat.get("shot", "medium"),
+                       "emotion": beat.get("emotion", "neutral"),
+                       "text_policy": text_policy}
+            prompt = _build_image_prompt(**sources)
+            task = {
                 "key": key,
                 "kind": "phase_title" if is_phase else "scene",
                 "title_text": phase_title if is_phase else None,
@@ -462,7 +537,16 @@ def build_image_tasks(storyboard, project_meta, characters, images_dir):
                 "size": [1920, 1080],
                 "output_path": os.path.join(images_dir, key + ".png"),
                 "reference_images": [],
-            })
+                "rule_manifest": {
+                    "text_mode": "exact_title" if is_phase else "useful_in_scene",
+                    "title_text": phase_title if is_phase else None,
+                    "max_text_density": "title_only" if is_phase else "6_groups_20_percent",
+                    "forbidden_text_types": ["paragraph", "subtitle", "watermark", "gibberish"],
+                    "negative_prompt": NEGATIVE_PROMPT,
+                    "prompt_sources": sources,
+                },
+            }
+            tasks.append(task)
     return tasks
 
 
