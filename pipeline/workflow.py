@@ -11,6 +11,7 @@ import re
 import shutil
 import subprocess
 import sys
+from collections import Counter
 
 from PIL import Image, ImageStat
 
@@ -34,7 +35,8 @@ from publishing_contracts import (PLATFORMS, TITLE_LIMITS, source_hashes,
 STATE_VERSION = 2
 DEPENDENCIES = {
     "topic": [], "copy": ["topic"], "script": ["copy"],
-    "storyboard": ["script"], "images": ["storyboard"],
+    "storyboard": ["script"], "storyboard-review": ["storyboard"],
+    "images": ["storyboard-review"], "image-review": ["storyboard-review"],
     "voice": ["script"], "render": ["images", "voice"],
     "qa": ["render"],
 }
@@ -79,8 +81,10 @@ def state_paths(project, run_id):
         "copy": os.path.join(candidates, "copy", "copy.json"),
         "script": os.path.join(candidates, "script", "script.txt"),
         "storyboard": os.path.join(candidates, "storyboard", "storyboard.json"),
+        "storyboard-review": os.path.join(run_dir, "storyboard-review.json"),
         "images": os.path.join(project, "assets", "scenes", "candidates", run_id),
         "image_tasks": os.path.join(run_dir, "image_tasks.json"),
+        "image-review": os.path.join(run_dir, "image-review.json"),
         "qa": os.path.join(run_dir, "qa.json"),
     }
 
@@ -93,6 +97,21 @@ def formal_paths(project):
         "storyboard": os.path.join(project, "input", "storyboard.json"),
         "images": os.path.join(project, "assets", "scenes"),
     }
+
+
+def _style_anchor(project):
+    """解析项目内视觉锚点；锚点必须是现有图片且哈希可追溯。"""
+    configured = (project_meta(project).get("visual_style") or {}).get("style_anchor")
+    candidates = []
+    if isinstance(configured, dict) and configured.get("path"):
+        candidates.append(configured["path"])
+    candidates.extend((os.path.join(project, "assets", "scenes", name)
+                       for name in ("00_1.png", "00_0.png")))
+    for path in candidates:
+        path = os.path.realpath(path)
+        if os.path.isfile(path):
+            return {"path": path, "sha256": _sha256(path)}
+    return None
 
 
 def locate_run(run_id, pid=None):
@@ -108,7 +127,27 @@ def locate_run(run_id, pid=None):
         raise RuntimeError(f"run_id={run_id} 应匹配一个任务，实际 {len(found)}")
     project = found[0]
     paths = state_paths(project, run_id)
-    return paths, read_json(paths["state"])
+    state = read_json(paths["state"])
+    _upgrade_state_schema(paths, state)
+    return paths, state
+
+
+def _upgrade_state_schema(paths, state):
+    """为质量门禁引入前的历史 run 补齐兼容阶段。"""
+    stages = state.setdefault("stages", {})
+    changed = False
+    for stage in ALL_STAGES:
+        if stage in stages:
+            continue
+        if stage == "image-review" and stages.get("images", {}).get("status") == "promoted":
+            stages[stage] = {"status": "promoted", "note": "历史图片在 image-review 门禁引入前已完成", "artifact": None}
+        elif stage == "storyboard-review" and stages.get("storyboard", {}).get("status") == "promoted":
+            stages[stage] = {"status": "promoted", "note": "历史分镜在 storyboard-review 门禁引入前已完成", "artifact": None}
+        else:
+            stages[stage] = {"status": "blocked", "note": "新增质量门禁待执行", "artifact": None}
+        changed = True
+    if changed:
+        save_state(paths, state)
 
 
 def save_state(paths, state):
@@ -131,6 +170,40 @@ def require_dependencies(state, stage):
                if state["stages"][dep]["status"] != "promoted"]
     if missing:
         raise RuntimeError(f"阶段 {stage} 被阻断，需先提升：{', '.join(missing)}")
+
+
+def _storyboard_review(paths, project):
+    """生成可追溯的确定性分镜审核结果。"""
+    story = read_json(paths["storyboard"])
+    script_path = formal_paths(project)["script"]
+    with open(script_path, encoding="utf-8") as handle:
+        script_problems, _, blocks = validate_script(handle.read())
+    issues = []
+    for block in story.get("blocks", []):
+        source = blocks[block.get("block_idx", -1)] if isinstance(block.get("block_idx"), int) and block.get("block_idx", -1) < len(blocks) else {}
+        voice = source.get("voice") or ""
+        for beat in block.get("beats", []):
+            desc = str(beat.get("visual_description") or "")
+            subtitle_map = {item.get("id"): item.get("text", "")
+                            for item in block.get("subtitles", [])}
+            covered = "".join(subtitle_map.get(item, "")
+                              for item in beat.get("sentence_ids", []))
+            words = set(re.findall(r"[\u4e00-\u9fff]{2,}", covered))
+            overlap = set(re.findall(r"[\u4e00-\u9fff]{2,}", desc)) & words
+            beat_issues = []
+            if len(desc) < 18: beat_issues.append("具体性不足")
+            if not overlap and words: beat_issues.append("与覆盖字幕语义关联不足")
+            if beat.get("character_ids") == [] and any(x in voice for x in ("人物", "主角", "他", "她")):
+                beat_issues.append("角色信息缺失")
+            issues.append({"block_idx": block.get("block_idx"), "beat_idx": beat.get("beat_idx"),
+                           "verdict": "fail" if beat_issues else "pass", "issues": beat_issues,
+                           "suggestion": "补充与字幕对应的场景、主体、动作和关键物件" if beat_issues else ""})
+    report = {"version": 1, "source_sha256": _sha256(paths["storyboard"]),
+              "script_sha256": _sha256(script_path), "beats": issues,
+              "verdict": "fail" if script_problems or any(x["verdict"] == "fail" for x in issues) else "pass",
+              "script_issues": script_problems}
+    write_json(paths["storyboard-review"], report)
+    return report
 
 
 def ensure_active_run(state, action):
@@ -314,7 +387,10 @@ def cmd_run(args):
                                   getattr(args, "revision", None),
                                   getattr(args, "blocks", None),
                                   getattr(args, "clip_durations", None),
-                                  getattr(args, "phase_images_dir", None))):
+                                  getattr(args, "phase_images_dir", None),
+                                  getattr(args, "image_overrides_dir", None),
+                                  getattr(args, "reuse_segments_dir", None),
+                                  getattr(args, "rerender_blocks", None))):
         raise ValueError("review/revision/blocks 参数只允许用于 render 阶段")
     if review_render and not getattr(args, "blocks", None):
         raise ValueError("review render 必须显式指定 --blocks")
@@ -323,6 +399,18 @@ def cmd_run(args):
         raise RuntimeError(f"阶段 {stage} 已校验或完成，不能在同一 run 内重新生成")
     require_dependencies(state, stage)
     project = paths["project"]
+    if stage == "storyboard-review":
+        report = _storyboard_review(paths, project)
+        transition(state, stage, "generated", "自动分镜质量审核已生成", paths["storyboard-review"])
+        save_state(paths, state)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return
+    if stage == "image-review":
+        report = _image_review(paths, project)
+        transition(state, stage, "generated", "自动图片风格与安全审核已生成", paths["image-review"])
+        save_state(paths, state)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return
     if stage in ("topic", "copy", "script", "storyboard"):
         task = build_task(paths, state, stage)
         task_path = os.path.join(paths["tasks"], stage + ".json")
@@ -408,8 +496,10 @@ def _verify_images(paths, project):
     story = read_json(formal_paths(project)["storyboard"])
     chars_path = os.path.join(ROOT, "assets", "characters.json")
     characters = read_json(chars_path) if os.path.exists(chars_path) else {}
-    tasks = build_image_tasks(story, project_meta(project), characters, paths["images"])
+    tasks = build_image_tasks(story, project_meta(project), characters, paths["images"], _style_anchor(project))
     problems = []
+    if not _style_anchor(project):
+        problems.append("缺少项目视觉锚点图片，禁止图片审核和提升")
     packet = read_json(paths["image_tasks"]) if os.path.exists(
         paths["image_tasks"]) else {"tasks": tasks}
     packet_tasks = packet.get("tasks") if isinstance(packet, dict) else None
@@ -440,6 +530,54 @@ def _verify_images(paths, project):
             problems.append(f"图片损坏：{task['key']} {exc}")
     problems.extend(_duplicate_image_problems(fingerprints))
     return problems
+
+
+def _image_review(paths, project):
+    """Deterministic image review contract; provider-neutral and hash-bound."""
+    packet = read_json(paths["image_tasks"])
+    anchor = _style_anchor(project)
+    if not anchor:
+        report = {"version": 1, "source_sha256": _sha256(paths["image_tasks"]),
+                  "reviewer_required": True, "verdict": "fail",
+                  "contract": {"writer": "visual_reviewer", "required_fields": [
+                      "style_verdict", "character_verdict", "semantic_verdict",
+                      "safety_verdict"]}, "issues": ["缺少项目视觉锚点图片"]}
+        write_json(paths["image-review"], report)
+        return report
+    tasks = packet.get("tasks", [])
+    beats = []
+    failures = []
+    for task in tasks:
+        path = os.path.join(paths["images"], task["key"] + ".png")
+        issues = []
+        anchor = task.get("style_anchor") or task.get("rule_manifest", {}).get("style_anchor")
+        if not anchor or not anchor.get("sha256"):
+            issues.append("缺少 style anchor")
+        if not os.path.exists(path):
+            issues.append("候选图片不存在")
+        else:
+            try:
+                with Image.open(path) as image:
+                    if abs(image.width / image.height - 16 / 9) > 0.02:
+                        issues.append("画面比例不符合 16:9")
+            except Exception as exc:
+                issues.append(f"图片无法读取：{exc}")
+        verdict = "fail" if issues else "pass"
+        if issues:
+            failures.extend(f"{task.get('key')}: {x}" for x in issues)
+        beats.append({"key": task.get("key"), "verdict": verdict,
+                      "issues": issues, "suggestion": "重新生成并保持 Q 版2D 风格锚点" if issues else ""})
+    report = {"version": 1, "source_sha256": _sha256(paths["image_tasks"]),
+              "style_anchor": anchor, "reviewer_required": True,
+              "contract": {"writer": "visual_reviewer", "required_fields": [
+                  "style_verdict", "character_verdict", "semantic_verdict",
+                  "safety_verdict"]},
+              "image_sha256": {t["key"]: _sha256(os.path.join(paths["images"], t["key"] + ".png"))
+                               for t in tasks if os.path.exists(os.path.join(paths["images"], t["key"] + ".png"))},
+              "beats": beats, "verdict": "fail" if failures else "pending_visual_review",
+              "issues": failures}
+    write_json(paths["image-review"], report)
+    return report
 
 
 def _image_task_packet_problems(expected_tasks, packet_tasks):
@@ -505,14 +643,43 @@ def cmd_verify(args):
             problems, _, _ = validate_script(f.read())
     elif stage == "storyboard":
         with open(formal_paths(project)["script"], encoding="utf-8") as f:
-            _, _, blocks = validate_script(f.read())
+            script_problems, _, blocks = validate_script(f.read())
         chars_path = os.path.join(ROOT, "assets", "characters.json")
         characters = read_json(chars_path) if os.path.exists(chars_path) else {}
         raw_characters = characters.get("characters", characters)
         known_ids = ([x["id"] for x in raw_characters]
                      if isinstance(raw_characters, list) else raw_characters.keys())
-        problems = validate_storyboard(read_json(paths[stage]), blocks, known_ids,
-                                       project_meta=project_meta(project))
+        problems = list(script_problems)
+        problems.extend(validate_storyboard(read_json(paths[stage]), blocks, known_ids,
+                                            project_meta=project_meta(project)))
+    elif stage == "storyboard-review":
+        report = read_json(paths[stage])
+        story_path = paths["storyboard"]
+        if report.get("source_sha256") != _sha256(story_path):
+            problems = ["storyboard-review 源分镜已变化，审核结果失效"]
+        elif report.get("verdict") != "pass":
+            problems = ["storyboard-review 未通过"] + [x for beat in report.get("beats", []) for x in beat.get("issues", [])]
+        else:
+            problems = []
+    elif stage == "image-review":
+        report = read_json(paths[stage])
+        if report.get("source_sha256") != _sha256(paths["image_tasks"]):
+            problems = ["image-review 图片任务源已变化，审核结果失效"]
+        elif report.get("verdict") != "pass":
+            problems = ["image-review 尚未由视觉审核者写入 pass 结果"]
+        else:
+            current = {}
+            for key, path in ((k, os.path.join(paths["images"], k + ".png"))
+                              for k in report.get("image_sha256", {})):
+                if not os.path.exists(path) or _sha256(path) != report["image_sha256"][key]:
+                    problems = [f"image-review 图片源已变化，审核结果失效：{key}"]
+                    break
+            else:
+                problems = []
+                required = set(report.get("contract", {}).get("required_fields", []))
+                for beat in report.get("beats", []):
+                    if not required.issubset(beat):
+                        problems.append(f"{beat.get('key')}: 视觉审核契约字段不完整")
     elif stage == "images":
         problems = _verify_images(paths, project)
     else:
@@ -552,6 +719,24 @@ def cmd_promote(args):
     if state["stages"][stage]["status"] != "verified":
         raise RuntimeError(f"{stage} 尚未 verified，禁止提升")
     project = paths["project"]
+    if stage == "images" and state["stages"]["image-review"]["status"] != "promoted":
+        raise RuntimeError("images 必须在 image-review 通过后提升")
+    if stage == "storyboard-review":
+        report = read_json(paths[stage])
+        if report.get("source_sha256") != _sha256(paths["storyboard"]):
+            raise RuntimeError("storyboard-review 源分镜已变化，禁止提升")
+        if report.get("verdict") != "pass":
+            raise RuntimeError("storyboard-review 未通过，禁止提升")
+        transition(state, stage, "promoted", "自动分镜质量门禁通过", paths[stage])
+        unlock(state); save_state(paths, state); print(f"{stage} 已提升"); return
+    if stage == "image-review":
+        report = read_json(paths[stage])
+        if report.get("source_sha256") != _sha256(paths["image_tasks"]):
+            raise RuntimeError("image-review 源任务已变化，禁止提升")
+        if report.get("verdict") != "pass":
+            raise RuntimeError("image-review 未通过，禁止提升")
+        transition(state, stage, "promoted", "自动图片质量门禁通过", paths[stage])
+        unlock(state); save_state(paths, state); print(f"{stage} 已提升"); return
     formal = formal_paths(project)
     if stage == "topic":
         candidates = read_json(paths["topic"])
@@ -650,6 +835,9 @@ def _run_render(paths, state, args):
     blocks = getattr(args, "blocks", None)
     clip_durations = getattr(args, "clip_durations", None)
     phase_images_dir = getattr(args, "phase_images_dir", None)
+    image_overrides_dir = getattr(args, "image_overrides_dir", None)
+    reuse_segments_dir = getattr(args, "reuse_segments_dir", None)
+    rerender_blocks = getattr(args, "rerender_blocks", None)
     if phase_images_dir:
         phase_images_dir = os.path.realpath(phase_images_dir)
         project_root = os.path.realpath(paths["project"])
@@ -658,6 +846,12 @@ def _run_render(paths, state, args):
         if not (review_id or revision):
             raise ValueError("阶段候选图只允许用于 review/revision")
         cmd += ["--phase-images-dir", phase_images_dir]
+    if image_overrides_dir:
+        cmd += ["--image-overrides-dir", os.path.realpath(image_overrides_dir)]
+    if reuse_segments_dir:
+        cmd += ["--reuse-segments-dir", os.path.realpath(reuse_segments_dir)]
+    if rerender_blocks:
+        cmd += ["--rerender-blocks", ",".join(str(x) for x in rerender_blocks)]
     if review_id:
         cmd += ["--review-id", review_id,
                 "--blocks", ",".join(str(x) for x in blocks)]
@@ -674,8 +868,23 @@ def _run_render(paths, state, args):
                               f"long_{pid}_{revision}.mp4")
     else:
         output = os.path.join(paths["project"], "output", f"long_{pid}.mp4")
+    # 外层终端在 build_long 已完成后被中断时，revision 成片可能已存在而
+    # state 尚未写回。只要 ffprobe 能读取该隔离版本，即恢复状态，不重复渲染。
+    reusable_revision = False
+    if revision and os.path.exists(output):
+        try:
+            subprocess.check_output([
+                "ffprobe", "-v", "error", "-show_entries", "format=duration",
+                "-of", "csv=p=0", output
+            ], text=True)
+            reusable_revision = True
+        except subprocess.CalledProcessError:
+            pass
     try:
-        subprocess.run(cmd, check=True)
+        if reusable_revision:
+            print(f"复用已完成的 revision 成片：{output}")
+        else:
+            subprocess.run(cmd, check=True)
         if not os.path.exists(output):
             raise FileNotFoundError(f"渲染命令未生成成片：{output}")
     except Exception as exc:
@@ -1028,6 +1237,9 @@ def parser():
     run.add_argument("--blocks", nargs="*", type=int)
     run.add_argument("--clip-durations", nargs="*", type=float)
     run.add_argument("--phase-images-dir")
+    run.add_argument("--image-overrides-dir")
+    run.add_argument("--reuse-segments-dir")
+    run.add_argument("--rerender-blocks", nargs="*", type=int)
     run.set_defaults(func=cmd_run)
     select = sub.add_parser("select-topic", help="选择选题候选")
     select.add_argument("run_id")

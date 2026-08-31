@@ -701,7 +701,8 @@ class MigrationRegressionTests(unittest.TestCase):
         script_path = os.path.join(input_dir, "script.txt")
         with open(script_path, "w", encoding="utf-8") as handle:
             handle.write(script_text)
-        errors, _, blocks = validate_script(script_text)
+        # 迁移旧项目只需解析结构，生产新 run 才执行 3800-4500 字门禁。
+        errors, _, blocks = validate_script(script_text, enforce_length=False)
         self.assertEqual(errors, [])
 
         narrative = {"version": 1, "blocks": []}
@@ -750,18 +751,82 @@ class MigrationRegressionTests(unittest.TestCase):
                                  manifest["beats_after"])
                 with open(os.path.join(project, "input", "script.txt"),
                           encoding="utf-8") as handle:
-                    errors, _, blocks = validate_script(handle.read())
+                    errors, _, blocks = validate_script(handle.read(), enforce_length=False)
                 self.assertEqual(errors, [])
                 storyboard = read_json(
                     os.path.join(project, "input", "storyboard.json"))
                 self.assertEqual(validate_storyboard(storyboard, blocks,
-                                                     enforce_density=False), [])
+                                                     enforce_density=False,
+                                                     enforce_visual_quality=False), [])
                 current_keys = sorted(
                     os.path.splitext(name)[0]
                     for name in os.listdir(
                         os.path.join(project, "assets", "scenes"))
                     if name.endswith(".png") and name[0:2].isdigit())
-                self.assertEqual(manifest["image_keys"], current_keys)
+            self.assertEqual(manifest["image_keys"], current_keys)
+
+
+class StoryboardQualityGateTests(unittest.TestCase):
+    def test_script_length_production_boundaries(self):
+        def script(n):
+            head = "# TITLE\nvoice：标题\n"
+            each, remainder = divmod(n - 2, 5)
+            phases = "".join(f"# PHASE {i:02d} · 阶段{i}\n# CARD\nvoice：" + "甲" * (each + (i <= remainder)) + "\n" for i in range(1, 6))
+            return head + phases + "# END\n"
+        self.assertTrue(validate_script(script(2003))[0])
+        self.assertFalse(validate_script(script(3800))[0])
+        self.assertFalse(validate_script(script(4500))[0])
+
+    def test_visual_placeholder_and_deindexed_duplicate_fail(self):
+        data = sample_storyboard()
+        data["blocks"][0]["beats"][0]["visual_description"] = "标题专属构图0价格牌人物动作"
+        errors = validate_storyboard(data, [{"type": "TITLE", "head": "TITLE", "voice": "abc"}, {"type": "END", "head": "END", "voice": ""}], enforce_density=False)
+        self.assertTrue(any("占位" in x for x in errors))
+
+    def test_visual_short_description_rejected_with_script_blocks(self):
+        data = sample_storyboard()
+        blocks = [{"type": "TITLE", "head": "TITLE", "voice": "abc"}, {"type": "END", "head": "END", "voice": ""}]
+        self.assertTrue(any("过短" in x for x in validate_storyboard(data, blocks, enforce_density=False)))
+
+
+class StoryboardReviewWorkflowTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.old_projects = PJ.PROJECTS_DIR
+        PJ.PROJECTS_DIR = os.path.join(self.tmp.name, "projects")
+        PJ._CACHE.clear()
+
+    def tearDown(self):
+        PJ.PROJECTS_DIR = self.old_projects; PJ._CACHE.clear(); self.tmp.cleanup()
+
+    def _fixture(self):
+        with redirect_stdout(io.StringIO()):
+            workflow.cmd_create(SimpleNamespace(project="900", llm="codex", llm_model=None, image="imagegen", image_model=None, azure_voice="v"))
+            workflow.cmd_init(SimpleNamespace(project="900", run_id="run_review"))
+        project = workflow.project_for_id("900"); paths = workflow.state_paths(project, "run_review")
+        os.makedirs(os.path.dirname(workflow.formal_paths(project)["script"]), exist_ok=True)
+        script = "# TITLE\nvoice：标题\n" + "".join(f"# PHASE {i:02d} · 阶段{i}\n# CARD\nvoice：" + "甲" * 760 + "\n" for i in range(1, 6)) + "# END\n"
+        with open(workflow.formal_paths(project)["script"], "w", encoding="utf-8") as h: h.write(script)
+        story = {"blocks": [{"block_idx": 0, "type": "TITLE", "head": "TITLE", "subtitles": [{"id": 0, "text": "完全无关字幕", "start_char": 0, "end_char": 6}], "beats": [{"beat_idx": 0, "sentence_ids": [0], "visual_description": "海边人物站立，手持书本凝视远方", "character_ids": []}]}]}
+        write_json(paths["storyboard"], story)
+        state = read_json(paths["state"]); state["stages"]["storyboard"]["status"] = "promoted"; save = workflow.save_state; save(paths, state)
+        return project, paths
+
+    def test_review_uses_covered_subtitles_and_fails_unrelated_beat(self):
+        project, paths = self._fixture(); report = workflow._storyboard_review(paths, project)
+        self.assertEqual(report["verdict"], "fail"); self.assertTrue(any("语义关联" in x for x in report["beats"][0]["issues"]))
+
+    def test_review_hash_change_rejects_verify_and_promote(self):
+        project, paths = self._fixture(); report = workflow._storyboard_review(paths, project)
+        report["verdict"] = "pass"; report["beats"][0]["verdict"] = "pass"; write_json(paths["storyboard-review"], report)
+        with open(paths["storyboard"], "a", encoding="utf-8") as h: h.write(" ")
+        state = read_json(paths["state"]); state["stages"]["storyboard-review"]["status"] = "generated"; workflow.save_state(paths, state)
+        with self.assertRaises(RuntimeError): workflow.cmd_verify(SimpleNamespace(run_id="run_review", project="900", stage="storyboard-review"))
+        with self.assertRaises(RuntimeError): workflow.cmd_promote(SimpleNamespace(run_id="run_review", project="900", stage="storyboard-review", replace=False))
+
+    def test_images_blocked_until_review_promoted(self):
+        project, paths = self._fixture(); state = read_json(paths["state"]); state["stages"]["storyboard-review"]["status"] = "generated"; workflow.save_state(paths, state)
+        with self.assertRaises(RuntimeError): workflow.cmd_run(SimpleNamespace(run_id="run_review", project="900", stage="images", beats=None, review_id=None, revision=None, blocks=None, clip_durations=None, phase_images_dir=None))
 
 
 if __name__ == "__main__":

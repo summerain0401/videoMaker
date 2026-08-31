@@ -24,6 +24,7 @@ import json
 import math
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -55,6 +56,7 @@ NO_TTS = False  # --no-tts：跳过配音合成，音轨静音
 RUN_AZURE_VOICE = None  # workflow run 的 provider 快照；非用户可选项
 RENDER_WORK_DIR = None  # review/revision 隔离中间文件，避免覆盖正式分片
 PHASE_ART_DIR = None  # 评审候选阶段页目录；正式版默认读取 scenes/phase_nn.png
+IMAGE_OVERRIDES_DIR = None  # revision 专用图片覆盖目录
 CONTINUOUS_BGM = os.environ.get("BGM_MODE", "chapter_cues") == "continuous"
 BOOK = "《金钱的艺术》"
 AUTHOR = "Morgan Housel"
@@ -365,6 +367,10 @@ def beat_art_path(b, idx, beat_idx, blocks=None):
     if b["type"] == "PHASE" and blocks is not None:
         return phase_art_path(blocks, idx)
     source_idx = b.get("_source_idx", idx)
+    if IMAGE_OVERRIDES_DIR:
+        override = os.path.join(IMAGE_OVERRIDES_DIR, f"{source_idx:02d}_{beat_idx}.png")
+        if os.path.exists(override):
+            return override
     p = PROJ("assets", "scenes", f"{source_idx:02d}_{beat_idx}.png")
     if os.path.exists(p):
         return p
@@ -1107,7 +1113,7 @@ def write_reports(blocks, total, out_name, report_dir=None, render_meta=None):
 
 
 def main():
-    global NO_TTS, RUN_AZURE_VOICE, RENDER_WORK_DIR, PHASE_ART_DIR
+    global NO_TTS, RUN_AZURE_VOICE, RENDER_WORK_DIR, PHASE_ART_DIR, IMAGE_OVERRIDES_DIR
     ap = argparse.ArgumentParser(description="长视频 V5 渲染引擎")
     ap.add_argument("--project", default=None,
                     help="项目 id（默认取环境变量 PROJECT，缺省 001）")
@@ -1124,6 +1130,12 @@ def main():
                     help="生成版本化正式成片，如 v2")
     ap.add_argument("--phase-images-dir", default=None,
                     help="阶段标题候选图目录（phase_01.png 至 phase_05.png）")
+    ap.add_argument("--image-overrides-dir", default=None,
+                    help="revision 图片覆盖目录（按 source_idx_beat_idx.png 命名）")
+    ap.add_argument("--reuse-segments-dir", default=None,
+                    help="复用已有 vs2_XX.mp4 分段的目录")
+    ap.add_argument("--rerender-blocks", default=None,
+                    help="revision 仅重渲染指定源块号")
     ap.add_argument("--no-tts", action="store_true",
                     help="跳过配音合成：音轨静音，时长按字数估算")
     ap.add_argument("--workflow-run", default=None, help=argparse.SUPPRESS)
@@ -1170,6 +1182,10 @@ def main():
                        PHASE_ART_DIR, f"phase_{number:02d}.png"))]
         if missing:
             raise FileNotFoundError("缺少阶段候选图：" + ", ".join(missing))
+    if args.image_overrides_dir:
+        IMAGE_OVERRIDES_DIR = os.path.realpath(args.image_overrides_dir)
+        if os.path.commonpath((os.path.realpath(project_dir), IMAGE_OVERRIDES_DIR)) != os.path.realpath(project_dir):
+            raise ValueError("图片覆盖目录必须位于当前项目内")
     story = load_storyboard()
     kept = None
     if args.blocks:
@@ -1201,6 +1217,22 @@ def main():
     elif args.revision:
         variant_dir = PROJ("output", "revisions", args.revision)
         RENDER_WORK_DIR = os.path.join(variant_dir, "work")
+    rerender = None
+    if args.rerender_blocks:
+        rerender = {int(x) for x in args.rerender_blocks.split(",") if x.strip()}
+    if args.reuse_segments_dir:
+        reuse = os.path.realpath(args.reuse_segments_dir)
+        if not os.path.isdir(reuse):
+            raise FileNotFoundError("缺少可复用分段目录")
+        os.makedirs(RENDER_WORK_DIR or PROJ("output"), exist_ok=True)
+        for i in range(len(blocks)):
+            target = render_work_path(f"vs2_{i:02d}.mp4")
+            source = os.path.join(reuse, f"vs2_{i:02d}.mp4")
+            source_idx = blocks[i].get("_source_idx", i)
+            if rerender is None or source_idx not in rerender:
+                if not os.path.exists(source):
+                    raise FileNotFoundError(f"缺少可复用分段：{source}")
+                shutil.copy2(source, target)
     if args.frames:
         render_frames_narrative(blocks, meta, story)
         print(f"FRAMES DONE 见 {PROJ('output', 'preview')}/m3n_*.jpg")
@@ -1215,6 +1247,8 @@ def main():
         make_audio(blocks)
     total = len(blocks)
     for i, b in enumerate(blocks):
+        if rerender is not None and b.get("_source_idx", i) not in rerender:
+            continue
         render_scene_narrative(blocks, i, total, first=(i == 0),
                                last=(i == total - 1), meta=meta,
                                story=story)

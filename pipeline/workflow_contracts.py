@@ -8,13 +8,14 @@ import re
 
 
 CONTENT_STAGES = ("topic", "copy", "script", "storyboard")
-APPROVAL_STAGES = CONTENT_STAGES + ("images",)
+APPROVAL_STAGES = CONTENT_STAGES + ("storyboard-review", "images", "image-review")
 ALL_STAGES = APPROVAL_STAGES + ("voice", "render", "qa")
 STAGE_STATES = {
     "pending", "awaiting_external", "generated", "verified",
     "promoted", "failed", "blocked",
 }
 SEGMENTS = {"hook", "insight", "action"}
+SCRIPT_VOICE_CHAR_RANGE = (3800, 4500)
 SHOTS = {"wide", "medium", "close"}
 FORBIDDEN_STORYBOARD_FIELDS = {
     "provider", "model", "final_image_prompt", "negative_prompt",
@@ -36,15 +37,50 @@ NEGATIVE_PROMPT = (
     "duplicated person"
 )
 
+DEFAULT_VISUAL_STYLE = {
+    "variant": "Q版2D",
+    "art_direction": "cute 2D chibi illustration, oversized head, small body, bold clean outlines, matte flat colors, simple readable shapes",
+    "forbidden": "no photorealism, no semi-realistic anatomy, no painterly realism, no 3D render, no glossy anime realism",
+    "palette": "warm high-contrast flat colors with soft simple shading",
+}
+
 
 def _normalize_visual_description(value):
     """用于阻断完全相同的视觉描述，保留语义而不做激进 NLP 改写。"""
     return re.sub(r"\s+", "", str(value or "")).strip().lower()
 
 
+_VISUAL_INDEX_RE = re.compile(r"(?:第\d+块第\d+拍|第\d+拍|块\d+拍|画面\d+|镜头\d+)")
+_VISUAL_PLACEHOLDER_RE = re.compile(
+    r"(?:标题专属构图|独特场景展示|过渡画面|专属构图|场景展示|画面\d+|第\d+块第\d+拍)")
+
+
+def _visual_content_key(value):
+    """移除编号和模板词，用于发现伪造的多样性。"""
+    text = _normalize_visual_description(value)
+    return _VISUAL_INDEX_RE.sub("", text)
+
+
+def _visual_description_problems(value):
+    text = str(value or "").strip()
+    if not text:
+        return ["缺少 visual_description"]
+    if _VISUAL_PLACEHOLDER_RE.search(text):
+        return ["visual_description 含占位/编号模板"]
+    if len(text) < 18:
+        return ["visual_description 过短，必须描述可执行画面"]
+    # 中文生成描述通常不使用固定术语，采用语义角色词的轻量确定性门禁。
+    groups = (("场景/环境", ("中", "在", "室", "街", "山", "海", "城市", "房间", "舞台", "办公室")),
+              ("主体", ("人", "人物", "角色", "主角", "商人", "观众", "孩子", "老人")),
+              ("动作/状态", ("站", "坐", "走", "看", "拿", "指", "翻", "奔", "凝视", "展示", "对话", "动作")),
+              ("关键物件/关系", ("书", "桌", "路牌", "灯", "手机", "纸", "钱", "门", "镜", "物件", "前景", "背景")))
+    return [f"visual_description 缺少{'、'.join(name for name, words in groups if not any(w in text for w in words))}"] \
+        if any(not any(w in text for w in words) for _, words in groups) else []
+
+
 def _visual_similarity(left, right):
     """用字符二元组捕捉几乎同一句的改写，短描述不参与近似判断。"""
-    if min(len(left), len(right)) < 18:
+    if min(len(left), len(right)) < 8:
         return 0.0
     left_pairs = {left[i:i + 2] for i in range(len(left) - 1)}
     right_pairs = {right[i:i + 2] for i in range(len(right) - 1)}
@@ -207,7 +243,7 @@ def _walk_keys(value):
 
 def validate_storyboard(data, script_blocks=None, known_character_ids=None,
                         enforce_density=True, project_meta=None,
-                        enforce_visual_diversity=True):
+                        enforce_visual_diversity=True, enforce_visual_quality=True):
     problems = []
     if not isinstance(data, dict):
         return ["storyboard 必须是 JSON object"]
@@ -314,11 +350,15 @@ def validate_storyboard(data, script_blocks=None, known_character_ids=None,
                 problems.append(f"块 {pos} beats 含非 object 项")
                 continue
             beat_ids.append(beat.get("beat_idx"))
-            if not str(beat.get("visual_description") or "").strip():
-                problems.append(
-                    f"块 {pos} 拍 {beat.get('beat_idx')} 缺少 visual_description")
+            visual = beat.get("visual_description")
+            visual_problems = _visual_description_problems(visual) if script_blocks is not None and enforce_visual_quality else ([] if str(visual or "").strip() else ["缺少 visual_description"])
+            for issue in visual_problems:
+                problems.append(f"块 {pos} 拍 {beat.get('beat_idx')} {issue}")
             visual_key = _normalize_visual_description(beat.get("visual_description"))
             if visual_key:
+                content_key = _visual_content_key(visual_key)
+                if script_blocks is not None and enforce_visual_quality and content_key in seen_visuals:
+                    problems.append(f"视觉描述去除编号后重复：块 {pos} 拍 {beat.get('beat_idx')} 与 {seen_visuals[content_key]} 相同")
                 if visual_key in seen_visuals:
                     problems.append(
                         f"视觉描述重复：块 {pos} 拍 {beat.get('beat_idx')} 与"
@@ -333,6 +373,8 @@ def validate_storyboard(data, script_blocks=None, known_character_ids=None,
                             f"视觉描述高度相似：块 {pos} 拍 {beat.get('beat_idx')} 与"
                             f" {near} 相似，必须改为不同场景、动作或关键物件")
                     seen_visuals[visual_key] = f"块 {pos} 拍 {beat.get('beat_idx')}"
+                    if script_blocks is not None:
+                        seen_visuals.setdefault(content_key, f"块 {pos} 拍 {beat.get('beat_idx')}")
             if beat.get("shot") not in SHOTS:
                 problems.append(f"块 {pos} 拍 {beat.get('beat_idx')} shot 非法")
             if beat.get("segment") not in SEGMENTS:
@@ -409,7 +451,7 @@ def parse_script(text):
     return blocks
 
 
-def validate_script(text):
+def validate_script(text, enforce_length=True):
     blocks = parse_script(text)
     problems = []
     if not blocks or blocks[0]["type"] != "TITLE":
@@ -425,7 +467,7 @@ def validate_script(text):
         if block["type"] not in ("PHASE", "END") and not block.get("voice"):
             problems.append(f"块 {i} {block['type']} 缺少 voice：")
     voice_chars = sum(len(b.get("voice") or "") for b in blocks)
-    if not 1000 <= voice_chars <= 8000:
+    if enforce_length and not SCRIPT_VOICE_CHAR_RANGE[0] <= voice_chars <= SCRIPT_VOICE_CHAR_RANGE[1]:
         problems.append(f"口播总字数异常：{voice_chars}")
     return problems, voice_chars, blocks
 
@@ -466,18 +508,25 @@ def validate_image_task_prompt(task):
     return problems
 
 
-def build_image_tasks(storyboard, project_meta, characters, images_dir):
-    visual = project_meta.get("visual_style") or {}
+def build_image_tasks(storyboard, project_meta, characters, images_dir,
+                      style_anchor=None):
+    visual = dict(DEFAULT_VISUAL_STYLE)
+    visual.update(project_meta.get("visual_style") or {})
     raw_characters = characters.get("characters", characters)
     if isinstance(raw_characters, list):
         char_map = {c["id"]: c for c in raw_characters}
     else:
         char_map = raw_characters
-    style = visual.get("art_direction") or visual.get("variant") or \
-        "clear narrative 2D illustration"
+    style = ", ".join(x for x in (
+        visual.get("variant"), visual.get("art_direction"),
+        visual.get("forbidden")) if x)
     palette = visual.get("palette") or "colors follow the narrative emotion"
     direct_phase = visual.get("phase_transition") == "direct"
     tasks = []
+    anchor_path = style_anchor.get("path") if isinstance(style_anchor, dict) else None
+    anchor_sha = style_anchor.get("sha256") if isinstance(style_anchor, dict) else None
+    anchor = {"path": anchor_path, "sha256": anchor_sha,
+              "variant": visual.get("variant"), "requirements": style}
     for block in storyboard.get("blocks", []):
         phase_number, phase_title = phase_identity(block)
         if phase_number is not None and direct_phase:
@@ -536,7 +585,8 @@ def build_image_tasks(storyboard, project_meta, characters, images_dir):
                 "negative_prompt": NEGATIVE_PROMPT,
                 "size": [1920, 1080],
                 "output_path": os.path.join(images_dir, key + ".png"),
-                "reference_images": [],
+                "reference_images": [anchor_path] if anchor_path else [],
+                "style_anchor": anchor,
                 "rule_manifest": {
                     "text_mode": "exact_title" if is_phase else "useful_in_scene",
                     "title_text": phase_title if is_phase else None,
@@ -544,6 +594,7 @@ def build_image_tasks(storyboard, project_meta, characters, images_dir):
                     "forbidden_text_types": ["paragraph", "subtitle", "watermark", "gibberish"],
                     "negative_prompt": NEGATIVE_PROMPT,
                     "prompt_sources": sources,
+                    "style_anchor": anchor,
                 },
             }
             tasks.append(task)
