@@ -1,6 +1,9 @@
 # API 密钥（绝不入库）
 .env
 
+# 项目内容、候选资产与成片均为本地生产数据，不纳入版本库。
+projects/
+
 # 项目内自动生成产物（可随时重跑，不入版本库）
 projects/*/assets/layers/
 projects/*/audio/voice/
