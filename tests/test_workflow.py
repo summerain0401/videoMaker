@@ -28,9 +28,10 @@ import tts_azure
 import workflow
 from providers import IMAGE_PROVIDERS, LLM_PROVIDERS
 from providers.image import ImageGenProvider, WanxiangProvider
+from content_templates import CONTENT_TEMPLATE_IDS, get_template
 from workflow_contracts import (
     build_image_tasks, normalize_providers, read_json,
-    validate_image_task_prompt,
+    validate_copy, validate_image_task_prompt,
     validate_providers, validate_script, validate_storyboard, write_json,
 )
 
@@ -60,6 +61,34 @@ def sample_storyboard():
 
 
 class ContractTests(unittest.TestCase):
+    def test_content_templates_are_versioned_and_define_five_valid_stages(self):
+        self.assertEqual(set(CONTENT_TEMPLATE_IDS), {
+            "classic_insight_v1", "story_journey_v1", "practical_workshop_v1"})
+        snapshots = [get_template(name) for name in CONTENT_TEMPLATE_IDS]
+        self.assertEqual(len({(x["id"], x["version"]) for x in snapshots}), 3)
+        self.assertTrue(all(len(x["stages"]) == 5 and x["sha256"] for x in snapshots))
+        self.assertTrue(all(stage["segment"] in {"hook", "insight", "action"}
+                            for item in snapshots for stage in item["stages"]))
+
+    def test_content_template_validates_copy_and_script_phase_names(self):
+        template = get_template("story_journey_v1")
+        sections = [{"name": stage["name"], "objective": "目标",
+                     "key_points": ["要点"], "examples": [], "action": "行动"}
+                    for stage in template["stages"]]
+        copy_data = {"thesis": "论点", "audience_promise": "承诺",
+                     "claims": ["事实"], "sections": sections}
+        self.assertEqual(validate_copy(copy_data, template), [])
+        copy_data["sections"][1]["name"] = "错误标题"
+        self.assertTrue(validate_copy(copy_data, template))
+        phases = "".join(
+            f"# PHASE {stage['index']:02d} · {stage['name']}\n# CARD\nvoice：" +
+            "甲" * 800 + "\n" for stage in template["stages"])
+        script = "# TITLE\nvoice：标题\n" + phases + "# END\n"
+        self.assertEqual(validate_script(script, content_template=template)[0], [])
+        self.assertTrue(validate_script(
+            script.replace("人物处境", "错误标题", 1),
+            content_template=template)[0])
+
     @staticmethod
     def _density_story(chars, beat_sizes=None, block_type="CARD", sentence_count=None):
         sizes = beat_sizes or [chars]
@@ -184,6 +213,26 @@ class ContractTests(unittest.TestCase):
                     mock.patch.object(provider, "_generate_one") as generate:
                 provider.generate(tasks)
             self.assertEqual(generate.call_count, 2)
+
+    def test_style_anchor_is_not_overwritten_by_character_anchor(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            anchor = {"path": "/tmp/style.png", "sha256": "style-hash"}
+            tasks = build_image_tasks(
+                sample_storyboard(), {},
+                {"hero": {"prompt": "same person", "anchor": "red scarf"}},
+                tmp, anchor)
+        self.assertEqual(tasks[0]["style_anchor"]["sha256"], "style-hash")
+        self.assertIn("red scarf", tasks[0]["rule_manifest"]["prompt_sources"]["char_bits"][0])
+
+    def test_bootstrap_anchor_keeps_first_task_reference_free(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            anchor = {"path": "/tmp/style.png", "sha256": "style-hash"}
+            tasks = build_image_tasks(sample_storyboard(), {},
+                                      {"hero": {"prompt": "same person"}},
+                                      tmp, anchor, bootstrap_anchor_key="00_0")
+        self.assertEqual(tasks[0]["reference_images"], [])
+        self.assertEqual(tasks[0]["style_anchor"]["mode"], "bootstrap")
+        self.assertEqual(tasks[1]["reference_images"], ["/tmp/style.png"])
 
     def test_phase_image_task_integrates_exact_title_and_uses_stable_key(self):
         storyboard = {
@@ -428,7 +477,7 @@ class WorkflowStateTests(unittest.TestCase):
         create_args = SimpleNamespace(
             project="003", llm="deepseek", llm_model="deepseek-chat",
             image="wanxiang", image_model="wan2.7-image",
-            azure_voice="voice-A")
+            azure_voice="voice-A", content_template="story_journey_v1")
         with redirect_stdout(io.StringIO()):
             workflow.cmd_create(create_args)
             workflow.cmd_init(SimpleNamespace(project="003", run_id="run_test"))
@@ -436,11 +485,15 @@ class WorkflowStateTests(unittest.TestCase):
         paths = workflow.state_paths(project, "run_test")
         state = read_json(paths["state"])
         self.assertEqual(state["providers"]["llm"]["name"], "deepseek")
+        self.assertEqual(state["content_template"]["id"], "story_journey_v1")
         meta = read_json(os.path.join(project, "project.json"))
         meta["providers"]["llm"]["name"] = "codex"
+        meta["content_template"] = "practical_workshop_v1"
         write_json(os.path.join(project, "project.json"), meta)
         self.assertEqual(read_json(paths["state"])["providers"]["llm"]["name"],
                          "deepseek")
+        task = workflow.build_task(paths, state, "topic")
+        self.assertEqual(task["content_template"]["id"], "story_journey_v1")
         for stage in ("topic", "copy"):
             state["stages"][stage]["status"] = "promoted"
         state["stages"]["script"]["status"] = "promoted"
@@ -463,7 +516,8 @@ class WorkflowStateTests(unittest.TestCase):
     def test_storyboard_revision_inherits_hashes_and_supersedes_source(self):
         create = SimpleNamespace(project="007", llm="codex", llm_model=None,
                                  image="imagegen", image_model=None,
-                                 azure_voice="voice-A")
+                                 azure_voice="voice-A",
+                                 content_template="practical_workshop_v1")
         with redirect_stdout(io.StringIO()):
             workflow.cmd_create(create)
             workflow.cmd_init(SimpleNamespace(project="007", run_id="run_source"))
@@ -488,6 +542,8 @@ class WorkflowStateTests(unittest.TestCase):
                                                 run_id="run_revision"))
         new_paths, new_state = workflow.locate_run("run_revision", "007")
         self.assertEqual(new_state["lineage"]["source_run"], "run_source")
+        self.assertEqual(new_state["content_template"]["id"],
+                         "practical_workshop_v1")
         for stage in ("topic", "copy", "script"):
             inherited = new_state["lineage"]["inherited_assets"][stage]
             self.assertEqual(inherited["sha256"], workflow._sha256(formal[stage]))

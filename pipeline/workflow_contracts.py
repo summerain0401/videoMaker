@@ -5,6 +5,7 @@
 import json
 import os
 import re
+from content_templates import ALLOWED_BLOCK_TYPES, template_names
 
 
 CONTENT_STAGES = ("topic", "copy", "script", "storyboard")
@@ -199,7 +200,7 @@ def selected_topic(data):
                  if x.get("id") == selected), None)
 
 
-def validate_copy(data):
+def validate_copy(data, content_template=None):
     problems = []
     if not isinstance(data, dict):
         return ["copy 必须是 JSON object"]
@@ -219,6 +220,8 @@ def validate_copy(data):
                 continue
             if not str(section.get("name") or "").strip():
                 problems.append(f"copy.sections[{i}] 缺少 name")
+            elif content_template is not None and section["name"] != template_names(content_template)[i]:
+                problems.append(f"copy.sections[{i}] 阶段标题不符合模板")
             if not str(section.get("objective") or "").strip():
                 problems.append(f"copy.sections[{i}] 缺少 objective")
             if not isinstance(section.get("key_points"), list) or \
@@ -451,7 +454,7 @@ def parse_script(text):
     return blocks
 
 
-def validate_script(text, enforce_length=True):
+def validate_script(text, enforce_length=True, content_template=None):
     blocks = parse_script(text)
     problems = []
     if not blocks or blocks[0]["type"] != "TITLE":
@@ -461,11 +464,24 @@ def validate_script(text, enforce_length=True):
     phases = [b for b in blocks if b["type"] == "PHASE"]
     if len(phases) != 5:
         problems.append(f"剧本必须包含 5 个 PHASE，实际 {len(phases)}")
+    if content_template is not None:
+        expected = template_names(content_template)
+        for i, block in enumerate(phases[:5]):
+            try:
+                number, title = phase_identity(block)
+            except ValueError as exc:
+                problems.append(str(exc))
+                continue
+            if number != i + 1 or title != expected[i]:
+                problems.append(f"PHASE {i+1:02d} 阶段标题不符合模板")
     for i, block in enumerate(blocks):
         if block.get("voice_count", 0) > 1:
             problems.append(f"块 {i} 含多条 voice：，必须合并为一条")
         if block["type"] not in ("PHASE", "END") and not block.get("voice"):
             problems.append(f"块 {i} {block['type']} 缺少 voice：")
+        if content_template is not None and block["type"] not in (
+                "TITLE", "PHASE", "END", *ALLOWED_BLOCK_TYPES):
+            problems.append(f"块 {i} {block['type']} 不被内容模板支持")
     voice_chars = sum(len(b.get("voice") or "") for b in blocks)
     if enforce_length and not SCRIPT_VOICE_CHAR_RANGE[0] <= voice_chars <= SCRIPT_VOICE_CHAR_RANGE[1]:
         problems.append(f"口播总字数异常：{voice_chars}")
@@ -509,7 +525,7 @@ def validate_image_task_prompt(task):
 
 
 def build_image_tasks(storyboard, project_meta, characters, images_dir,
-                      style_anchor=None):
+                      style_anchor=None, bootstrap_anchor_key=None):
     visual = dict(DEFAULT_VISUAL_STYLE)
     visual.update(project_meta.get("visual_style") or {})
     raw_characters = characters.get("characters", characters)
@@ -525,8 +541,9 @@ def build_image_tasks(storyboard, project_meta, characters, images_dir,
     tasks = []
     anchor_path = style_anchor.get("path") if isinstance(style_anchor, dict) else None
     anchor_sha = style_anchor.get("sha256") if isinstance(style_anchor, dict) else None
-    anchor = {"path": anchor_path, "sha256": anchor_sha,
-              "variant": visual.get("variant"), "requirements": style}
+    style_anchor_record = {"path": anchor_path, "sha256": anchor_sha,
+                           "variant": visual.get("variant"),
+                           "requirements": style}
     for block in storyboard.get("blocks", []):
         phase_number, phase_title = phase_identity(block)
         if phase_number is not None and direct_phase:
@@ -549,8 +566,9 @@ def build_image_tasks(storyboard, project_meta, characters, images_dir,
                 if not char:
                     raise ValueError(f"ImageTask 引用了未知角色：{char_id}")
                 identity = char.get("prompt") or char.get("description") or char_id
-                anchor = char.get("anchor") or ""
-                char_bits.append(", ".join(x for x in (identity, anchor) if x))
+                character_anchor = char.get("anchor") or ""
+                char_bits.append(", ".join(x for x in (identity, character_anchor)
+                                           if x))
             text_policy = (
                 f'chapter-opening image; render the exact simplified-Chinese '
                 f'title "{phase_title}" verbatim as a prominent physical part '
@@ -575,6 +593,9 @@ def build_image_tasks(storyboard, project_meta, characters, images_dir,
                        "emotion": beat.get("emotion", "neutral"),
                        "text_policy": text_policy}
             prompt = _build_image_prompt(**sources)
+            is_bootstrap_anchor = key == bootstrap_anchor_key
+            task_anchor = (dict(style_anchor_record, mode="bootstrap")
+                           if is_bootstrap_anchor else style_anchor_record)
             task = {
                 "key": key,
                 "kind": "phase_title" if is_phase else "scene",
@@ -585,8 +606,9 @@ def build_image_tasks(storyboard, project_meta, characters, images_dir,
                 "negative_prompt": NEGATIVE_PROMPT,
                 "size": [1920, 1080],
                 "output_path": os.path.join(images_dir, key + ".png"),
-                "reference_images": [anchor_path] if anchor_path else [],
-                "style_anchor": anchor,
+                "reference_images": ([] if is_bootstrap_anchor else
+                                     [anchor_path] if anchor_path else []),
+                "style_anchor": task_anchor,
                 "rule_manifest": {
                     "text_mode": "exact_title" if is_phase else "useful_in_scene",
                     "title_text": phase_title if is_phase else None,
@@ -594,7 +616,7 @@ def build_image_tasks(storyboard, project_meta, characters, images_dir,
                     "forbidden_text_types": ["paragraph", "subtitle", "watermark", "gibberish"],
                     "negative_prompt": NEGATIVE_PROMPT,
                     "prompt_sources": sources,
-                    "style_anchor": anchor,
+                    "style_anchor": task_anchor,
                 },
             }
             tasks.append(task)

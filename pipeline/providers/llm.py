@@ -7,10 +7,10 @@ import os
 import urllib.error
 import urllib.request
 
-from workflow_contracts import parse_script, write_json
+from workflow_contracts import parse_script, phase_identity, write_json
+from content_templates import template_names
 
 
-PHASE_NAMES = ["开场共情", "底层病灶", "核心模型", "实战工具", "哲学升华"]
 
 
 def _dotenv(root):
@@ -119,19 +119,26 @@ class DeepSeekProvider:
         return _extract_json(self._call(system, task.get("topic_request", "")))
 
     def _copy(self, task):
+        template = task.get("content_template")
+        phase_names = template_names(template)
+        guidance = (template or {}).get("guidance", {}).get("copy", "")
         system = ("你是听书解读内容策划。只输出 JSON：thesis, audience_promise, "
                   "claims(array), sections(array exactly 5)。每个 section 含 name, "
                   "objective, key_points(array), examples(array), action。五段依次为："
-                  + "、".join(PHASE_NAMES))
+                  + "、".join(phase_names) + "。结构指导：" + guidance)
         return _extract_json(self._call(
-            system, json.dumps(task["topic"], ensure_ascii=False)))
+            system, json.dumps({"topic": task["topic"],
+                                "content_template": template}, ensure_ascii=False)))
 
     def _script(self, task):
+        template = task.get("content_template")
+        phase_names = template_names(template)
+        guidance = (template or {}).get("guidance", {}).get("script", "")
         system = ("你是中文听书长视频编剧。输出纯文本，不用代码块。严格使用 # TITLE、"
-                  "五个 # PHASE nn · 名称、# CARD/# QUOTE/# TABLE/# STEPS 和 # END；"
-                  "非 PHASE 块必须有 voice：。总口播 3800-4500 字。")
+                  "五个 # PHASE nn · " + "、".join(phase_names) + "、# CARD/# QUOTE/# TABLE/# STEPS 和 # END；"
+                  "非 PHASE 块必须有 voice：。总口播 3800-4500 字。结构指导：" + guidance)
         return self._call(system, json.dumps({"topic": task["topic"],
-                                               "copy": task["copy"]},
+                                               "copy": task["copy"], "content_template": task.get("content_template")},
                                               ensure_ascii=False))
 
     def _storyboard(self, task):
@@ -140,14 +147,17 @@ class DeepSeekProvider:
         direct_phase = task.get("phase_transition") == "direct"
         result = {"version": 1, "style": "provider-neutral semantic storyboard",
                   "blocks": []}
+        phase_segments = [x.get("segment", "insight") for x in
+                          task.get("content_template", {}).get("stages", [])]
         phase = "hook"
         for bi, block in enumerate(blocks):
             if block["type"] in ("PHASE", "END"):
                 if block["type"] == "PHASE":
-                    if "02" in block["head"] or "03" in block["head"]:
-                        phase = "insight"
-                    elif "04" in block["head"] or "05" in block["head"]:
-                        phase = "action"
+                    try:
+                        number, _ = phase_identity(block)
+                    except ValueError:
+                        number = 1
+                    phase = phase_segments[number - 1] if number <= len(phase_segments) else phase
                     description = (
                         f"章节过渡画面：{block['head']}，以环境和光线变化承接叙事。")
                 else:
@@ -171,10 +181,12 @@ class DeepSeekProvider:
             prompt = {"block_idx": bi, "type": block["type"],
                       "head": block["head"], "sentences": sentences,
                       "required_segment": phase}
+            guidance = (task.get("content_template", {}).get("guidance", {})
+                        .get("storyboard", ""))
             system = ("你是语义分镜师。只输出 JSON 数组，每项含 shot(wide/medium/close), "
                       "visual_description, sentence_ids(array), character_ids(array), "
                       "emotion, segment(hook/insight/action)。用 3-5 拍连续覆盖所有句子，"
-                      "每个句子只能出现一次；不得输出图片模型 Prompt 或 provider 字段。")
+                      "每个句子只能出现一次；不得输出图片模型 Prompt 或 provider 字段。画面指导：" + guidance)
             beats_raw = _extract_json(self._call(
                 system, json.dumps(prompt, ensure_ascii=False)))
             beats_raw = beats_raw.get("beats", []) if isinstance(beats_raw, dict) \

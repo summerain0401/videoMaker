@@ -27,6 +27,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 
 from PIL import Image, ImageDraw
 
@@ -126,10 +127,19 @@ def sh(*args):
 
 
 def probe_dur(path):
-    out = subprocess.check_output(
-        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
-         "-of", "csv=p=0", path])
-    return float(out.strip())
+    command = ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+               "-of", "csv=p=0", path]
+    # 外接盘上 ffmpeg 返回后元数据偶尔延迟可见；短暂重试避免把已写完的
+    # Azure 缓存误判为损坏，同时仍会把持续失败作为真实错误抛出。
+    last_error = None
+    for attempt in range(5):
+        try:
+            return float(subprocess.check_output(command).strip())
+        except subprocess.CalledProcessError as exc:
+            last_error = exc
+            if attempt < 4:
+                time.sleep(0.3)
+    raise last_error
 
 
 def parse_script():

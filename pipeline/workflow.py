@@ -19,6 +19,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import proj as PJ
+from content_templates import CONTENT_TEMPLATE_IDS, get_template, template_snapshot
 from providers import IMAGE_PROVIDERS, LLM_PROVIDERS, make_image, make_llm
 from workflow_contracts import (
     ALL_STAGES, APPROVAL_STAGES, STAGE_STATES, build_image_tasks,
@@ -114,6 +115,28 @@ def _style_anchor(project):
     return None
 
 
+def _run_style_anchor(state, project):
+    """优先使用本 run 已确认的首图锚点，避免项目配置回写影响候选包。"""
+    anchor = state.get("image_anchor")
+    if isinstance(anchor, dict) and anchor.get("path") and anchor.get("sha256"):
+        path = os.path.realpath(anchor["path"])
+        if os.path.isfile(path) and _sha256(path) == anchor["sha256"]:
+            return {"path": path, "sha256": anchor["sha256"]}
+    return _style_anchor(project)
+
+
+def _bootstrap_key(storyboard, project, characters, images_dir):
+    tasks = build_image_tasks(storyboard, project_meta(project), characters,
+                              images_dir)
+    if not tasks:
+        raise RuntimeError("正式分镜没有可生成的图片任务")
+    return tasks[0]["key"]
+
+
+def _task_image_path(paths, task):
+    return os.path.join(paths["images"], task["key"] + ".png")
+
+
 def locate_run(run_id, pid=None):
     projects = [project_for_id(pid)] if pid else [
         p for p in (os.path.join(PJ.PROJECTS_DIR, name)
@@ -136,6 +159,17 @@ def _upgrade_state_schema(paths, state):
     """为质量门禁引入前的历史 run 补齐兼容阶段。"""
     stages = state.setdefault("stages", {})
     changed = False
+    if "content_template" not in state:
+        state["content_template"] = template_snapshot(
+            project_meta(paths["project"]).get("content_template"))
+        changed = True
+    image_review = stages.get("image-review", {})
+    if (image_review.get("status") == "promoted" and
+            image_review.get("note") == "自动图片质量门禁通过" and
+            os.path.exists(paths["image-review"]) and
+            read_json(paths["image-review"]).get("manual_exception")):
+        image_review["note"] = "人工审核例外已确认并提升"
+        changed = True
     for stage in ALL_STAGES:
         if stage in stages:
             continue
@@ -172,12 +206,13 @@ def require_dependencies(state, stage):
         raise RuntimeError(f"阶段 {stage} 被阻断，需先提升：{', '.join(missing)}")
 
 
-def _storyboard_review(paths, project):
+def _storyboard_review(paths, project, content_template=None):
     """生成可追溯的确定性分镜审核结果。"""
     story = read_json(paths["storyboard"])
     script_path = formal_paths(project)["script"]
     with open(script_path, encoding="utf-8") as handle:
-        script_problems, _, blocks = validate_script(handle.read())
+        script_problems, _, blocks = validate_script(
+            handle.read(), content_template=content_template)
     issues = []
     for block in story.get("blocks", []):
         source = blocks[block.get("block_idx", -1)] if isinstance(block.get("block_idx"), int) and block.get("block_idx", -1) < len(blocks) else {}
@@ -233,6 +268,7 @@ def cmd_revise(args):
     state = {"version": STATE_VERSION, "run_id": run_id, "project_id": str(args.project),
              "created_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
              "updated_at": "", "providers": source["providers"], "current_stage": "storyboard",
+             "content_template": source.get("content_template", get_template()),
              "lineage": {"source_run": args.source_run_id, "restart_stage": "storyboard",
                          "inherited_assets": {stage: {"path": os.path.abspath(formal[stage]),
                              "sha256": _sha256(formal[stage])} for stage in ("topic", "copy", "script")}},
@@ -271,6 +307,8 @@ def cmd_create(args):
            for s in existing_states):
         raise RuntimeError("项目存在活动 run，禁止修改 provider 配置")
     meta["providers"] = proposed
+    meta["content_template"] = get_template(
+        getattr(args, "content_template", None))["id"]
     write_json(meta_path, meta)
     request = os.path.join(project, "input", "topic_request.md")
     if not os.path.exists(request):
@@ -280,6 +318,7 @@ def cmd_create(args):
                     "## 希望解决的问题\n\n## 排除方向\n\n"
                     "## 候选书池（可选）\n\n")
     print(json.dumps({"project": project, "providers": proposed,
+                      "content_template": meta["content_template"],
                       "topic_request": request}, ensure_ascii=False, indent=2))
 
 
@@ -291,6 +330,7 @@ def cmd_init(args):
     if problems:
         raise ValueError("；".join(problems))
     providers = normalize_providers(configured)
+    content_template = template_snapshot(meta.get("content_template"))
     run_id = args.run_id or now_run_id()
     paths = state_paths(project, run_id)
     if os.path.exists(paths["state"]):
@@ -304,6 +344,7 @@ def cmd_init(args):
         "project_id": str(args.project),
         "created_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "updated_at": "", "providers": providers,
+        "content_template": content_template,
         "current_stage": "topic", "stages": statuses,
     }
     save_state(paths, state)
@@ -314,13 +355,15 @@ def cmd_init(args):
 def build_task(paths, state, stage):
     project = paths["project"]
     formal = formal_paths(project)
+    content_template = template_snapshot(state.get("content_template"))
+    names = [x["name"] for x in content_template["stages"]]
     if stage == "topic":
         request = os.path.join(project, "input", "topic_request.md")
         with open(request, encoding="utf-8") as handle:
             request_text = handle.read()
         return {"stage": stage, "topic_request": request_text,
                 "candidate_path": paths[stage],
-                "output_contract": {
+                "content_template": content_template, "output_contract": {
                     "type": "json",
                     "top_level": ["candidates", "selected_id"],
                     "candidate_fields": [
@@ -332,19 +375,19 @@ def build_task(paths, state, stage):
     if stage == "copy":
         return {"stage": stage, "topic": read_json(formal["topic"]),
                 "candidate_path": paths[stage],
-                "output_contract": {
+                "content_template": content_template, "output_contract": {
                     "type": "json",
                     "fields": ["thesis", "audience_promise", "claims", "sections"],
-                    "requirements": "sections 恰好五段，每段含 name/objective/"
+                    "requirements": "sections 恰好五段，阶段名依次为" + "、".join(names) + "，每段含 name/objective/"
                                     "key_points/examples/action",
                 }}
     if stage == "script":
         return {"stage": stage, "topic": read_json(formal["topic"]),
                 "copy": read_json(formal["copy"]),
                 "candidate_path": paths[stage],
-                "output_contract": {
+                "content_template": content_template, "output_contract": {
                     "type": "text", "voice_chars": [3800, 4500],
-                    "requirements": "# TITLE；五个 # PHASE nn · 名称；内容块用"
+                    "requirements": "# TITLE；五个 # PHASE nn · " + "、".join(names) + "；内容块用"
                                     " # CARD/# QUOTE/# TABLE/# STEPS；以 # END 结束；"
                                     "所有非 PHASE/END 内容块必须含 voice：",
                 }}
@@ -353,7 +396,7 @@ def build_task(paths, state, stage):
             script = f.read()
         phase_transition = (project_meta(project).get("visual_style") or {}).get(
             "phase_transition", "card")
-        return {"stage": stage, "script_text": script,
+        return {"stage": stage, "script_text": script, "content_template": content_template,
                 "characters_path": os.path.join(ROOT, "assets", "characters.json"),
                 "candidate_path": paths[stage],
                 "phase_transition": phase_transition,
@@ -400,7 +443,7 @@ def cmd_run(args):
     require_dependencies(state, stage)
     project = paths["project"]
     if stage == "storyboard-review":
-        report = _storyboard_review(paths, project)
+        report = _storyboard_review(paths, project, state.get("content_template"))
         transition(state, stage, "generated", "自动分镜质量审核已生成", paths["storyboard-review"])
         save_state(paths, state)
         print(json.dumps(report, ensure_ascii=False, indent=2))
@@ -437,16 +480,35 @@ def cmd_run(args):
         storyboard = read_json(formal_paths(project)["storyboard"])
         chars_path = os.path.join(ROOT, "assets", "characters.json")
         characters = read_json(chars_path) if os.path.exists(chars_path) else {}
+        anchor = _run_style_anchor(state, project)
+        bootstrap_key = None
+        if not anchor:
+            bootstrap_key = _bootstrap_key(storyboard, project, characters,
+                                           paths["images"])
         tasks = build_image_tasks(storyboard, project_meta(project), characters,
-                                  paths["images"])
-        selected_tasks = tasks
+                                  paths["images"], anchor,
+                                  bootstrap_anchor_key=bootstrap_key)
+        # 新项目没有锚点时，只生成首张可审核候选。选定后才生成其余图片，
+        # 防止在风格尚未确认前消耗整批图片额度。
+        if bootstrap_key:
+            selected_tasks = [task for task in tasks if task["key"] == bootstrap_key]
+            write_json(paths["image_tasks"], {"tasks": selected_tasks,
+                                              "mode": "bootstrap",
+                                              "bootstrap_key": bootstrap_key})
+        else:
+            selected_tasks = [task for task in tasks
+                              if not os.path.exists(_task_image_path(paths, task))]
+            write_json(paths["image_tasks"], {"tasks": tasks,
+                                              "mode": "full",
+                                              "bootstrap_key": state.get("image_anchor", {}).get("key")})
         if args.beats:
             wanted = set(args.beats)
             unknown = wanted - {task["key"] for task in tasks}
             if unknown:
                 raise ValueError("未知图片任务：" + ", ".join(sorted(unknown)))
+            if bootstrap_key and wanted != {bootstrap_key}:
+                raise RuntimeError("尚未确认首图锚点；首次只能生成 " + bootstrap_key)
             selected_tasks = [task for task in tasks if task["key"] in wanted]
-        write_json(paths["image_tasks"], {"tasks": tasks})
         provider = make_image(state["providers"]["image"], ROOT)
         try:
             result = provider.generate(selected_tasks)
@@ -492,20 +554,82 @@ def cmd_select_topic(args):
     print(f"已选择 topic：{args.candidate_id}")
 
 
-def _verify_images(paths, project):
+def cmd_select_image_anchor(args):
+    """确认首张候选为 run 级视觉锚点；不自动提升任何正式图片。"""
+    paths, state = locate_run(args.run_id, args.project)
+    ensure_active_run(state, "select-image-anchor")
+    packet = read_json(paths["image_tasks"])
+    if packet.get("mode") != "bootstrap":
+        raise RuntimeError("当前 run 不处于首图锚点选择阶段")
+    task = next((item for item in packet.get("tasks", [])
+                 if item.get("key") == args.key), None)
+    if not task or args.key != packet.get("bootstrap_key"):
+        raise ValueError("只能选择当前 bootstrap 图片作为视觉锚点")
+    path = _task_image_path(paths, task)
+    if not os.path.isfile(path):
+        raise FileNotFoundError(f"首图候选不存在：{path}")
+    try:
+        with Image.open(path) as image:
+            if abs(image.width / image.height - 16 / 9) > 0.02:
+                raise RuntimeError("首图候选比例不是 16:9")
+    except OSError as exc:
+        raise RuntimeError(f"首图候选无法读取：{exc}") from exc
+    state["image_anchor"] = {"key": args.key, "path": os.path.realpath(path),
+                             "sha256": _sha256(path), "selected_at":
+                             datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                             "mode": "bootstrap_candidate"}
+    transition(state, "images", "pending",
+               f"已选择首图锚点 {args.key}；请重新运行 images 生成剩余图片",
+               paths["image_tasks"])
+    save_state(paths, state)
+    print(json.dumps(state["image_anchor"], ensure_ascii=False, indent=2))
+
+
+def _valid_manual_image_exception(paths):
+    """仅在任务包和每张候选图未变时，人工例外才继续有效。"""
+    if not os.path.exists(paths["image-review"]):
+        return None
+    report = read_json(paths["image-review"])
+    approval = report.get("manual_exception")
+    if report.get("verdict") != "pass" or not isinstance(approval, dict):
+        return None
+    if report.get("source_sha256") != _sha256(paths["image_tasks"]):
+        return None
+    image_hashes = report.get("image_sha256") or {}
+    if not image_hashes:
+        return None
+    for key, expected in image_hashes.items():
+        path = os.path.join(paths["images"], key + ".png")
+        if not os.path.isfile(path) or _sha256(path) != expected:
+            return None
+    return report
+
+
+def _verify_images(paths, project, state=None):
     story = read_json(formal_paths(project)["storyboard"])
     chars_path = os.path.join(ROOT, "assets", "characters.json")
     characters = read_json(chars_path) if os.path.exists(chars_path) else {}
-    tasks = build_image_tasks(story, project_meta(project), characters, paths["images"], _style_anchor(project))
+    anchor = _run_style_anchor(state or {}, project)
+    bootstrap_key = (state or {}).get("image_anchor", {}).get("key")
+    tasks = build_image_tasks(story, project_meta(project), characters,
+                              paths["images"], anchor,
+                              bootstrap_anchor_key=bootstrap_key)
     problems = []
-    if not _style_anchor(project):
+    exception = _valid_manual_image_exception(paths)
+    if not anchor and not exception:
         problems.append("缺少项目视觉锚点图片，禁止图片审核和提升")
     packet = read_json(paths["image_tasks"]) if os.path.exists(
         paths["image_tasks"]) else {"tasks": tasks}
     packet_tasks = packet.get("tasks") if isinstance(packet, dict) else None
     if not isinstance(packet_tasks, list):
         return ["图片任务包无效：tasks 必须是数组"]
-    problems.extend(_image_task_packet_problems(tasks, packet_tasks))
+    packet_problems = _image_task_packet_problems(tasks, packet_tasks)
+    if exception:
+        # 例外只能豁免历史首批图与后来锚点配置之间的来源差异；提示词、尺寸、
+        # 文件完整性和重复性检查仍保持强制。
+        packet_problems = [item for item in packet_problems
+                           if not item.startswith("图片任务被改写：")]
+    problems.extend(packet_problems)
     task_by_key = {task.get("key"): task for task in packet_tasks
                    if isinstance(task, dict)}
     fingerprints = []
@@ -580,6 +704,64 @@ def _image_review(paths, project):
     return report
 
 
+def cmd_image_review_exception(args):
+    """记录用户已完成的人工图片审核，且将审批严格绑定到候选文件。"""
+    paths, state = locate_run(args.run_id, args.project)
+    ensure_active_run(state, "image-review-exception")
+    if not args.reason or not args.reason.strip():
+        raise ValueError("人工审核例外必须说明 --reason")
+    if not os.path.exists(paths["image_tasks"]):
+        raise RuntimeError("缺少 image_tasks.json，无法建立可追溯例外")
+    packet = read_json(paths["image_tasks"])
+    tasks = packet.get("tasks") if isinstance(packet, dict) else None
+    if not isinstance(tasks, list) or not tasks:
+        raise RuntimeError("图片任务包无效，无法建立可追溯例外")
+    hashes = {}
+    beats = []
+    for task in tasks:
+        key = task.get("key")
+        if not key:
+            raise RuntimeError("图片任务缺少 key")
+        path = _task_image_path(paths, task)
+        if not os.path.isfile(path):
+            raise FileNotFoundError(f"候选图片不存在：{path}")
+        try:
+            with Image.open(path) as image:
+                if abs(image.width / image.height - 16 / 9) > 0.02:
+                    raise RuntimeError(f"候选图片比例不是 16:9：{key}")
+        except OSError as exc:
+            raise RuntimeError(f"候选图片无法读取：{key}: {exc}") from exc
+        hashes[key] = _sha256(path)
+        beats.append({"key": key, "verdict": "pass", "issues": [],
+                      "style_verdict": "manual_pass",
+                      "character_verdict": "manual_pass",
+                      "semantic_verdict": "manual_pass",
+                      "safety_verdict": "manual_pass"})
+    report = {
+        "version": 2,
+        "source_sha256": _sha256(paths["image_tasks"]),
+        "image_sha256": hashes,
+        "reviewer_required": True,
+        "verdict": "pass",
+        "contract": {"writer": "manual_reviewer", "required_fields": [
+            "style_verdict", "character_verdict", "semantic_verdict",
+            "safety_verdict"]},
+        "manual_exception": {
+            "reason": args.reason.strip(),
+            "approved_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "waived_checks": ["project_visual_anchor_missing_at_generation",
+                              "image_task_anchor_provenance"],
+            "scope": "仅豁免锚点生成时序；不豁免任务包哈希、图片哈希、比例、可读性或重复性检查",
+        },
+        "beats": beats,
+        "issues": [],
+    }
+    write_json(paths["image-review"], report)
+    transition(state, "image-review", "generated", "已记录人工审核例外", paths["image-review"])
+    save_state(paths, state)
+    print(json.dumps(report["manual_exception"], ensure_ascii=False, indent=2))
+
+
 def _image_task_packet_problems(expected_tasks, packet_tasks):
     """候选图片必须使用正式分镜重新构建出的原始任务，不接受人工改写。"""
     expected_keys = [task["key"] for task in expected_tasks]
@@ -637,13 +819,13 @@ def cmd_verify(args):
     if stage == "topic":
         problems = validate_topic(read_json(paths[stage]), require_selection=True)
     elif stage == "copy":
-        problems = validate_copy(read_json(paths[stage]))
+        problems = validate_copy(read_json(paths[stage]), state.get("content_template"))
     elif stage == "script":
         with open(paths[stage], encoding="utf-8") as f:
-            problems, _, _ = validate_script(f.read())
+            problems, _, _ = validate_script(f.read(), content_template=state.get("content_template"))
     elif stage == "storyboard":
         with open(formal_paths(project)["script"], encoding="utf-8") as f:
-            script_problems, _, blocks = validate_script(f.read())
+            script_problems, _, blocks = validate_script(f.read(), content_template=state.get("content_template"))
         chars_path = os.path.join(ROOT, "assets", "characters.json")
         characters = read_json(chars_path) if os.path.exists(chars_path) else {}
         raw_characters = characters.get("characters", characters)
@@ -681,7 +863,7 @@ def cmd_verify(args):
                     if not required.issubset(beat):
                         problems.append(f"{beat.get('key')}: 视觉审核契约字段不完整")
     elif stage == "images":
-        problems = _verify_images(paths, project)
+        problems = _verify_images(paths, project, state)
     else:
         raise ValueError("只有需人工确认的阶段支持 verify")
     if problems:
@@ -735,7 +917,9 @@ def cmd_promote(args):
             raise RuntimeError("image-review 源任务已变化，禁止提升")
         if report.get("verdict") != "pass":
             raise RuntimeError("image-review 未通过，禁止提升")
-        transition(state, stage, "promoted", "自动图片质量门禁通过", paths[stage])
+        note = ("人工审核例外已确认并提升" if report.get("manual_exception")
+                else "自动图片质量门禁通过")
+        transition(state, stage, "promoted", note, paths[stage])
         unlock(state); save_state(paths, state); print(f"{stage} 已提升"); return
     formal = formal_paths(project)
     if stage == "topic":
@@ -786,6 +970,17 @@ def cmd_promote(args):
                 f"{len(existing)} 张正式图片已存在；明确替换时使用 --replace")
         for source, target in sources_targets:
             backup_and_copy(source, target, args.run_id, args.replace)
+        anchor_key = state.get("image_anchor", {}).get("key") or tasks[0]["key"]
+        anchor_path = os.path.join(formal["images"], anchor_key + ".png")
+        if os.path.isfile(anchor_path):
+            meta = project_meta(project)
+            visual = dict(meta.get("visual_style") or {})
+            visual["style_anchor"] = {
+                "path": os.path.realpath(anchor_path),
+                "purpose": "已提升的项目视觉锚点",
+            }
+            meta["visual_style"] = visual
+            write_json(os.path.join(project, "project.json"), meta)
     else:
         raise ValueError(stage)
     transition(state, stage, "promoted", "已人工确认并提升")
@@ -1222,6 +1417,8 @@ def parser():
     create.add_argument("--image-model")
     create.add_argument("--azure-voice",
                         default="zh-CN-Xiaochen:DragonHDFlashLatestNeural")
+    create.add_argument("--content-template", choices=CONTENT_TEMPLATE_IDS,
+                        default="classic_insight_v1")
     create.set_defaults(func=cmd_create)
     init = sub.add_parser("init", help="创建可恢复 run")
     init.add_argument("--project", required=True)
@@ -1246,6 +1443,19 @@ def parser():
     select.add_argument("candidate_id")
     select.add_argument("--project")
     select.set_defaults(func=cmd_select_topic)
+    select_anchor = sub.add_parser("select-image-anchor",
+                                   help="确认首张候选为本 run 视觉锚点")
+    select_anchor.add_argument("run_id")
+    select_anchor.add_argument("key")
+    select_anchor.add_argument("--project")
+    select_anchor.set_defaults(func=cmd_select_image_anchor)
+    image_exception = sub.add_parser(
+        "image-review-exception",
+        help="记录哈希绑定的人工图片审核例外（不自动提升）")
+    image_exception.add_argument("run_id")
+    image_exception.add_argument("--project")
+    image_exception.add_argument("--reason", required=True)
+    image_exception.set_defaults(func=cmd_image_review_exception)
     verify = sub.add_parser("verify", help="校验候选阶段")
     verify.add_argument("run_id")
     verify.add_argument("stage", choices=APPROVAL_STAGES)

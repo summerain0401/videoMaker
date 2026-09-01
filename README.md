@@ -25,7 +25,8 @@ topic → copy → script → storyboard → ImageTask → images
 ```bash
 PY=/Users/spring/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3
 
-$PY pipeline/workflow.py create --project 003 --llm codex --image imagegen
+$PY pipeline/workflow.py create --project 003 --llm codex --image imagegen \
+  --content-template story_journey_v1
 # 编辑 projects/003_新项目/input/topic_request.md
 $PY pipeline/workflow.py init --project 003
 $PY pipeline/workflow.py run <run_id> topic
@@ -39,12 +40,22 @@ $PY pipeline/workflow.py promote <run_id> topic
 ```bash
 $PY pipeline/workflow.py run <run_id> voice
 $PY pipeline/workflow.py run <run_id> images
+# 新项目首次仅生成一张首图候选；人工确认其风格后固定为本 run 锚点。
+$PY pipeline/workflow.py select-image-anchor <run_id> <首图_key>
+$PY pipeline/workflow.py run <run_id> images
 $PY pipeline/workflow.py run <run_id> render
 $PY pipeline/workflow.py run <run_id> qa
 $PY pipeline/workflow.py status <run_id>
 ```
 
 Codex 和 ImageGen 是交互式适配器：`run` 写任务包并进入 `awaiting_external`，由 `$video-maker-production` 读取任务包并写候选文件。DeepSeek 和万相直接调用 API，但候选路径和正式契约完全相同。
+
+首次图片没有既有视觉锚点时，工作流只生成一张首图候选；执行
+`select-image-anchor` 后会把其路径和 SHA-256 冻结在 run 状态中，第二次
+`run images` 才生成余下图片。正常图片审核仍需 `run image-review`、人工写入
+审核结果、`verify image-review` 后提升。仅对已经完成逐张人工审核的历史候选，
+可使用 `image-review-exception <run_id> --reason "..."` 写入哈希绑定的例外记录；
+它只豁免首批锚点时序，不会绕过任务包、候选图片、比例或重复性校验，也不会自动提升。
 
 ## 正式契约
 
@@ -56,6 +67,16 @@ Codex 和 ImageGen 是交互式适配器：`run` 写任务包并进入 `awaiting
 - `storyboard.json`：块/拍、句子覆盖、语义画面、角色、景别、情绪、`segment`；不含 provider、模型 Prompt 或 negative prompt。
 
 `project.json.providers` 是唯一提供商配置源。API 密钥只从环境变量或根目录 `.env` 读取。
+
+## 内容模板
+
+项目创建时可通过 `--content-template` 选择讲述结构；该选择会写入
+`project.json`，并在 `init` 时连同版本与哈希快照进每个 run。已有项目未配置时
+默认采用 `classic_insight_v1`。当前内置模板为：
+
+- `classic_insight_v1`：共情、病灶、模型、工具、升华。
+- `story_journey_v1`：人物处境、冲突升级、关键发现、转折、落地启示。
+- `practical_workshop_v1`：问题诊断、核心原则、操作步骤、案例演练、行动清单。
 
 ## 验证
 
