@@ -32,12 +32,10 @@ class PublishingContractTests(unittest.TestCase):
     def test_cover_composer_accepts_reference_information_layers(self):
         args = workflow.parser().parse_args([
             "publish-compose-cover", "run", "pub", "--project", "001",
-            "--cover-id", "cover_0", "--variant", "layout_v2",
-            "--title", "暖白钩子\n金色钩子", "--subtitle", "解释短句",
-            "--bookline", "《书名》｜作者"])
-        self.assertEqual(args.title.split("\n"), ["暖白钩子", "金色钩子"])
-        self.assertEqual(args.subtitle, "解释短句")
-        self.assertEqual(args.bookline, "《书名》｜作者")
+            "--cover-id", "cover_0", "--variant", "layout_v2"])
+        self.assertFalse(hasattr(args, "title"))
+        self.assertFalse(hasattr(args, "subtitle"))
+        self.assertFalse(hasattr(args, "bookline"))
         self.assertEqual(args.variant, "layout_v2")
 
     def brand(self):

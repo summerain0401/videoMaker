@@ -80,9 +80,12 @@ def validate_brand(data):
 
 def validate_package(data, sources=None, script_text=None, copy_data=None, project_id=None, video_run_id=None, revision=None, artifact=None, brand_hash=None, cover_style_references=None, project_root=None):
     errors = []
-    required = {"version", "publish_id", "channel_id", "source", "fact_core", "cover", "platforms"}
-    if set(data) != required: errors.append("发布包顶层字段必须严格匹配 canonical contract")
     v2 = data.get("version") == 2
+    v3 = data.get("version") == 3
+    required = {"version", "publish_id", "channel_id", "source", "fact_core", "cover", "platforms"}
+    if v3:
+        required |= {"visual_snapshot", "character_library_hash", "style_anchor"}
+    if set(data) != required: errors.append("发布包顶层字段必须严格匹配 canonical contract")
     source = data.get("source", {})
     for key in ("project_id", "video_run_id", "revision", "video_artifact", "hashes"):
         if key not in source: errors.append("source 字段不完整")
@@ -100,6 +103,17 @@ def validate_package(data, sources=None, script_text=None, copy_data=None, proje
         for evidence in fact.get("script_evidence", []):
             if not isinstance(evidence, str) or evidence not in script_text: errors.append("script_evidence 不是 script 原文子串")
     cover = data.get("cover", {})
+    if v3:
+        snapshot = data.get("visual_snapshot", {})
+        if (not isinstance(snapshot, dict) or
+                not isinstance(snapshot.get("config"), dict) or
+                not snapshot.get("sha256")):
+            errors.append("V3 必须包含视觉配置快照及 hash")
+        if not data.get("character_library_hash"):
+            errors.append("V3 必须包含角色库 hash")
+        anchor = data.get("style_anchor")
+        if not isinstance(anchor, dict) or not anchor.get("id") or not anchor.get("sha256"):
+            errors.append("V3 必须包含唯一风格锚点")
     for key in ("aspect_ratio", "copy_lines", "concept", "subject", "composition", "contrast", "brand_anchor", "safe_zone", "forbidden_elements", "style_references", "style_requirements"):
         if key not in cover: errors.append("cover 字段不完整")
     refs = cover.get("style_references", [])
@@ -118,11 +132,11 @@ def validate_package(data, sources=None, script_text=None, copy_data=None, proje
     lines = cover.get("copy_lines", [])
     if cover.get("aspect_ratio") != "16:9" or not 1 <= len(lines) <= 2 or sum(len(x) for x in lines) > 12 or any(len(x) > 8 for x in lines): errors.append("封面文案或比例不符合限制")
     platforms = data.get("platforms", {})
-    expected_platforms = YOUTUBE_ONLY if v2 else PLATFORMS
+    expected_platforms = YOUTUBE_ONLY if (v2 or v3) else PLATFORMS
     if set(platforms) != set(expected_platforms): errors.append("platforms 必须为 YouTube-only 嵌套对象" if v2 else "platforms 必须为四平台嵌套对象")
     for p in expected_platforms:
         item = platforms.get(p, {})
-        if v2:
+        if v2 or v3:
             titles = item.get("titles", item.get("alternate_titles", []))
             keywords = item.get("keywords", [])
             if len(titles) != 5: errors.append("youtube 必须有 5 个标题候选")
@@ -151,7 +165,7 @@ def validate_package(data, sources=None, script_text=None, copy_data=None, proje
             if len(item.get("alternate_titles", [])) != 2: errors.append(f"{p} 必须有 2 个备选标题")
             if not 3 <= len(item.get("tags", [])) <= 8: errors.append(f"{p} 标签必须 3-8 个")
             if not all(item.get(k) for k in ("primary_title", "description", "cta")): errors.append(f"{p} 发布字段不完整")
-    if v2:
+    if v2 or v3:
         cover = data.get("cover", {})
         candidates = cover.get("candidates", [])
         if len(candidates) != 2: errors.append("封面必须有2个候选")
@@ -169,5 +183,23 @@ def validate_package(data, sources=None, script_text=None, copy_data=None, proje
                     if sha256(full) != candidate.get("sha256"):
                         errors.append("封面成品 hash 不匹配")
                 except Exception: errors.append("封面文件无效")
+            if v3:
+                task = candidate.get("cover_task", {})
+                text = candidate.get("text", {})
+                required_text = ("title_lines", "subtitle", "book_title", "author")
+                if not isinstance(text, dict) or any(not text.get(k) for k in required_text):
+                    errors.append("V3 封面文字字段不完整")
+                if not isinstance(text.get("title_lines"), list) or len(text.get("title_lines", [])) != 2:
+                    errors.append("V3 封面标题必须严格为两行")
+                if candidate.get("layout_id") != "reference_006_v1": errors.append("V3 封面必须绑定 reference_006_v1")
+                if (not isinstance(task, dict) or not task.get("task_sha256") or
+                        not task.get("prompt_sha256") or not task.get("reference_images") or
+                        not isinstance(task.get("character_ids"), list)):
+                    errors.append("V3 封面 CoverTask hash 不完整")
+                review = candidate.get("visual_review", {})
+                if not isinstance(review, dict) or review.get("status") != "passed" or any(review.get(k) is not True for k in ("style", "character", "semantic", "layout", "thumbnail_legibility")):
+                    errors.append("V3 封面必须通过绑定 hash 的视觉审核")
+                elif review.get("asset_sha256") != candidate.get("sha256"):
+                    errors.append("V3 封面视觉审核 hash 已过期")
     errors += scan_compliance(data)
     return sorted(set(errors))

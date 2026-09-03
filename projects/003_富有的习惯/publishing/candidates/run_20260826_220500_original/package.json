@@ -1,7 +1,18 @@
 {
-  "version": 1,
-  "publish_id": "publish_003_original",
+  "version": 3,
+  "publish_id": "pub_20260903_003_youtube",
   "channel_id": "main",
+  "visual_snapshot": {
+    "config": {},
+    "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  "character_library_hash": "23d5aba101b00d184b7117b3181c9ff314a3de82dc2c296b29820a188afdaa43",
+  "style_anchor": {
+    "id": "00_0",
+    "path": "assets/scenes/00_0.png",
+    "sha256": "7786f1f088212d807f7987ba91730eddb762e51087bad2543b5f2e4f17232e61",
+    "purpose": "正式成片风格与角色身份参考"
+  },
   "source": {
     "project_id": "003",
     "video_run_id": "run_20260826_220500",
@@ -16,35 +27,201 @@
     }
   },
   "fact_core": {
-    "summary": "《富有的习惯》不是把财富归结为单一秘诀，而是提醒我们识别那些持续耗损时间、注意力与现金流的日常模式，并通过记录、余量和延迟满足逐步扩大选择空间。",
-    "claim_refs": [0, 1, 2, 3],
+    "summary": "《富有的习惯》不是承诺快速致富，而是帮助忙碌的上班族识别持续漏掉时间、注意力和现金流的日常习惯，用记录、延迟决策与最小行动重新留出选择空间。",
+    "claim_refs": [
+      0,
+      1,
+      2,
+      3
+    ],
     "script_evidence": [
       "有些忙碌只能让今天勉强运转，有些习惯却在悄悄决定明天有没有选择。",
-      "预算的第一功能不是限制，而是照明。",
-      "延迟不是失去，是把选择权拿回来"
+      "找出那些让时间、注意力和现金流不断漏掉的穷忙习惯，再用五个小步骤，把生活重新留出一点余量。"
     ]
   },
   "cover": {
     "aspect_ratio": "16:9",
-    "copy_lines": ["忙而不富", "卡在哪？"],
-    "concept": "用忙碌却没有余量的瞬间制造反差：主角被会议、消息与账单象征包围，同时望向一块留白的日历格，表达从穷忙中夺回选择权。",
-    "subject": "同一位疲惫年轻上班族，松开的领带、手提包与焦虑眼神保持正式场景中的角色身份。",
-    "composition": "主角置于画面偏左中景；右侧以会议便签、手机提醒与账单道具形成压力漩涡，右上留出两行短文案空间；底部中央避开关键人物与信息。",
-    "contrast": "深海军蓝背景与冷白压力道具形成高对比，以青绿色日历格和书页作为希望锚点。",
-    "brand_anchor": "沿用认知生财的深蓝、象牙白与青绿色，以及书页罗盘式的判断感。",
-    "safe_zone": "右上两行短文案；底部中央保持无关键信息，适配平台字幕与 UI 遮挡。",
-    "forbidden_elements": ["收益承诺", "K 线图", "密集表格", "悬浮大段文字", "水印", "不同画风或角色"],
-    "style_references": [
-      {"path": "assets/scenes/00_0.png", "sha256": "7786f1f088212d807f7987ba91730eddb762e51087bad2543b5f2e4f17232e61", "purpose": "正式成片风格与角色身份参考"},
-      {"path": "assets/scenes/00_1.png", "sha256": "4d78ee729e56fa609c407953a14e1a913d7af692707bb68bb39adf7ab63915f1", "purpose": "正式成片风格与角色身份参考"},
-      {"path": "assets/scenes/00_2.png", "sha256": "7b829cbdb3eddd8a5b782b495d0a48404717dbc41f76c88b80282fc85ca74b90", "purpose": "正式成片风格与角色身份参考"}
+    "copy_lines": [
+      "别再穷忙",
+      "留住余量"
     ],
-    "style_requirements": "必须以三张正式场景图作为风格与角色身份参考，保持 2D chibi editorial 插画、粗净线条、哑光平涂、同一上班族外观与蓝绿冷色光影；禁止写实、3D、油画或换角色。"
+    "concept": "以左侧固定四层文字版式、右侧项目角色主体，呈现忙碌救火与主动留出余量的反差。",
+    "subject": "角色库 stressed_worker 从碎片待办与消费通知前抬头，转向一张清晰的时间、支出和学习三格清单。",
+    "composition": "左侧文字安全区使用 reference_006_v1；右侧为同一角色与少量时间、账本、储蓄罐线索。",
+    "contrast": "暖白首行、金色次行和书目信息；画面保持项目既有 2D chibi、粗净描边与哑光色块。",
+    "brand_anchor": "清醒、直接、可执行的机制拆解。",
+    "safe_zone": "左侧约四成仅承载文字，右侧人物脸部避开平台 UI。",
+    "forbidden_elements": [
+      "收益承诺",
+      "写实人物",
+      "非角色库人物",
+      "密集 UI",
+      "水印"
+    ],
+    "style_references": [
+      {
+        "id": "00_0",
+        "path": "assets/scenes/00_0.png",
+        "sha256": "7786f1f088212d807f7987ba91730eddb762e51087bad2543b5f2e4f17232e61",
+        "purpose": "正式成片风格与角色身份参考"
+      }
+    ],
+    "style_requirements": "人物只可使用 stressed_worker：整洁衬衫、松开的领带、疲惫眼神、手提包；必须继承锚点的 2D chibi 插画、粗净描边和哑光色块。文字固定为 reference_006_v1 四层信息结构。",
+    "candidates": [
+      {
+        "id": "cover_leak",
+        "concept": "从被救火待办、外卖与促销碎片围住，到开始记录时间和支出的转折。",
+        "layout_id": "reference_006_v1",
+        "text": {
+          "title_lines": [
+            "别再穷忙",
+            "留住余量"
+          ],
+          "subtitle": "越努力越焦虑，问题可能不在努力",
+          "book_title": "富有的习惯",
+          "author": "Tom Corley"
+        },
+        "cover_task": {
+          "reference_images": [
+            "assets/scenes/00_0.png"
+          ],
+          "character_ids": [
+            "stressed_worker"
+          ],
+          "prompt": "Canonical 003 style anchor; stressed_worker only; right-side subject, left typography safe zone; no text, no watermark.",
+          "prompt_sha256": "pending_generation",
+          "task_sha256": "pending_generation"
+        },
+        "base_path": "publishing/candidates/run_20260826_220500_original/covers/cover_leak_v3_base.png",
+        "base_sha256": "6328579fc3956c1429a751e9cf5b8bc609e389a944dc784b8c95ef3b647c9537",
+        "final_path": "publishing/candidates/run_20260826_220500_original/covers/cover_leak_v3.png",
+        "sha256": "673ef3d50d473e2d00adfd748edf96cfa4f9cd972905e0c50be07483d5d47b20",
+        "visual_review": {
+          "status": "passed",
+          "asset_sha256": "673ef3d50d473e2d00adfd748edf96cfa4f9cd972905e0c50be07483d5d47b20",
+          "style": true,
+          "character": true,
+          "semantic": true,
+          "layout": true,
+          "thumbnail_legibility": true
+        }
+      },
+      {
+        "id": "cover_choice",
+        "concept": "角色在一周账本、学习笔记与延迟消费清单之间，选择一项最小行动。",
+        "layout_id": "reference_006_v1",
+        "text": {
+          "title_lines": [
+            "忙而没剩下",
+            "重建习惯"
+          ],
+          "subtitle": "停止自动消耗，把选择权留给未来",
+          "book_title": "富有的习惯",
+          "author": "Tom Corley"
+        },
+        "cover_task": {
+          "reference_images": [
+            "assets/scenes/00_0.png"
+          ],
+          "character_ids": [
+            "stressed_worker"
+          ],
+          "prompt": "Canonical 003 style anchor; stressed_worker only; right-side subject, left typography safe zone; no text, no watermark.",
+          "prompt_sha256": "pending_generation",
+          "task_sha256": "pending_generation"
+        },
+        "base_path": "publishing/candidates/run_20260826_220500_original/covers/cover_choice_v3_base.png",
+        "base_sha256": "33cc0f530baecb511d7d2247d4c883cfc6757d5c635c85fc807107d3631dd649",
+        "final_path": "publishing/candidates/run_20260826_220500_original/covers/cover_choice_v3.png",
+        "sha256": "d3e284bef0e3c25dc7e3c6b6d65efd2e7aaee6adc0bea0060d85131a31e7ca4d",
+        "visual_review": {
+          "status": "passed",
+          "asset_sha256": "d3e284bef0e3c25dc7e3c6b6d65efd2e7aaee6adc0bea0060d85131a31e7ca4d",
+          "style": true,
+          "character": true,
+          "semantic": true,
+          "layout": true,
+          "thumbnail_legibility": true
+        }
+      }
+    ],
+    "selected_cover_id": "cover_leak"
   },
   "platforms": {
-    "youtube": {"primary_title": "你不是不够努力，而是被“穷忙习惯”偷走了积累", "alternate_titles": ["《富有的习惯》：忙碌的人，为什么更难积累？", "摆脱穷忙：把时间和钱重新留给未来"], "description": "每天很忙，月底却没有余量？本期从《富有的习惯》出发，拆解注意力、现金流与即时满足如何让人陷入穷忙，并给出可从今天开始的小行动。", "tags": ["富有的习惯", "个人成长", "理财思维", "时间管理", "消费习惯"], "cta": "关注认知生财，一起看懂钱背后的规则。"},
-    "bilibili": {"primary_title": "你不是不够努力，而是被“穷忙习惯”偷走了积累", "alternate_titles": ["忙到没空变好：穷忙真正偷走了什么？", "从记录到余量：普通人的财富习惯"], "description": "忙不等于在前进。用一本书的视角，看清时间、注意力和现金流里的隐性漏点，把生活重新留出一点余量。", "tags": ["富有的习惯", "职场", "理财", "自我提升", "穷忙"], "cta": "关注认知生财，一起看懂钱背后的规则。"},
-    "douyin": {"primary_title": "忙而不富，问题可能不在努力", "alternate_titles": ["你被穷忙习惯困住了吗？", "财富习惯，先从停止穷忙开始"], "description": "别把忙碌当成前进。看清一个漏点，留下一点时间和余量。", "tags": ["穷忙", "财富习惯", "职场成长", "消费", "时间管理"], "cta": "关注认知生财，一起看懂钱背后的规则。"},
-    "wechat": {"primary_title": "忙而不富：你可能被“穷忙习惯”困住了", "alternate_titles": ["财富的复利，先从停止穷忙开始", "《富有的习惯》：给生活留出一点余量"], "description": "为什么每天很忙，生活却没有更稳？本期从《富有的习惯》出发，谈注意力、现金流和延迟满足如何帮助我们逐步找回选择权。", "tags": ["财富认知", "富有的习惯", "生活管理", "职场", "消费决策"], "cta": "关注认知生财，一起看懂钱背后的规则。"}
+    "youtube": {
+      "keywords": [
+        "富有的习惯",
+        "穷忙",
+        "财富习惯"
+      ],
+      "titles": [
+        {
+          "id": "title_pain",
+          "strategy": "pain_point",
+          "title": "富有的习惯：越努力越焦虑？5个穷忙习惯正在偷走你的时间、注意力与现金流，别让忙碌继续挤掉未来的选择和生活余量"
+        },
+        {
+          "id": "title_counter",
+          "strategy": "counter_intuitive",
+          "title": "富有的习惯：你缺的不是更拼命，而是停止自动消耗的生活系统，忙完依然没余量的人最该先看这一点和日常选择"
+        },
+        {
+          "id": "title_number",
+          "strategy": "number_solution",
+          "title": "富有的习惯5步练习：记录时间、看清钱流、延迟消费，把每天忙乱的一点点资源重新留给未来的自己与长期目标"
+        },
+        {
+          "id": "title_seo",
+          "strategy": "seo",
+          "title": "富有的习惯怎么养成？上班族摆脱穷忙、管理时间与消费的实用方法，从留出余量开始重建长期选择权和生活秩序"
+        },
+        {
+          "id": "title_emotion",
+          "strategy": "emotional_story",
+          "title": "富有的习惯让我不再用忙碌证明自己：从月底焦虑到看清每一次消耗，慢慢把生活还给真正重要的事与未来方向吧"
+        }
+      ],
+      "selected_title_id": "title_pain",
+      "description": {
+        "lead": "《富有的习惯》拆解穷忙如何持续消耗时间、注意力与现金流，帮助上班族用最小行动重新留出余量与选择权。",
+        "highlights": [
+          "🧭 区分维持、产出与消耗，找到第一个漏点",
+          "💰 用低压力记录看清钱到底流向哪里",
+          "⏳ 用24小时规则处理疲惫时的冲动消费",
+          "📝 每周只保留一个能持续的最小改变"
+        ],
+        "timestamps": [
+          {
+            "time": "00:00",
+            "title": "忙碌为何没有留下余量"
+          },
+          {
+            "time": "03:10",
+            "title": "第一个漏点：注意力"
+          },
+          {
+            "time": "06:20",
+            "title": "第二个漏点：看不见的钱流"
+          },
+          {
+            "time": "09:20",
+            "title": "第三个漏点：即时满足"
+          },
+          {
+            "time": "12:20",
+            "title": "用小循环替代一次性翻盘"
+          }
+        ],
+        "cta": "你最想先停止自动回应的哪一种忙？在评论区写下一个本周愿意尝试的最小行动。",
+        "resources": "📌 时间与支出记录模板：［工具链接待补］\n📚 延伸观看：［往期视频链接待补］",
+        "hashtags": [
+          "#富有的习惯",
+          "#穷忙",
+          "#财富习惯",
+          "#个人成长",
+          "#时间管理"
+        ]
+      }
+    }
   }
 }
