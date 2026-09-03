@@ -13,7 +13,7 @@ import subprocess
 import sys
 from collections import Counter
 
-from PIL import Image, ImageStat
+from PIL import Image, ImageStat, ImageDraw, ImageFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -1361,7 +1361,7 @@ def cmd_publish_init(args):
     if not os.path.exists(bp["brand"]): raise RuntimeError("频道 brand 尚未 promoted")
     revision = video.get("stages", {}).get("render", {}).get("revision") or "original"; pid = args.publish_id or now_run_id().replace("run_", "pub_")
     p = _publish_paths(project, args.video_run_id, revision, pid); os.makedirs(p["run"], exist_ok=True)
-    state = {"version": 1, "publish_id": pid, "video_run_id": args.video_run_id, "revision": revision, "status": "pending", "providers": video["providers"], "artifact": video["stages"]["render"]["artifact"], "updated_at": ""}
+    state = {"version": 2, "publish_id": pid, "video_run_id": args.video_run_id, "revision": revision, "status": "pending", "providers": video["providers"], "artifact": video["stages"]["render"]["artifact"], "updated_at": ""}
     write_json(p["state"], state); print(json.dumps({"publish_id": pid, "state": p["state"]}, ensure_ascii=False))
 
 
@@ -1370,7 +1370,7 @@ def cmd_publish_run(args):
     source = {k: read_json(v) if k != "script" else open(v, encoding="utf-8").read() for k, v in formal.items()}
     style_refs = _cover_style_references(project)
     hashes = source_hashes({**formal, "brand": brand})
-    task = {"stage": "publish", "source": {"topic": source["topic"], "copy": source["copy"], "script": source["script"], "storyboard": source["storyboard"], "brand": read_json(brand)}, "source_hashes": hashes, "cover_style_references": style_refs, "cover_visual_policy": "封面必须以 cover_style_references 中正式场景作为 style + character identity references，保持同一画风、角色设定、比例、线条、色彩与光影；禁止 photorealism、painterly realism、不同角色身份及与成片不一致的写实/极简/3D视觉。实际生成必须将这些文件作为 input references。", "candidate_path": p["candidate"], "output_contract": {"version": 1, "publish_id": "string", "channel_id": args.channel, "source": {"hashes": hashes}, "fact_core": {"summary": "string", "claim_refs": "copy.claims indexes", "script_evidence": "literal script substrings"}, "cover": {"aspect_ratio": "16:9", "style_references": "与任务参考完整一致", "style_requirements": "正式视觉一致性要求"}, "platforms": {p: {"primary_title": "string", "alternate_titles": 2, "description": "string", "tags": "3-8", "cta": "string"} for p in PLATFORMS}}}
+    task = {"stage": "publish", "source": {"topic": source["topic"], "copy": source["copy"], "script": source["script"], "storyboard": source["storyboard"], "brand": read_json(brand)}, "source_hashes": hashes, "cover_style_references": style_refs, "cover_visual_policy": "参考图仅用于信息层级与版式结构；视觉主题、主体、调色和场景必须服务当前视频内容，不得机械复刻参考图。生成两张16:9无关键文字底图，再以 Pillow 合成文字。", "candidate_path": p["candidate"], "output_contract": {"version": 2, "publish_id": "string", "channel_id": args.channel, "source": {"hashes": hashes}, "fact_core": {"summary": "string", "claim_refs": "copy.claims indexes", "script_evidence": "literal script substrings"}, "cover": {"aspect_ratio": "16:9", "candidates": 2, "selected_cover_id": "string"}, "platforms": {"youtube": {"keywords": ["string"], "titles": [{"id": "string", "strategy": "pain_point|counter_intuitive|number_solution|seo|emotional_story", "title": "50-60 chars"}], "selected_title_id": "string", "description": {"lead": "<=100 chars", "highlights": "3-4 emoji items", "timestamps": "4-6 from 00:00", "cta": "string", "resources": "placeholders", "hashtags": "3-5"}}}}}
     write_json(p["task"], task); provider = make_llm(state["providers"]["llm"], ROOT); result = provider.generate("publish", task, p["candidate"]); state["status"] = "awaiting_external" if result["mode"] == "interactive" else "generated"; save_state({"state": p["state"]}, state)
 
 
@@ -1383,14 +1383,139 @@ def cmd_publish_verify(args):
     state = read_json(p["state"]); state["status"] = "verified"; save_state({"state": p["state"]}, state); print("publish 校验通过")
 
 
+def cmd_publish_select(args):
+    """记录人工选择的 YouTube 标题与封面候选。"""
+    project = set_project(args.project); p = _publish_paths(project, args.video_run_id, args.revision, args.publish_id)
+    data = read_json(p["candidate"]); item = data.get("platforms", {}).get("youtube", {})
+    title_ids = {x.get("id") for x in item.get("titles", []) if isinstance(x, dict)}
+    cover_ids = {x.get("id") for x in data.get("cover", {}).get("candidates", []) if isinstance(x, dict)}
+    if args.title_id not in title_ids or args.cover_id not in cover_ids:
+        raise RuntimeError("标题或封面候选 ID 无效")
+    item["selected_title_id"] = args.title_id; data["platforms"]["youtube"] = item
+    data["cover"]["selected_cover_id"] = args.cover_id
+    write_json(p["candidate"], data)
+    state = read_json(p["state"])
+    if state.get("status") not in ("generated", "awaiting_external", "failed"): raise RuntimeError("发布当前状态不可选择")
+    state["status"] = "generated"; save_state({"state": p["state"]}, state); print("发布候选已选择")
+
+
+def cmd_publish_import_cover(args):
+    """安全导入封面底图到本次发布候选目录。"""
+    project = set_project(args.project); p = _publish_paths(project, args.video_run_id, args.revision, args.publish_id)
+    data = read_json(p["candidate"])
+    item = next((x for x in data.get("cover", {}).get("candidates", [])
+                 if x.get("id") == args.cover_id), None)
+    if item is None:
+        raise RuntimeError("封面候选 ID 无效")
+    if item.get("base_path") and not args.variant:
+        raise RuntimeError("封面底图已导入，禁止重复导入")
+    if args.variant and not re.fullmatch(r"[a-zA-Z0-9_-]+", args.variant):
+        raise RuntimeError("封面 variant 只能包含字母、数字、下划线或短横线")
+    with Image.open(args.input) as image:
+        if abs(image.width / image.height - 16 / 9) > 0.02:
+            raise RuntimeError("封面底图必须为16:9")
+        if image.width < 640: raise RuntimeError("封面底图分辨率过低")
+        outdir = os.path.join(os.path.dirname(p["candidate"]), "covers"); os.makedirs(outdir, exist_ok=True)
+        suffix = f"_{args.variant}" if args.variant else ""
+        dest = os.path.join(outdir, f"{args.cover_id}{suffix}_base.png")
+        if os.path.exists(dest):
+            raise RuntimeError("目标封面底图文件已存在，请使用新的 variant")
+        image.convert("RGB").save(dest, "PNG")
+    item["base_path"], item["base_sha256"] = os.path.relpath(dest, project), _sha256(dest)
+    write_json(p["candidate"], data)
+    print(dest)
+
+
+def cmd_publish_compose_cover(args):
+    """使用 Pillow 将封面文案按频道既定信息层级确定性合成。"""
+    project = set_project(args.project); p = _publish_paths(project, args.video_run_id, args.revision, args.publish_id)
+    data = read_json(p["candidate"])
+    item = next((x for x in data.get("cover", {}).get("candidates", [])
+                 if x.get("id") == args.cover_id), None)
+    if item is None or not item.get("base_path"):
+        raise RuntimeError("请先导入该候选封面的底图")
+    if item.get("final_path") and not args.variant:
+        raise RuntimeError("封面已合成，禁止重复合成")
+    if args.variant and not re.fullmatch(r"[a-zA-Z0-9_-]+", args.variant):
+        raise RuntimeError("封面 variant 只能包含字母、数字、下划线或短横线")
+    base = os.path.join(project, item["base_path"])
+    outdir = os.path.join(os.path.dirname(p["candidate"]), "covers"); os.makedirs(outdir, exist_ok=True)
+    with Image.open(base) as image:
+        image = image.convert("RGB").resize((1920, 1080), Image.Resampling.LANCZOS)
+        draw = ImageDraw.Draw(image)
+        font_path = os.path.join(ROOT, "assets", "fonts", "SourceHanSansCN-Heavy.otf")
+        if not os.path.exists(font_path):
+            font_path = "/System/Library/Fonts/PingFang.ttc"
+        if not os.path.exists(font_path):
+            raise RuntimeError("未找到可用的中文封面字体")
+        lines = args.title.split("\n")
+        if len(lines) != 2 or not all(lines):
+            raise RuntimeError("封面标题必须严格为两行非空文字，以换行分隔")
+
+        def cover_font(text, maximum, initial):
+            size = initial
+            while size > 56:
+                font = ImageFont.truetype(font_path, size)
+                if draw.textbbox((0, 0), text, font=font)[2] <= maximum:
+                    return font
+                size -= 2
+            return ImageFont.truetype(font_path, size)
+
+        # 与频道认可的 006 封面一致：左侧两行大钩子、解释句、分隔线和书籍信息。
+        # 底图没有关键文字，保证这些中文信息由本地字体稳定、可复现地输出。
+        primary = cover_font(lines[0], 900, 180)
+        secondary = cover_font(lines[1], 900, 180)
+        ink = (248, 246, 238)
+        gold = (246, 183, 76)
+        shadow = (5, 12, 24)
+        for text, y, font, fill in ((lines[0], 112, primary, ink),
+                                    (lines[1], 336, secondary, gold)):
+            draw.text((88, y), text, fill=shadow, font=font, stroke_width=4,
+                      stroke_fill=shadow)
+            draw.text((80, y - 8), text, fill=fill, font=font)
+        if args.subtitle:
+            subtitle = cover_font(args.subtitle, 900, 46)
+            draw.text((82, 674), args.subtitle, fill=ink, font=subtitle,
+                      stroke_width=2, stroke_fill=shadow)
+        if args.bookline:
+            bookline = cover_font(args.bookline, 900, 50)
+            draw.line((96, 784, 900, 784), fill=gold, width=3)
+            draw.ellipse((202, 775, 220, 793), fill=gold, outline=shadow, width=2)
+            draw.text((82, 822), args.bookline, fill=gold, font=bookline,
+                      stroke_width=2, stroke_fill=shadow)
+        suffix = f"_{args.variant}" if args.variant else ""
+        dest = os.path.join(outdir, f"{args.cover_id}{suffix}.png")
+        if os.path.exists(dest):
+            raise RuntimeError("目标封面文件已存在，请使用新的 variant")
+        image.save(dest, "PNG")
+    item["final_path"], item["sha256"] = os.path.relpath(dest, project), _sha256(dest)
+    write_json(p["candidate"], data)
+    print(dest)
+
+
 def cmd_publish_promote(args):
     project = set_project(args.project); p = _publish_paths(project, args.video_run_id, args.revision, args.publish_id); state = read_json(p["state"])
     if state.get("status") != "verified": raise RuntimeError("publish 尚未 verified")
-    data = read_json(p["candidate"]); os.makedirs(os.path.dirname(p["release"]), exist_ok=True); write_json(p["release"], data)
+    data = read_json(p["candidate"]); os.makedirs(os.path.dirname(p["release"]), exist_ok=True)
+    if data.get("version") == 2:
+        selected_cover = next(x for x in data["cover"]["candidates"]
+                              if x["id"] == data["cover"]["selected_cover_id"])
+        shutil.copy2(os.path.join(project, selected_cover["final_path"]),
+                     os.path.join(os.path.dirname(p["release"]), "cover.png"))
+    write_json(p["release"], data)
     with open(p["upload"], "w", encoding="utf-8") as f:
         f.write("# 上传清单\n\n## 统一事实核心\n" + str(data.get("fact_core", {}).get("summary", "")) + "\n\n## 封面文案与视觉任务\n" + data.get("cover", {}).get("concept", "") + "\n")
-        labels = {"youtube": "YouTube", "bilibili": "B站", "douyin": "抖音", "wechat": "视频号"}
-        for platform in PLATFORMS: f.write(f"\n## {labels[platform]}\n{data.get('platforms', {}).get(platform, {}).get('primary_title', '')}\n")
+        item = data.get('platforms', {}).get('youtube', {})
+        if data.get("version") == 2:
+            title = next(x["title"] for x in item["titles"] if x["id"] == item["selected_title_id"])
+            desc = item["description"]
+            f.write(f"\n## YouTube\n{title}\n\n{desc['lead']}\n\n" +
+                    "\n".join(desc["highlights"]) + "\n\n" +
+                    "\n".join(f"{x['time']} {x['title']}" for x in desc["timestamps"]) +
+                    f"\n\n{desc['cta']}\n{desc['resources']}\n" +
+                    " ".join(desc["hashtags"]) + "\n")
+        else:
+            f.write(f"\n## YouTube\n{item.get('primary_title', '')}\n")
         f.write("\n## 上传前人工检查\n- 人工上传\n- 检查标题与封面\n- 检查封面与正式场景的风格/角色一致性\n")
     state["status"] = "promoted"; save_state({"state": p["state"]}, state); print("publish 已提升")
 
@@ -1477,12 +1602,19 @@ def parser():
         p = sub.add_parser(name); p.add_argument("--run-id", required=True); p.add_argument("--project", required=True); p.add_argument("--channel", default="main")
         if name == "brand-select": p.add_argument("--name-id", required=True); p.add_argument("--visual-id", required=True)
         p.set_defaults(func=func)
-    for name, func in (("publish-init", cmd_publish_init), ("publish-run", cmd_publish_run),
+    for name, func in (("publish-init", cmd_publish_init), ("publish-run", cmd_publish_run), ("publish-select", cmd_publish_select),
+                       ("publish-import-cover", cmd_publish_import_cover), ("publish-compose-cover", cmd_publish_compose_cover),
                        ("publish-verify", cmd_publish_verify), ("publish-promote", cmd_publish_promote),
                        ("publish-status", cmd_publish_status)):
         p = sub.add_parser(name); p.add_argument("video_run_id"); p.add_argument("--project", required=True); p.add_argument("--channel", default="main")
         p.add_argument("--revision", default="v2"); p.add_argument("--publish-id", default=None)
         if name != "publish-init": p.add_argument("publish_id")
+        if name == "publish-select": p.add_argument("--title-id", required=True); p.add_argument("--cover-id", required=True)
+        if name == "publish-import-cover":
+            p.add_argument("--cover-id", required=True); p.add_argument("--input", required=True); p.add_argument("--variant")
+        if name == "publish-compose-cover":
+            p.add_argument("--cover-id", required=True); p.add_argument("--title", required=True)
+            p.add_argument("--subtitle"); p.add_argument("--bookline"); p.add_argument("--variant")
         p.set_defaults(func=func)
     return ap
 

@@ -6,6 +6,8 @@ import tempfile
 import unittest
 from types import SimpleNamespace
 
+from PIL import Image
+
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "pipeline"))
 
@@ -26,6 +28,17 @@ class PublishingContractTests(unittest.TestCase):
             "brand-init", "--project", "001", "--channel", "main",
             "--run-id", "brand_20260825_main"])
         self.assertEqual(args.run_id, "brand_20260825_main")
+
+    def test_cover_composer_accepts_reference_information_layers(self):
+        args = workflow.parser().parse_args([
+            "publish-compose-cover", "run", "pub", "--project", "001",
+            "--cover-id", "cover_0", "--variant", "layout_v2",
+            "--title", "暖白钩子\n金色钩子", "--subtitle", "解释短句",
+            "--bookline", "《书名》｜作者"])
+        self.assertEqual(args.title.split("\n"), ["暖白钩子", "金色钩子"])
+        self.assertEqual(args.subtitle, "解释短句")
+        self.assertEqual(args.bookline, "《书名》｜作者")
+        self.assertEqual(args.variant, "layout_v2")
 
     def brand(self):
         svg = '<svg viewBox="0 0 1024 1024"><circle cx="512" cy="512" r="400"/></svg>'
@@ -51,6 +64,43 @@ class PublishingContractTests(unittest.TestCase):
                           "style_references": [{"path": "assets/scenes/00_0.png", "sha256": "scene-hash"}],
                           "style_requirements": "与正式成片视觉风格、角色、线条、色彩和光影一致。"},
                 "platforms": {p: dict(item) for p in PLATFORMS}}
+
+    def youtube_v2_package(self, hashes, root):
+        covers = os.path.join(root, "publishing", "candidates", "run_v2", "covers")
+        os.makedirs(covers, exist_ok=True)
+        candidates = []
+        for index in range(2):
+            final = os.path.join(covers, f"cover_{index}.png")
+            Image.new("RGB", (1920, 1080), (20 + index, 40, 80)).save(final)
+            candidates.append({"id": f"cover_{index}",
+                               "base_path": f"publishing/candidates/run_v2/covers/cover_{index}_base.png",
+                               "base_sha256": "base",
+                               "final_path": os.path.relpath(final, root),
+                               "sha256": workflow._sha256(final),
+                               "concept": "左侧钩子、右侧主题主体的高对比封面"})
+        strategies = ("pain_point", "counter_intuitive", "number_solution", "seo", "emotional_story")
+        titles = [{"id": f"title_{i}", "strategy": strategy,
+                   "title": "决策方法" + "测" * 54}
+                  for i, strategy in enumerate(strategies)]
+        return {"version": 2, "publish_id": "pub", "channel_id": "main",
+                "source": {"project_id": "001", "video_run_id": "run", "revision": "v2",
+                           "video_artifact": "long.mp4", "hashes": hashes},
+                "fact_core": {"summary": "价格是认知的结果。", "claim_refs": [0],
+                              "script_evidence": ["价格是认知的结果。"]},
+                "cover": {"aspect_ratio": "16:9", "copy_lines": ["看懂价格"],
+                          "concept": "价格与认知", "subject": "人物", "composition": "左右对比",
+                          "contrast": "标价与感知", "brand_anchor": "编辑插画", "safe_zone": "左侧",
+                          "forbidden_elements": ["收益承诺"],
+                          "style_references": [{"path": "assets/scenes/00_0.png", "sha256": "scene-hash"}],
+                          "style_requirements": "高对比的信息层级，视觉服务当前内容。",
+                          "candidates": candidates, "selected_cover_id": "cover_0"},
+                "platforms": {"youtube": {"keywords": ["决策方法"], "titles": titles,
+                    "selected_title_id": "title_0", "description": {
+                        "lead": "用决策方法处理信息不足时最难下的选择。",
+                        "highlights": ["🧭 看点一", "📌 看点二", "💡 看点三"],
+                        "timestamps": [{"time": "00:00", "title": "开场"}, {"time": "01:00", "title": "问题"},
+                                       {"time": "02:00", "title": "方法"}, {"time": "03:00", "title": "行动"}],
+                        "cta": "欢迎留言讨论。", "resources": "[工具链接]", "hashtags": ["#决策", "#认知", "#选择"]}}}}
 
     def test_brand_requires_exact_counts_and_selection(self):
         data = self.brand()
@@ -84,6 +134,24 @@ class PublishingContractTests(unittest.TestCase):
             self.assertTrue(validate_package(bad, hashes, "价格是认知的结果。", {"claims": ["claim"]}))
             stale = dict(hashes); stale["script"] = "stale"
             self.assertTrue(validate_package(self.package(stale), hashes, "价格是认知的结果。", {"claims": ["claim"]}))
+
+    def test_youtube_v2_contract_requires_selected_candidates_and_complete_structure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            scenes = os.path.join(tmp, "assets", "scenes"); os.makedirs(scenes)
+            scene = os.path.join(scenes, "00_0.png")
+            Image.new("RGB", (16, 9), "black").save(scene)
+            paths = {}
+            for name, content in (("topic", "{}"), ("copy", "{}"), ("script", "价格是认知的结果。"), ("storyboard", "{}")):
+                path = os.path.join(tmp, name + (".txt" if name == "script" else ".json"))
+                with open(path, "w", encoding="utf-8") as handle: handle.write(content)
+                paths[name] = path
+            package = self.youtube_v2_package(source_hashes(paths), tmp)
+            package["cover"]["style_references"][0]["sha256"] = workflow._sha256(scene)
+            self.assertEqual(validate_package(package, source_hashes(paths), "价格是认知的结果。",
+                                              {"claims": ["claim"]}, project_root=tmp), [])
+            package["platforms"]["youtube"]["selected_title_id"] = None
+            self.assertIn("必须先选择标题候选", validate_package(
+                package, source_hashes(paths), "价格是认知的结果。", {"claims": ["claim"]}, project_root=tmp))
 
     def test_cover_style_reference_selection_is_numeric_and_strict(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -151,7 +219,7 @@ class PublishingContractTests(unittest.TestCase):
                 self.assertEqual(handle.read(), b"video-bytes")
             with open(pp["upload"], encoding="utf-8") as handle:
                 upload = handle.read()
-            for heading in ("统一事实核心", "封面文案与视觉任务", "YouTube", "B站", "抖音", "视频号", "上传前人工检查"): self.assertIn(heading, upload)
+            for heading in ("统一事实核心", "封面文案与视觉任务", "YouTube", "上传前人工检查"): self.assertIn(heading, upload)
         workflow.ROOT, workflow.PJ.PROJECTS_DIR, workflow.PJ._CACHE = old_root, old_projects, old_cache
 
 
