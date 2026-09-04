@@ -33,11 +33,12 @@ from publishing_contracts import (PLATFORMS, TITLE_LIMITS, source_hashes,
                                    validate_brand, validate_package, validate_svg_text)
 
 
-STATE_VERSION = 2
+STATE_VERSION = 3
 DEPENDENCIES = {
     "topic": [], "copy": ["topic"], "script": ["copy"],
-    "storyboard": ["script"], "storyboard-review": ["storyboard"],
-    "images": ["storyboard-review"], "image-review": ["storyboard-review"],
+    "storyboard": ["script"], "storyboard-review": ["script"],
+    "images": ["storyboard", "storyboard-review"],
+    "image-review": ["storyboard-review"],
     "voice": ["script"], "render": ["images", "voice"],
     "qa": ["render"],
 }
@@ -170,13 +171,55 @@ def _upgrade_state_schema(paths, state):
             read_json(paths["image-review"]).get("manual_exception")):
         image_review["note"] = "人工审核例外已确认并提升"
         changed = True
+    # V3 将分镜审核前移到正式提升前。历史 run 没有可证明的候选
+    # 审核记录时，不得将其静默视为通过；应通过 revision 重建该证据链。
+    if state.get("version", 1) < 3:
+        review = stages.get("storyboard-review")
+        storyboard_status = stages.get("storyboard", {}).get("status")
+        if storyboard_status == "promoted" and review:
+            candidate_storyboard = paths["storyboard"]
+            formal_storyboard = formal_paths(paths["project"])["storyboard"]
+            matching_assets = (
+                os.path.exists(candidate_storyboard) and
+                os.path.exists(formal_storyboard) and
+                _sha256(candidate_storyboard) == _sha256(formal_storyboard))
+            if review.get("status") == "promoted":
+                report_path = paths["storyboard-review"]
+                valid_record = (
+                    os.path.exists(report_path) and matching_assets and
+                    read_json(report_path).get("source_sha256") == _sha256(formal_storyboard) and
+                    read_json(report_path).get("verdict") == "pass")
+                if not valid_record:
+                    stages["storyboard-review"] = {
+                        "status": "blocked",
+                        "note": "历史 run 缺少可追溯的候选分镜审核；请创建 storyboard revision",
+                        "artifact": None,
+                    }
+            elif matching_assets:
+                state["legacy_storyboard_review"] = {
+                    "source_sha256": _sha256(candidate_storyboard),
+                    "note": "正式分镜与候选一致，允许补做一次历史衔接审核",
+                }
+                stages["storyboard-review"] = {
+                    "status": "pending",
+                    "note": "历史分镜待补做审核；不需重做候选",
+                    "artifact": None,
+                }
+            else:
+                stages["storyboard-review"] = {
+                    "status": "blocked",
+                    "note": "历史正式分镜与候选不一致；请创建 storyboard revision",
+                    "artifact": None,
+                }
+        state["version"] = STATE_VERSION
+        changed = True
     for stage in ALL_STAGES:
         if stage in stages:
             continue
         if stage == "image-review" and stages.get("images", {}).get("status") == "promoted":
             stages[stage] = {"status": "promoted", "note": "历史图片在 image-review 门禁引入前已完成", "artifact": None}
         elif stage == "storyboard-review" and stages.get("storyboard", {}).get("status") == "promoted":
-            stages[stage] = {"status": "promoted", "note": "历史分镜在 storyboard-review 门禁引入前已完成", "artifact": None}
+            stages[stage] = {"status": "blocked", "note": "历史分镜缺少可追溯审核；请创建 storyboard revision", "artifact": None}
         else:
             stages[stage] = {"status": "blocked", "note": "新增质量门禁待执行", "artifact": None}
         changed = True
@@ -206,6 +249,19 @@ def require_dependencies(state, stage):
         raise RuntimeError(f"阶段 {stage} 被阻断，需先提升：{', '.join(missing)}")
 
 
+def _require_reviewed_storyboard(paths, state, source_path):
+    """确认图片将消费与已审核候选完全相同的正式分镜。"""
+    if state["stages"]["storyboard-review"]["status"] != "promoted":
+        raise RuntimeError("images 必须在 storyboard-review 通过后运行")
+    if not os.path.exists(paths["storyboard-review"]):
+        raise RuntimeError("缺少 storyboard-review 审核记录")
+    report = read_json(paths["storyboard-review"])
+    if report.get("verdict") != "pass":
+        raise RuntimeError("storyboard-review 未通过")
+    if report.get("source_sha256") != _sha256(source_path):
+        raise RuntimeError("正式分镜与已通过的 storyboard-review 哈希不一致")
+
+
 def _storyboard_review(paths, project, content_template=None):
     """生成可追溯的确定性分镜审核结果。"""
     story = read_json(paths["storyboard"])
@@ -214,28 +270,28 @@ def _storyboard_review(paths, project, content_template=None):
         script_problems, _, blocks = validate_script(
             handle.read(), content_template=content_template)
     issues = []
+    quality_problems = validate_storyboard(
+        story, blocks, project_meta=project_meta(project),
+        enforce_visual_quality=True)
     for block in story.get("blocks", []):
         source = blocks[block.get("block_idx", -1)] if isinstance(block.get("block_idx"), int) and block.get("block_idx", -1) < len(blocks) else {}
         voice = source.get("voice") or ""
         for beat in block.get("beats", []):
             desc = str(beat.get("visual_description") or "")
-            subtitle_map = {item.get("id"): item.get("text", "")
-                            for item in block.get("subtitles", [])}
-            covered = "".join(subtitle_map.get(item, "")
-                              for item in beat.get("sentence_ids", []))
-            words = set(re.findall(r"[\u4e00-\u9fff]{2,}", covered))
-            overlap = set(re.findall(r"[\u4e00-\u9fff]{2,}", desc)) & words
             beat_issues = []
             if len(desc) < 18: beat_issues.append("具体性不足")
-            if not overlap and words: beat_issues.append("与覆盖字幕语义关联不足")
             if beat.get("character_ids") == [] and any(x in voice for x in ("人物", "主角", "他", "她")):
                 beat_issues.append("角色信息缺失")
             issues.append({"block_idx": block.get("block_idx"), "beat_idx": beat.get("beat_idx"),
                            "verdict": "fail" if beat_issues else "pass", "issues": beat_issues,
                            "suggestion": "补充与字幕对应的场景、主体、动作和关键物件" if beat_issues else ""})
+    if quality_problems:
+        issues.append({"block_idx": None, "beat_idx": None, "verdict": "fail",
+                       "issues": quality_problems,
+                       "suggestion": "按分镜质量契约重做场景、动作和情绪分布"})
     report = {"version": 1, "source_sha256": _sha256(paths["storyboard"]),
               "script_sha256": _sha256(script_path), "beats": issues,
-              "verdict": "fail" if script_problems or any(x["verdict"] == "fail" for x in issues) else "pass",
+              "verdict": "fail" if script_problems or quality_problems or any(x["verdict"] == "fail" for x in issues) else "pass",
               "script_issues": script_problems}
     write_json(paths["storyboard-review"], report)
     return report
@@ -413,7 +469,9 @@ def build_task(paths, state, stage):
                                     "非 PHASE 有口播块按字数至少"
                                     " 1+ceil((voice_chars-120)/100) 拍（不超过 120 字/拍、"
                                     "每拍 1-4 句）；shot=wide/medium/close；"
-                                    "segment=hook/insight/action",
+                                    "segment=hook/insight/action；visual_description 必须严格使用"
+                                    "场景：…；主体：…；动作：…；关键物件：…；动作/情绪需有分布，"
+                                    "连续不得 4 拍完全相同；明确地点时画面必须落地；不得使用占位式描述",
                     "forbidden_fields": ["provider", "model", "final_image_prompt",
                                          "negative_prompt", "api_request"],
                 }}
@@ -443,6 +501,14 @@ def cmd_run(args):
     require_dependencies(state, stage)
     project = paths["project"]
     if stage == "storyboard-review":
+        storyboard_status = state["stages"]["storyboard"]["status"]
+        legacy = state.get("legacy_storyboard_review")
+        is_legacy_bridge = (
+            storyboard_status == "promoted" and isinstance(legacy, dict) and
+            legacy.get("source_sha256") == _sha256(paths["storyboard"]) and
+            legacy.get("source_sha256") == _sha256(formal_paths(project)["storyboard"]))
+        if storyboard_status != "verified" and not is_legacy_bridge:
+            raise RuntimeError("storyboard-review 必须在 storyboard 候选校验通过后运行")
         report = _storyboard_review(paths, project, state.get("content_template"))
         transition(state, stage, "generated", "自动分镜质量审核已生成", paths["storyboard-review"])
         save_state(paths, state)
@@ -477,7 +543,9 @@ def cmd_run(args):
                          ensure_ascii=False, indent=2))
         return
     if stage == "images":
-        storyboard = read_json(formal_paths(project)["storyboard"])
+        formal_storyboard = formal_paths(project)["storyboard"]
+        _require_reviewed_storyboard(paths, state, formal_storyboard)
+        storyboard = read_json(formal_storyboard)
         chars_path = os.path.join(ROOT, "assets", "characters.json")
         characters = read_json(chars_path) if os.path.exists(chars_path) else {}
         anchor = _run_style_anchor(state, project)
@@ -904,12 +972,19 @@ def cmd_promote(args):
     if stage == "images" and state["stages"]["image-review"]["status"] != "promoted":
         raise RuntimeError("images 必须在 image-review 通过后提升")
     if stage == "storyboard-review":
+        legacy = state.get("legacy_storyboard_review")
+        if not isinstance(legacy, dict):
+            raise RuntimeError("storyboard-review 通过后，请由用户确认并提升 storyboard")
+        formal_storyboard = formal_paths(project)["storyboard"]
         report = read_json(paths[stage])
-        if report.get("source_sha256") != _sha256(paths["storyboard"]):
-            raise RuntimeError("storyboard-review 源分镜已变化，禁止提升")
-        if report.get("verdict") != "pass":
-            raise RuntimeError("storyboard-review 未通过，禁止提升")
-        transition(state, stage, "promoted", "自动分镜质量门禁通过", paths[stage])
+        source_sha256 = legacy.get("source_sha256")
+        if (report.get("verdict") != "pass" or
+                report.get("source_sha256") != source_sha256 or
+                source_sha256 != _sha256(paths["storyboard"]) or
+                source_sha256 != _sha256(formal_storyboard)):
+            raise RuntimeError("历史 storyboard-review 与候选或正式分镜哈希不一致")
+        transition(state, stage, "promoted", "历史分镜审核补录通过", paths[stage])
+        state.pop("legacy_storyboard_review", None)
         unlock(state); save_state(paths, state); print(f"{stage} 已提升"); return
     if stage == "image-review":
         report = read_json(paths[stage])
@@ -951,8 +1026,25 @@ def cmd_promote(args):
             project = target
             PJ._CACHE.clear()
             paths = state_paths(project, args.run_id)
-    elif stage in ("copy", "script", "storyboard"):
+    elif stage in ("copy", "script"):
         backup_and_copy(paths[stage], formal[stage], args.run_id, args.replace)
+    elif stage == "storyboard":
+        review = state["stages"]["storyboard-review"]
+        if review["status"] != "verified":
+            raise RuntimeError("storyboard 必须先通过 storyboard-review")
+        if not os.path.exists(paths["storyboard-review"]):
+            raise RuntimeError("缺少 storyboard-review 审核记录")
+        report = read_json(paths["storyboard-review"])
+        if report.get("verdict") != "pass":
+            raise RuntimeError("storyboard-review 未通过，禁止提升 storyboard")
+        if report.get("source_sha256") != _sha256(paths["storyboard"]):
+            raise RuntimeError("storyboard 候选已变化，审核结果失效")
+        backup_and_copy(paths[stage], formal[stage], args.run_id, args.replace)
+        if _sha256(formal[stage]) != report["source_sha256"]:
+            raise RuntimeError("正式 storyboard 写入后哈希校验失败")
+        transition(state, "storyboard-review", "promoted",
+                   "分镜质量门禁通过，随 storyboard 人工确认锁定",
+                   paths["storyboard-review"])
     elif stage == "images":
         os.makedirs(formal["images"], exist_ok=True)
         tasks = read_json(paths["image_tasks"])["tasks"]

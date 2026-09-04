@@ -5,6 +5,7 @@
 import json
 import os
 import re
+from collections import Counter
 from content_templates import ALLOWED_BLOCK_TYPES, template_names
 
 
@@ -53,13 +54,49 @@ def _normalize_visual_description(value):
 
 _VISUAL_INDEX_RE = re.compile(r"(?:第\d+块第\d+拍|第\d+拍|块\d+拍|画面\d+|镜头\d+)")
 _VISUAL_PLACEHOLDER_RE = re.compile(
-    r"(?:标题专属构图|独特场景展示|过渡画面|专属构图|场景展示|画面\d+|第\d+块第\d+拍)")
+    r"(?:标题专属构图|独特场景展示|过渡画面|专属构图|场景展示|画面\d+|"
+    r"第\d+块第\d+拍|第\d+号位置|镜头\d+|独特纹理|会议室/驾校/跑道/考场)")
+_VISUAL_FORMAT_RE = re.compile(
+    r"^场景：(?P<scene>[^；]+)；主体：(?P<subject>[^；]+)；"
+    r"动作：(?P<action>[^；]+)；关键物件：(?P<object>[^；]+)$")
+_LOCATION_HINTS = {
+    "驾校": ("驾校", "教练", "驾驶", "方向盘", "学车"),
+    "跑步": ("跑步", "跑道", "操场", "慢跑", "运动"),
+    "会议": ("会议", "会议室", "汇报", "投影", "同事"),
+    "考试": ("考试", "考场", "试卷", "答题", "考卷"),
+    "家中": ("家", "客厅", "卧室", "厨房", "餐桌"),
+}
+_ACTION_FAMILIES = (
+    ("移动", ("走", "跑", "奔", "进入", "离开", "骑", "驾驶", "踩", "迈步")),
+    ("操作", ("拿", "握", "翻", "写", "按", "打开", "整理", "操作", "指向", "放", "拉", "擦", "改写")),
+    ("交流", ("说", "对话", "交谈", "倾听", "看向", "拥抱", "握手")),
+    ("观察", ("看", "凝视", "观察", "阅读", "检查", "注视")),
+    ("情绪反应", ("笑", "哭", "叹气", "犹豫", "后退", "停顿", "沉思")),
+)
+
+
+def _action_family(action):
+    action = str(action or "")
+    for family, words in _ACTION_FAMILIES:
+        if any(word in action for word in words):
+            return family
+    return None
 
 
 def _visual_content_key(value):
     """移除编号和模板词，用于发现伪造的多样性。"""
     text = _normalize_visual_description(value)
     return _VISUAL_INDEX_RE.sub("", text)
+
+
+def _visual_similarity_key(value):
+    """比较结构化描述的业务内容，排除固定字段标签造成的误报。"""
+    text = str(value or "").strip()
+    match = _VISUAL_FORMAT_RE.fullmatch(text)
+    if match:
+        return "|".join(_normalize_visual_description(part)
+                        for part in match.groupdict().values())
+    return _normalize_visual_description(text)
 
 
 def _visual_description_problems(value):
@@ -70,13 +107,12 @@ def _visual_description_problems(value):
         return ["visual_description 含占位/编号模板"]
     if len(text) < 18:
         return ["visual_description 过短，必须描述可执行画面"]
-    # 中文生成描述通常不使用固定术语，采用语义角色词的轻量确定性门禁。
-    groups = (("场景/环境", ("中", "在", "室", "街", "山", "海", "城市", "房间", "舞台", "办公室")),
-              ("主体", ("人", "人物", "角色", "主角", "商人", "观众", "孩子", "老人")),
-              ("动作/状态", ("站", "坐", "走", "看", "拿", "指", "翻", "奔", "凝视", "展示", "对话", "动作")),
-              ("关键物件/关系", ("书", "桌", "路牌", "灯", "手机", "纸", "钱", "门", "镜", "物件", "前景", "背景")))
-    return [f"visual_description 缺少{'、'.join(name for name, words in groups if not any(w in text for w in words))}"] \
-        if any(not any(w in text for w in words) for _, words in groups) else []
+    match = _VISUAL_FORMAT_RE.fullmatch(text)
+    if not match:
+        return ["visual_description 必须使用场景：…；主体：…；动作：…；关键物件：…格式"]
+    if any(not part.strip() for part in match.groupdict().values()):
+        return ["visual_description 四个结构字段均不能为空"]
+    return []
 
 
 def _visual_similarity(left, right):
@@ -268,6 +304,7 @@ def validate_storyboard(data, script_blocks=None, known_character_ids=None,
     direct_phase = (project_meta or {}).get("visual_style", {}).get(
         "phase_transition") == "direct"
     seen_visuals = {}
+    narrative_beats = []
     for pos, block in enumerate(blocks):
         if not isinstance(block, dict):
             problems.append(f"块 {pos} 不是 object")
@@ -357,6 +394,21 @@ def validate_storyboard(data, script_blocks=None, known_character_ids=None,
             visual_problems = _visual_description_problems(visual) if script_blocks is not None and enforce_visual_quality else ([] if str(visual or "").strip() else ["缺少 visual_description"])
             for issue in visual_problems:
                 problems.append(f"块 {pos} 拍 {beat.get('beat_idx')} {issue}")
+            if script_blocks is not None and enforce_visual_quality:
+                match = _VISUAL_FORMAT_RE.fullmatch(str(visual or "").strip())
+                covered_text = "".join(
+                    (subtitles[i].get("text") or "") for i in (beat.get("sentence_ids") or [])
+                    if isinstance(i, int) and i < len(subtitles))
+                if match:
+                    scene = match.group("scene").strip()
+                    action = match.group("action").strip()
+                    emotion = str(beat.get("emotion") or "neutral").strip().lower()
+                    family = _action_family(action)
+                    if family is None:
+                        problems.append(f"块 {pos} 拍 {beat.get('beat_idx')} 动作必须是可见动作")
+                    else:
+                        narrative_beats.append((pos, block.get("type"), scene,
+                                                family, emotion, covered_text))
             visual_key = _normalize_visual_description(beat.get("visual_description"))
             if visual_key:
                 content_key = _visual_content_key(visual_key)
@@ -369,7 +421,8 @@ def validate_storyboard(data, script_blocks=None, known_character_ids=None,
                 else:
                     near = (next(
                         (location for prior, location in seen_visuals.items()
-                         if _visual_similarity(visual_key, prior) >= 0.78),
+                         if _visual_similarity(_visual_similarity_key(visual_key),
+                                               _visual_similarity_key(prior)) >= 0.78),
                         None) if enforce_visual_diversity and enforce_density else None)
                     if near:
                         problems.append(
@@ -429,6 +482,39 @@ def validate_storyboard(data, script_blocks=None, known_character_ids=None,
                 if beats[i].get("start_char") != beats[i - 1].get("end_char"):
                     problems.append(f"块 {pos} 拍区间不连续")
                     break
+    if enforce_visual_quality and script_blocks is not None:
+        count = len(narrative_beats)
+        if count >= 10:
+            families = Counter(x[3] for x in narrative_beats)
+            emotions = Counter(x[4] for x in narrative_beats)
+            family_min, family_max = ((4, .55) if count >= 20 else (3, .65))
+            emotion_min, emotion_max = ((3, .70) if count >= 20 else (2, .80))
+            if len(families) < family_min:
+                problems.append(f"动作族分布不足：{count} 拍至少需要 {family_min} 类可见动作")
+            if families and max(families.values()) / count > family_max:
+                problems.append(f"动作族过度集中：最高占比不得超过 {family_max:.0%}")
+            if len(emotions) < emotion_min:
+                problems.append(f"情绪分布不足：{count} 拍至少需要 {emotion_min} 种情绪")
+            if emotions and max(emotions.values()) / count > emotion_max:
+                problems.append(f"情绪过度集中：最高占比不得超过 {emotion_max:.0%}")
+        # 同一场景/动作族/情绪连续四拍，通常意味着模板化复用。
+        for i in range(3, len(narrative_beats)):
+            window = narrative_beats[i - 3:i + 1]
+            if len({x[2] for x in window}) == 1 and len({x[3] for x in window}) == 1 and len({x[4] for x in window}) == 1:
+                problems.append(f"视觉叙事连续模板化：块 {window[-1][0]} 拍连续 4 拍场景/动作/情绪相同")
+                break
+        # 口播明确地点时，画面场景必须包含对应地点语义。
+        for pos, kind, scene, _action, _emotion, covered in narrative_beats:
+            if kind == "TITLE":
+                continue
+            grounded_text = covered.replace("像考试", "").replace(
+                "不是考试", "")
+            matched = [(label, hints) for label, hints in _LOCATION_HINTS.items()
+                       if any(h in grounded_text for h in hints)]
+            if matched and not any(any(h in scene for h in hints)
+                                   for _label, hints in matched):
+                labels = "、".join(label for label, _hints in matched)
+                problems.append(f"块 {pos} 拍地点错配：口播涉及{labels}，场景未落地")
     return problems
 
 

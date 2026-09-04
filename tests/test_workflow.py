@@ -6,6 +6,7 @@ import copy
 import inspect
 import io
 import os
+import shutil
 import tempfile
 import unittest
 import urllib.error
@@ -823,6 +824,51 @@ class MigrationRegressionTests(unittest.TestCase):
 
 
 class StoryboardQualityGateTests(unittest.TestCase):
+    def test_structured_visual_description_and_visible_action(self):
+        from workflow_contracts import _visual_description_problems
+        self.assertEqual(_visual_description_problems(
+            "场景：在驾校训练场；主体：林然这个人物；动作：握住方向盘练习转弯；关键物件：教练车和路锥"), [])
+        self.assertTrue(_visual_description_problems("办公室里的人"))
+
+    def test_action_family_and_emotion_distribution_gate(self):
+        from workflow_contracts import validate_storyboard
+        # 20 beats with one dominant action family must fail the 55% gate.
+        blocks = [{"type": "TITLE", "head": "TITLE", "voice": ""}]
+        beats = []
+        for i in range(20):
+            beats.append({"beat_idx": i, "shot": "medium",
+                          "visual_description": f"场景：办公室{i}；主体：人物；动作：站立观察文件；关键物件：文件{i}",
+                          "sentence_ids": [], "start_char": 0, "end_char": 0,
+                          "character_ids": [], "emotion": "focused", "segment": "insight"})
+        data = {"blocks": [{"block_idx": 0, "type": "CARD", "head": "CARD",
+                             "voice_chars": 0, "subtitles": [], "beats": beats}]}
+        errors = validate_storyboard(data, blocks, enforce_density=False)
+        self.assertTrue(any("动作族过度集中" in x for x in errors))
+
+    def test_explicit_location_mismatch_is_rejected(self):
+        from workflow_contracts import validate_storyboard
+        script = [{"type": "CARD", "head": "CARD", "voice": "我去驾校学车。"}]
+        data = {"blocks": [{"block_idx": 0, "type": "CARD", "head": "CARD",
+                             "voice_chars": 8, "subtitles": [{"id": 0, "text": "我去驾校学车。", "start_char": 0, "end_char": 8}],
+                             "beats": [{"beat_idx": 0, "shot": "medium", "visual_description": "场景：办公室；主体：人物；动作：握住方向盘；关键物件：文件夹", "sentence_ids": [0], "start_char": 0, "end_char": 8, "character_ids": [], "emotion": "focused", "segment": "insight"}]}]}
+        self.assertTrue(any("地点错配" in x for x in validate_storyboard(data, script, enforce_density=False)))
+
+    def test_metaphorical_or_negated_exam_does_not_require_exam_scene(self):
+        from workflow_contracts import validate_storyboard
+        for voice in ("挑战像考试。", "这个尝试不是考试。"):
+            data = {"blocks": [{"block_idx": 0, "type": "CARD", "head": "CARD",
+                                 "voice_chars": len(voice),
+                                 "subtitles": [{"id": 0, "text": voice, "start_char": 0,
+                                                "end_char": len(voice)}],
+                                 "beats": [{"beat_idx": 0, "shot": "medium",
+                                            "visual_description": "场景：安静书房；主体：林然；动作：翻开书页；关键物件：双路径图",
+                                            "sentence_ids": [0], "start_char": 0,
+                                            "end_char": len(voice), "character_ids": [],
+                                            "emotion": "好奇", "segment": "insight"}]}]}
+            script = [{"type": "CARD", "head": "CARD", "voice": voice}]
+            errors = validate_storyboard(data, script, enforce_density=False)
+            self.assertFalse(any("地点错配" in error for error in errors))
+
     def test_script_length_production_boundaries(self):
         def script(n):
             head = "# TITLE\nvoice：标题\n"
@@ -865,20 +911,120 @@ class StoryboardReviewWorkflowTests(unittest.TestCase):
         with open(workflow.formal_paths(project)["script"], "w", encoding="utf-8") as h: h.write(script)
         story = {"blocks": [{"block_idx": 0, "type": "TITLE", "head": "TITLE", "subtitles": [{"id": 0, "text": "完全无关字幕", "start_char": 0, "end_char": 6}], "beats": [{"beat_idx": 0, "sentence_ids": [0], "visual_description": "海边人物站立，手持书本凝视远方", "character_ids": []}]}]}
         write_json(paths["storyboard"], story)
-        state = read_json(paths["state"]); state["stages"]["storyboard"]["status"] = "promoted"; save = workflow.save_state; save(paths, state)
+        state = read_json(paths["state"])
+        for stage in ("topic", "copy", "script"):
+            state["stages"][stage]["status"] = "promoted"
+        state["stages"]["storyboard"]["status"] = "verified"
+        state["stages"]["storyboard-review"]["status"] = "pending"
+        workflow.save_state(paths, state)
         return project, paths
 
-    def test_review_uses_covered_subtitles_and_fails_unrelated_beat(self):
-        project, paths = self._fixture(); report = workflow._storyboard_review(paths, project)
-        self.assertEqual(report["verdict"], "fail"); self.assertTrue(any("语义关联" in x for x in report["beats"][0]["issues"]))
+    def _passing_review(self, paths):
+        report = workflow._storyboard_review(paths, paths["project"])
+        report["verdict"] = "pass"
+        for beat in report["beats"]:
+            beat["verdict"] = "pass"
+            beat["issues"] = []
+        write_json(paths["storyboard-review"], report)
+        return report
+
+    def test_review_does_not_require_verbatim_subtitle_overlap(self):
+        project, paths = self._fixture()
+        story = read_json(paths["storyboard"])
+        story["blocks"][0]["beats"][0]["visual_description"] = (
+            "场景：海边礁石；主体：人物；动作：手持书本凝视远方；关键物件：翻开的书本")
+        write_json(paths["storyboard"], story)
+        report = workflow._storyboard_review(paths, project)
+        self.assertTrue(all("语义关联" not in issue
+                            for beat in report["beats"]
+                            for issue in beat["issues"]))
 
     def test_review_hash_change_rejects_verify_and_promote(self):
-        project, paths = self._fixture(); report = workflow._storyboard_review(paths, project)
-        report["verdict"] = "pass"; report["beats"][0]["verdict"] = "pass"; write_json(paths["storyboard-review"], report)
+        project, paths = self._fixture(); self._passing_review(paths)
         with open(paths["storyboard"], "a", encoding="utf-8") as h: h.write(" ")
         state = read_json(paths["state"]); state["stages"]["storyboard-review"]["status"] = "generated"; workflow.save_state(paths, state)
         with self.assertRaises(RuntimeError): workflow.cmd_verify(SimpleNamespace(run_id="run_review", project="900", stage="storyboard-review"))
-        with self.assertRaises(RuntimeError): workflow.cmd_promote(SimpleNamespace(run_id="run_review", project="900", stage="storyboard-review", replace=False))
+        with self.assertRaises(RuntimeError): workflow.cmd_promote(SimpleNamespace(run_id="run_review", project="900", stage="storyboard", replace=False))
+
+    def test_review_can_run_after_candidate_verify_before_storyboard_promote(self):
+        project, paths = self._fixture()
+        with redirect_stdout(io.StringIO()):
+            workflow.cmd_run(SimpleNamespace(
+                run_id="run_review", project="900", stage="storyboard-review",
+                beats=None, review_id=None, revision=None, blocks=None,
+                clip_durations=None, phase_images_dir=None))
+        state = read_json(paths["state"])
+        self.assertEqual(state["stages"]["storyboard"]["status"], "verified")
+        self.assertEqual(state["stages"]["storyboard-review"]["status"], "generated")
+
+    def test_storyboard_promote_requires_review_and_locks_matching_hash(self):
+        project, paths = self._fixture()
+        with self.assertRaisesRegex(RuntimeError, "必须先通过"):
+            workflow.cmd_promote(SimpleNamespace(
+                run_id="run_review", project="900", stage="storyboard",
+                replace=False))
+        report = self._passing_review(paths)
+        state = read_json(paths["state"])
+        state["stages"]["storyboard-review"]["status"] = "verified"
+        workflow.save_state(paths, state)
+        with redirect_stdout(io.StringIO()):
+            workflow.cmd_promote(SimpleNamespace(
+                run_id="run_review", project="900", stage="storyboard",
+                replace=False))
+        formal = workflow.formal_paths(project)["storyboard"]
+        self.assertEqual(workflow._sha256(formal), report["source_sha256"])
+        state = read_json(paths["state"])
+        self.assertEqual(state["stages"]["storyboard-review"]["status"], "promoted")
+
+    def test_legacy_promoted_review_without_hash_record_is_not_silently_accepted(self):
+        project, paths = self._fixture()
+        state = read_json(paths["state"])
+        state["version"] = 2
+        state["stages"]["storyboard"]["status"] = "promoted"
+        state["stages"]["storyboard-review"]["status"] = "promoted"
+        workflow.save_state(paths, state)
+        workflow.locate_run("run_review", "900")
+        state = read_json(paths["state"])
+        self.assertEqual(state["stages"]["storyboard-review"]["status"], "blocked")
+
+    def test_matching_legacy_storyboard_can_complete_one_audit_bridge(self):
+        project, paths = self._fixture()
+        formal = workflow.formal_paths(project)["storyboard"]
+        shutil.copy2(paths["storyboard"], formal)
+        state = read_json(paths["state"])
+        state["version"] = 2
+        state["stages"]["storyboard"]["status"] = "promoted"
+        state["stages"]["storyboard-review"]["status"] = "pending"
+        workflow.save_state(paths, state)
+        workflow.locate_run("run_review", "900")
+        state = read_json(paths["state"])
+        self.assertIn("legacy_storyboard_review", state)
+        report = self._passing_review(paths)
+        state["stages"]["storyboard-review"]["status"] = "verified"
+        workflow.save_state(paths, state)
+        with redirect_stdout(io.StringIO()):
+            workflow.cmd_promote(SimpleNamespace(
+                run_id="run_review", project="900", stage="storyboard-review",
+                replace=False))
+        state = read_json(paths["state"])
+        self.assertEqual(state["stages"]["storyboard-review"]["status"], "promoted")
+        self.assertNotIn("legacy_storyboard_review", state)
+        self.assertEqual(report["source_sha256"], workflow._sha256(formal))
+
+    def test_images_rejects_formal_storyboard_hash_mismatch(self):
+        project, paths = self._fixture()
+        self._passing_review(paths)
+        formal = workflow.formal_paths(project)["storyboard"]
+        write_json(formal, {"blocks": []})
+        state = read_json(paths["state"])
+        state["stages"]["storyboard"]["status"] = "promoted"
+        state["stages"]["storyboard-review"]["status"] = "promoted"
+        workflow.save_state(paths, state)
+        with self.assertRaisesRegex(RuntimeError, "哈希不一致"):
+            workflow.cmd_run(SimpleNamespace(
+                run_id="run_review", project="900", stage="images", beats=None,
+                review_id=None, revision=None, blocks=None, clip_durations=None,
+                phase_images_dir=None))
 
     def test_images_blocked_until_review_promoted(self):
         project, paths = self._fixture(); state = read_json(paths["state"]); state["stages"]["storyboard-review"]["status"] = "generated"; workflow.save_state(paths, state)

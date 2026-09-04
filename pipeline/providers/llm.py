@@ -186,7 +186,9 @@ class DeepSeekProvider:
             system = ("你是语义分镜师。只输出 JSON 数组，每项含 shot(wide/medium/close), "
                       "visual_description, sentence_ids(array), character_ids(array), "
                       "emotion, segment(hook/insight/action)。用 3-5 拍连续覆盖所有句子，"
-                      "每个句子只能出现一次；不得输出图片模型 Prompt 或 provider 字段。画面指导：" + guidance)
+                      "每个句子只能出现一次；visual_description 必须严格写成“场景：…；主体：…；动作：…；关键物件：…”，"
+                      "每拍更换有意义的场景/动作/情绪，连续不得四拍相同；口播提到驾校、跑步、会议、考试、家中等地点时必须在场景中落地；"
+                      "不得写画面线索为、情绪呼应或复制口播的占位描述；不得输出图片模型 Prompt 或 provider 字段。画面指导：" + guidance)
             beats_raw = _extract_json(self._call(
                 system, json.dumps(prompt, ensure_ascii=False)))
             beats_raw = beats_raw.get("beats", []) if isinstance(beats_raw, dict) \
