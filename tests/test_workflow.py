@@ -32,7 +32,7 @@ from providers.image import ImageGenProvider, WanxiangProvider
 from content_templates import CONTENT_TEMPLATE_IDS, get_template
 from workflow_contracts import (
     build_image_tasks, normalize_providers, read_json,
-    validate_copy, validate_image_task_prompt,
+    compile_image_generation_request, validate_copy, validate_image_task_prompt,
     validate_providers, validate_script, validate_storyboard, write_json,
 )
 
@@ -339,6 +339,119 @@ class ContractTests(unittest.TestCase):
         actual[0]["rule_manifest"]["prompt_sources"]["text_policy"] += ", no text"
         actual[0]["prompt"] = actual[0]["prompt"] + ", no text"
         self.assertTrue(workflow._image_task_packet_problems(expected, actual))
+
+    def test_image_text_policy_rejects_normalized_no_text_conflict(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            task = build_image_tasks(sample_storyboard(), {},
+                                     {"hero": {"prompt": "same person"}}, tmp)[0]
+        task["negative_prompt"] += "，Ｎｏ   Ｔｅｘｔ"
+        task["rule_manifest"]["negative_prompt"] = task["negative_prompt"]
+        self.assertTrue(any("冲突禁令" in item for item in
+                            validate_image_task_prompt(task)))
+
+    def test_image_text_policy_allows_subtitle_and_watermark_bans(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            task = build_image_tasks(sample_storyboard(), {},
+                                     {"hero": {"prompt": "same person"}}, tmp)[0]
+        task["negative_prompt"] += ", no subtitles, no watermark, avoid gibberish"
+        task["rule_manifest"]["negative_prompt"] = task["negative_prompt"]
+        self.assertEqual(validate_image_task_prompt(task), [])
+
+    def test_generation_request_is_sealed_and_stable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            task = build_image_tasks(sample_storyboard(), {},
+                                     {"hero": {"prompt": "same person"}}, tmp)[0]
+        first = compile_image_generation_request(task)
+        second = compile_image_generation_request(copy.deepcopy(task))
+        self.assertEqual(first, second)
+        self.assertFalse(first["additional_prompt_allowed"])
+        self.assertIsNone(first["additional_prompt"])
+
+
+class SerialImageGenTests(unittest.TestCase):
+    def _fixture(self):
+        tmp = tempfile.TemporaryDirectory()
+        project = os.path.join(tmp.name, "project")
+        paths = workflow.state_paths(project, "run_serial")
+        os.makedirs(paths["run_dir"], exist_ok=True)
+        os.makedirs(paths["images"], exist_ok=True)
+        tasks = build_image_tasks(
+            sample_storyboard(), {}, {"hero": {"prompt": "same person"}},
+            paths["images"])
+        state = {"version": workflow.STATE_VERSION, "providers": {"image": {"name": "imagegen"}},
+                 "stages": {"images": {"status": "pending", "note": "", "artifact": None}},
+                 "current_stage": "images"}
+        write_json(paths["state"], state)
+        return tmp, paths, state, tasks
+
+    def test_imagegen_serially_signs_one_task_and_waits_for_valid_file(self):
+        tmp, paths, state, tasks = self._fixture()
+        try:
+            provider = mock.Mock()
+            provider.generate.return_value = {"mode": "interactive"}
+            args = SimpleNamespace(beats=None)
+            with mock.patch.object(workflow, "make_image", return_value=provider), \
+                    redirect_stdout(io.StringIO()):
+                workflow._run_serial_imagegen(paths, state, tasks, "full", None, args)
+            current = read_json(paths["state"])
+            self.assertEqual(current["image_generation"]["active_key"], "00_0")
+            sealed = current["image_generation"]["active_request"]
+            self.assertTrue(sealed["semantic_sha256"])
+            self.assertTrue(sealed["request_sha256"])
+            self.assertEqual(provider.generate.call_args.args[0], [tasks[0]])
+
+            # 未落盘时不能签发 00_1，也不会再次调用 provider。
+            with mock.patch.object(workflow, "make_image", return_value=provider), \
+                    redirect_stdout(io.StringIO()):
+                workflow._run_serial_imagegen(paths, current, tasks, "full", None, args)
+            self.assertEqual(provider.generate.call_count, 1)
+            Image.new("RGB", (160, 90), "white").save(tasks[0]["output_path"])
+
+            with mock.patch.object(workflow, "make_image", return_value=provider), \
+                    redirect_stdout(io.StringIO()):
+                workflow._run_serial_imagegen(paths, current, tasks, "full", None, args)
+            current = read_json(paths["state"])
+            self.assertEqual(current["image_generation"]["completed_keys"], ["00_0"])
+            self.assertEqual(current["image_generation"]["active_key"], "00_1")
+            self.assertEqual(provider.generate.call_args.args[0], [tasks[1]])
+        finally:
+            tmp.cleanup()
+
+    def test_imagegen_refuses_active_request_hash_change_before_completion(self):
+        tmp, paths, state, tasks = self._fixture()
+        try:
+            provider = mock.Mock()
+            provider.generate.return_value = {"mode": "interactive"}
+            args = SimpleNamespace(beats=None)
+            with mock.patch.object(workflow, "make_image", return_value=provider), \
+                    redirect_stdout(io.StringIO()):
+                workflow._run_serial_imagegen(paths, state, tasks, "full", None, args)
+            Image.new("RGB", (160, 90), "white").save(tasks[0]["output_path"])
+            current = read_json(paths["state"])
+            current["image_generation"]["active_request"]["request_sha256"] = "tampered"
+            write_json(paths["state"], current)
+            with self.assertRaisesRegex(RuntimeError, "密封请求哈希不一致"):
+                workflow._run_serial_imagegen(paths, current, tasks, "full", None, args)
+        finally:
+            tmp.cleanup()
+
+    def test_imagegen_rejects_manifest_change_after_first_claim(self):
+        tmp, paths, state, tasks = self._fixture()
+        try:
+            provider = mock.Mock()
+            provider.generate.return_value = {"mode": "interactive"}
+            args = SimpleNamespace(beats=None)
+            with mock.patch.object(workflow, "make_image", return_value=provider), \
+                    redirect_stdout(io.StringIO()):
+                workflow._run_serial_imagegen(paths, state, tasks, "full", None, args)
+            packet = read_json(paths["image_tasks"])
+            packet["tasks"][0]["prompt"] = "tampered"
+            write_json(paths["image_tasks"], packet)
+            with self.assertRaisesRegex(RuntimeError, "任务包与正式分镜不一致|清单已变化"):
+                workflow._run_serial_imagegen(paths, read_json(paths["state"]),
+                                               tasks, "full", None, args)
+        finally:
+            tmp.cleanup()
 
 
 class RenderRegressionTests(unittest.TestCase):

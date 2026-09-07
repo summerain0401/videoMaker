@@ -3,7 +3,9 @@
 """Provider-neutral long-video production workflow."""
 
 import argparse
+import contextlib
 import datetime
+import fcntl
 import hashlib
 import json
 import os
@@ -27,13 +29,13 @@ from workflow_contracts import (
     read_json, safe_project_suffix, selected_topic,
     validate_copy, validate_image_task_prompt, validate_providers,
     validate_script, validate_storyboard,
-    validate_topic, write_json,
+    validate_topic, write_json, compile_image_generation_request,
 )
 from publishing_contracts import (PLATFORMS, TITLE_LIMITS, source_hashes,
                                    validate_brand, validate_package, validate_svg_text)
 
 
-STATE_VERSION = 3
+STATE_VERSION = 4
 DEPENDENCIES = {
     "topic": [], "copy": ["topic"], "script": ["copy"],
     "storyboard": ["script"], "storyboard-review": ["script"],
@@ -138,6 +140,74 @@ def _task_image_path(paths, task):
     return os.path.join(paths["images"], task["key"] + ".png")
 
 
+def _image_execution_policy():
+    """ImageGen 的交互式任务必须逐张签发，不能由调用方自行并发。"""
+    return {
+        "mode": "serial",
+        "provider": "imagegen",
+        "unit": "single_task",
+        "completion": "上一张候选图片可读取且为 16:9 后，才可签发下一张",
+    }
+
+
+def _image_file_problem(task):
+    """返回单图能否解锁下一任务的确定性检查结果。"""
+    path = task.get("output_path")
+    if not path or not os.path.isfile(path):
+        return "候选图片尚未落盘"
+    try:
+        with Image.open(path) as image:
+            width, height = image.size
+        if abs(width / height - 16 / 9) > 0.02:
+            return f"候选图片比例不是 16:9：{width}x{height}"
+    except OSError as exc:
+        return f"候选图片无法读取：{exc}"
+    return None
+
+
+@contextlib.contextmanager
+def _image_generation_lock(paths):
+    """短临界区锁：只保护签发/状态落盘，绝不包住外部生图。"""
+    lock_path = paths["state"] + ".images.lock"
+    os.makedirs(os.path.dirname(lock_path), exist_ok=True)
+    with open(lock_path, "a+", encoding="utf-8") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def _new_image_generation(packet, state):
+    """仅把已明确选择且哈希匹配的视觉锚点迁入已完成列表。"""
+    completed = []
+    completed_sha256 = {}
+    anchor = state.get("image_anchor")
+    by_key = {task.get("key"): task for task in packet.get("tasks", [])}
+    if isinstance(anchor, dict) and anchor.get("key") in by_key:
+        task = by_key[anchor["key"]]
+        path = task.get("output_path")
+        if (not _image_file_problem(task) and anchor.get("sha256") and
+                os.path.realpath(path) == os.path.realpath(anchor.get("path", "")) and
+                _sha256(path) == anchor["sha256"]):
+            completed.append(anchor["key"])
+            completed_sha256[anchor["key"]] = anchor["sha256"]
+    return {
+        "version": 1,
+        "manifest_sha256": _sha256_current(packet),
+        "active_key": None,
+        "completed_keys": completed,
+        "completed_sha256": completed_sha256,
+        "active_request": None,
+    }
+
+
+def _sha256_current(data):
+    """与 write_json 的确定性序列化保持一致，不依赖临时文件。"""
+    encoded = (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def locate_run(run_id, pid=None):
     projects = [project_for_id(pid)] if pid else [
         p for p in (os.path.join(PJ.PROJECTS_DIR, name)
@@ -211,6 +281,20 @@ def _upgrade_state_schema(paths, state):
                     "note": "历史正式分镜与候选不一致；请创建 storyboard revision",
                     "artifact": None,
                 }
+        state["version"] = 3
+        changed = True
+    # V4 将 ImageGen 的交互式整批任务改为状态机逐张签发。历史 run 仅可
+    # 承认用户已经显式确认且哈希绑定的首图锚点；目录里的其他残留图不能绕过队列。
+    if state.get("version", 1) < 4:
+        if (state.get("providers", {}).get("image", {}).get("name") == "imagegen" and
+                os.path.exists(paths["image_tasks"])):
+            packet = read_json(paths["image_tasks"])
+            if isinstance(packet, dict) and isinstance(packet.get("tasks"), list):
+                if "execution_policy" not in packet:
+                    packet["execution_policy"] = _image_execution_policy()
+                    write_json(paths["image_tasks"], packet)
+                if "image_generation" not in state:
+                    state["image_generation"] = _new_image_generation(packet, state)
         state["version"] = STATE_VERSION
         changed = True
     for stage in ALL_STAGES:
@@ -478,6 +562,125 @@ def build_task(paths, state, stage):
     raise ValueError(stage)
 
 
+def _run_serial_imagegen(paths, state, tasks, mode, bootstrap_key, args):
+    """签发 ImageGen 的唯一下一张任务；外部生成结束后由下一次 run 确认落盘。"""
+    with _image_generation_lock(paths):
+        # 领取锁后重新读取，避免两个调用者各自从旧 state 签发不同图片。
+        state = read_json(paths["state"])
+        packet = None
+        if os.path.exists(paths["image_tasks"]):
+            packet = read_json(paths["image_tasks"])
+        generation = state.get("image_generation")
+        if generation:
+            if not isinstance(packet, dict) or packet.get("execution_policy") != _image_execution_policy():
+                raise RuntimeError("ImageGen 串行任务包缺少或篡改 execution_policy")
+            if _image_task_packet_problems(tasks, packet.get("tasks", [])):
+                raise RuntimeError("图片任务包与正式分镜不一致，禁止变更串行队列")
+            if generation.get("manifest_sha256") != _sha256(paths["image_tasks"]):
+                raise RuntimeError("ImageGen 串行任务清单已变化，禁止继续；请创建新的 run")
+        else:
+            packet = {
+                "tasks": tasks,
+                "mode": mode,
+                "bootstrap_key": bootstrap_key,
+                "execution_policy": _image_execution_policy(),
+            }
+            write_json(paths["image_tasks"], packet)
+            generation = _new_image_generation(packet, state)
+            state["image_generation"] = generation
+
+        by_key = {task["key"]: task for task in tasks}
+        completed = list(generation.get("completed_keys", []))
+        completed_hashes = dict(generation.get("completed_sha256", {}))
+        if len(completed) != len(set(completed)) or any(key not in by_key for key in completed):
+            raise RuntimeError("ImageGen 串行状态的 completed_keys 无效")
+        for key in completed:
+            task = by_key[key]
+            problem = _image_file_problem(task)
+            if problem:
+                raise RuntimeError(f"已完成候选图片已失效：{key}：{problem}")
+            if completed_hashes.get(key) != _sha256(task["output_path"]):
+                raise RuntimeError(f"已完成候选图片哈希已变化：{key}")
+
+        active_key = generation.get("active_key")
+        if active_key:
+            if active_key not in by_key or active_key in completed:
+                raise RuntimeError("ImageGen 串行状态的 active_key 无效")
+            active = by_key[active_key]
+            # 历史 active_key 允许补齐密封请求；如果图片尚未落盘，它会以
+            # 相同哈希重签，不会把旧的自由附加提示带入后续执行。
+            try:
+                request = compile_image_generation_request(active)
+            except ValueError as exc:
+                raise RuntimeError("ImageGen 提示契约门禁失败：" + str(exc)) from exc
+            recorded = generation.get("active_request")
+            if recorded and (recorded.get("semantic_sha256") != request["semantic_sha256"] or
+                             recorded.get("request_sha256") != request["request_sha256"]):
+                raise RuntimeError("ImageGen 当前任务的密封请求哈希不一致，禁止完成或重签")
+            if not recorded:
+                generation["active_request"] = request
+            problem = _image_file_problem(active)
+            if problem:
+                transition(state, "images", "awaiting_external",
+                           f"等待当前 ImageGen 候选落盘：{active_key}（{problem}）",
+                           paths["image_tasks"])
+                save_state(paths, state)
+                signed_task = dict(active, generation_request=request)
+                print(json.dumps({"state": state["stages"]["images"],
+                                  "tasks": [signed_task], "all_task_count": len(tasks),
+                                  "serial": {"active_key": active_key,
+                                             "completed": len(completed)}},
+                                 ensure_ascii=False, indent=2))
+                return
+            completed.append(active_key)
+            completed_hashes[active_key] = _sha256(active["output_path"])
+            generation["active_key"] = None
+            generation["active_request"] = None
+            generation["completed_keys"] = completed
+            generation["completed_sha256"] = completed_hashes
+
+        next_task = next((task for task in tasks if task["key"] not in completed), None)
+        if not next_task:
+            transition(state, "images", "generated", "全部 ImageGen 候选已逐张校验落盘",
+                       paths["image_tasks"])
+            save_state(paths, state)
+            print(json.dumps({"state": state["stages"]["images"], "tasks": [],
+                              "all_task_count": len(tasks),
+                              "serial": {"completed": len(completed)}},
+                             ensure_ascii=False, indent=2))
+            return
+        wanted = set(getattr(args, "beats", None) or [])
+        if wanted and wanted != {next_task["key"]}:
+            raise RuntimeError("ImageGen 串行模式只能签发当前下一张：" + next_task["key"])
+        # 先编译并验证密封请求，失败时绝不占用 active_key。
+        try:
+            request = compile_image_generation_request(next_task)
+        except ValueError as exc:
+            raise RuntimeError("ImageGen 提示契约门禁失败：" + str(exc)) from exc
+        generation["active_key"] = next_task["key"]
+        generation["active_request"] = request
+        state["image_generation"] = generation
+        provider = make_image(state["providers"]["image"], ROOT)
+        try:
+            result = provider.generate([next_task])
+        except Exception as exc:
+            transition(state, "images", "failed", str(exc), paths["image_tasks"])
+            save_state(paths, state)
+            raise
+        if result.get("mode") != "interactive":
+            raise RuntimeError("ImageGen 必须使用交互式逐张生成模式")
+        transition(state, "images", "awaiting_external",
+                   f"已签发 ImageGen 单图：{next_task['key']}；落盘并通过 16:9 检查后再运行 images",
+                   paths["image_tasks"])
+        save_state(paths, state)
+        signed_task = dict(next_task, generation_request=request)
+        print(json.dumps({"state": state["stages"]["images"],
+                          "tasks": [signed_task], "all_task_count": len(tasks),
+                          "serial": {"active_key": next_task["key"],
+                                     "completed": len(completed)}},
+                         ensure_ascii=False, indent=2))
+
+
 def cmd_run(args):
     paths, state = locate_run(args.run_id, args.project)
     ensure_active_run(state, "run")
@@ -560,15 +763,21 @@ def cmd_run(args):
         # 防止在风格尚未确认前消耗整批图片额度。
         if bootstrap_key:
             selected_tasks = [task for task in tasks if task["key"] == bootstrap_key]
-            write_json(paths["image_tasks"], {"tasks": selected_tasks,
-                                              "mode": "bootstrap",
-                                              "bootstrap_key": bootstrap_key})
+            packet_mode = "bootstrap"
         else:
             selected_tasks = [task for task in tasks
                               if not os.path.exists(_task_image_path(paths, task))]
-            write_json(paths["image_tasks"], {"tasks": tasks,
-                                              "mode": "full",
-                                              "bootstrap_key": state.get("image_anchor", {}).get("key")})
+            packet_mode = "full"
+        if state["providers"]["image"]["name"] == "imagegen":
+            # selected_tasks 仅保留给万相；ImageGen 的完整清单由状态机逐张签发。
+            serial_tasks = selected_tasks if bootstrap_key else tasks
+            _run_serial_imagegen(paths, state, serial_tasks, packet_mode,
+                                 bootstrap_key or state.get("image_anchor", {}).get("key"),
+                                 args)
+            return
+        write_json(paths["image_tasks"], {"tasks": (selected_tasks if bootstrap_key else tasks),
+                                          "mode": packet_mode,
+                                          "bootstrap_key": bootstrap_key or state.get("image_anchor", {}).get("key")})
         if args.beats:
             wanted = set(args.beats)
             unknown = wanted - {task["key"] for task in tasks}
@@ -646,6 +855,8 @@ def cmd_select_image_anchor(args):
                              "sha256": _sha256(path), "selected_at":
                              datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                              "mode": "bootstrap_candidate"}
+    # bootstrap 的单图清单不能与确认锚点后的全量串行清单混用。
+    state.pop("image_generation", None)
     transition(state, "images", "pending",
                f"已选择首图锚点 {args.key}；请重新运行 images 生成剩余图片",
                paths["image_tasks"])
@@ -678,11 +889,24 @@ def _verify_images(paths, project, state=None):
     chars_path = os.path.join(ROOT, "assets", "characters.json")
     characters = read_json(chars_path) if os.path.exists(chars_path) else {}
     anchor = _run_style_anchor(state or {}, project)
-    bootstrap_key = (state or {}).get("image_anchor", {}).get("key")
+    # 首图已确认后，完整包不再是 bootstrap；否则重建会把已冻结的完整
+    # 任务错误标成 bootstrap 并改变 style_anchor 的语义。
+    bootstrap_key = None if anchor else _bootstrap_key(
+        story, project, characters, paths["images"])
     tasks = build_image_tasks(story, project_meta(project), characters,
                               paths["images"], anchor,
                               bootstrap_anchor_key=bootstrap_key)
     problems = []
+    generation = (state or {}).get("image_generation")
+    if (state or {}).get("providers", {}).get("image", {}).get("name") == "imagegen":
+        if not isinstance(generation, dict):
+            problems.append("缺少 ImageGen 串行生成状态")
+        elif generation.get("manifest_sha256") != _sha256(paths["image_tasks"]):
+            problems.append("ImageGen 串行任务清单哈希不一致")
+        elif generation.get("active_key"):
+            problems.append("ImageGen 仍有未确认落盘的当前任务：" + generation["active_key"])
+        elif set(generation.get("completed_keys", [])) != {task["key"] for task in tasks}:
+            problems.append("ImageGen 串行队列尚未全部完成")
     exception = _valid_manual_image_exception(paths)
     if not anchor and not exception:
         problems.append("缺少项目视觉锚点图片，禁止图片审核和提升")
@@ -840,7 +1064,17 @@ def _image_task_packet_problems(expected_tasks, packet_tasks):
     actual_by_key = {task["key"] for task in packet_tasks if isinstance(task, dict)}
     problems = []
     for expected, actual in zip(expected_tasks, packet_tasks):
-        if expected["key"] not in actual_by_key or actual != expected:
+        # V5 新增了结构化 text_policy；已冻结的历史任务包保持只读，
+        # 读取时从 text_mode 推导即可，不能为了升级重写 009 的任务包。
+        comparable_expected = json.loads(json.dumps(expected))
+        comparable_actual = json.loads(json.dumps(actual))
+        actual_manifest = comparable_actual.get("rule_manifest", {})
+        if (isinstance(actual_manifest, dict) and
+                "text_policy" not in actual_manifest):
+            expected_manifest = comparable_expected.get("rule_manifest", {})
+            if isinstance(expected_manifest, dict):
+                expected_manifest.pop("text_policy", None)
+        if expected["key"] not in actual_by_key or comparable_actual != comparable_expected:
             problems.append(
                 f"图片任务被改写：{expected['key']} 必须使用由正式分镜生成的原始规则")
     return problems

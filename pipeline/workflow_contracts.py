@@ -5,6 +5,8 @@
 import json
 import os
 import re
+import hashlib
+import unicodedata
 from collections import Counter
 from content_templates import ALLOWED_BLOCK_TYPES, template_names
 
@@ -607,7 +609,100 @@ def validate_image_task_prompt(task):
     if manifest.get("negative_prompt") != task.get("negative_prompt"):
         problems.append(
             f"ImageTask {task.get('key')} negative_prompt 与 rule_manifest 溯源不一致")
+    structured_policy = manifest.get("text_policy")
+    if structured_policy is not None:
+        if not isinstance(structured_policy, dict) or structured_policy.get("mode") not in {
+                "useful_in_scene", "required_exact", "forbidden"}:
+            problems.append(f"ImageTask {task.get('key')} text_policy.mode 无效")
+        elif (structured_policy["mode"] == "required_exact" and
+              not str(structured_policy.get("exact_text") or "").strip()):
+            problems.append(f"ImageTask {task.get('key')} required_exact 缺少 exact_text")
+    problems.extend(_image_text_policy_problems(task))
     return problems
+
+
+_TEXT_BLOCKING_PHRASES = (
+    "notext", "withouttext", "novisiblewords", "无文字", "不含文字",
+    "不要出现文字", "去除所有文字",
+)
+
+
+def _normalized_prompt_text(value):
+    """冲突检查采用 NFKC、小写及空白规整，避免用全角或断词绕过。"""
+    value = unicodedata.normalize("NFKC", str(value or "")).lower()
+    return re.sub(r"\s+", "", value)
+
+
+def image_text_policy(task):
+    """读取结构化文字策略，并兼容尚未带新字段的历史任务包。"""
+    manifest = task.get("rule_manifest") if isinstance(task, dict) else {}
+    manifest = manifest if isinstance(manifest, dict) else {}
+    policy = manifest.get("text_policy")
+    if isinstance(policy, dict) and policy.get("mode") in {
+            "useful_in_scene", "required_exact", "forbidden"}:
+        return dict(policy)
+    legacy = manifest.get("text_mode")
+    if legacy == "exact_title":
+        return {"mode": "required_exact", "exact_text": manifest.get("title_text")}
+    if legacy == "forbidden":
+        return {"mode": "forbidden"}
+    return {"mode": "useful_in_scene"}
+
+
+def _string_leaves(value):
+    if isinstance(value, dict):
+        for item in value.values():
+            yield from _string_leaves(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _string_leaves(item)
+    elif isinstance(value, str):
+        yield value
+
+
+def _image_text_policy_problems(task):
+    """文字允许/必需时，正式任务字段不得含“完全无文字”的相反指令。"""
+    policy = image_text_policy(task)
+    if policy["mode"] == "forbidden":
+        return []
+    official = [task.get("prompt", ""), task.get("negative_prompt", ""),
+                task.get("rule_manifest", {})]
+    normalized = "\n".join(_normalized_prompt_text(item)
+                           for value in official for item in _string_leaves(value))
+    found = [phrase for phrase in _TEXT_BLOCKING_PHRASES if phrase in normalized]
+    if not found:
+        return []
+    return [f"ImageTask {task.get('key')} 的正式文字策略为 {policy['mode']}，"
+            f"却含冲突禁令：{', '.join(found)}"]
+
+
+def _stable_hash(value):
+    encoded = json.dumps(value, ensure_ascii=False, sort_keys=True,
+                         separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def compile_image_generation_request(task):
+    """把唯一正式语义源编译成不可追加提示的 ImageGen 单图请求。"""
+    problems = validate_image_task_prompt(task)
+    if problems:
+        raise ValueError("；".join(problems))
+    semantic = {
+        "prompt": task.get("prompt"),
+        "negative_prompt": task.get("negative_prompt"),
+        "rule_manifest": task.get("rule_manifest"),
+    }
+    semantic_sha256 = _stable_hash(semantic)
+    request = {
+        "key": task.get("key"), "prompt": semantic["prompt"],
+        "negative_prompt": semantic["negative_prompt"],
+        "size": task.get("size"), "reference_images": task.get("reference_images", []),
+        "semantic_sha256": semantic_sha256,
+        "additional_prompt": None,
+        "additional_prompt_allowed": False,
+    }
+    request["request_sha256"] = _stable_hash(request)
+    return request
 
 
 def build_image_tasks(storyboard, project_meta, characters, images_dir,
@@ -697,6 +792,9 @@ def build_image_tasks(storyboard, project_meta, characters, images_dir,
                 "style_anchor": task_anchor,
                 "rule_manifest": {
                     "text_mode": "exact_title" if is_phase else "useful_in_scene",
+                    "text_policy": (
+                        {"mode": "required_exact", "exact_text": phase_title}
+                        if is_phase else {"mode": "useful_in_scene"}),
                     "title_text": phase_title if is_phase else None,
                     "max_text_density": "title_only" if is_phase else "6_groups_20_percent",
                     "forbidden_text_types": ["paragraph", "subtitle", "watermark", "gibberish"],
