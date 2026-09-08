@@ -14,7 +14,7 @@ topic → copy → script → storyboard → ImageTask → images
 ```
 
 - LLM：默认 `codex`，可切换 `deepseek`。
-- 图片：默认 `imagegen`，可切换 `wanxiang`。
+- 图片：每个新项目独立选择 `imagegen` 或万相 API `wanxiang`（CLI 默认 `imagegen`）；选定后项目内固定。
 - 语音：固定 Azure，不存在 Piper、Edge 或系统语音回退。
 - provider 只在项目级配置；单个 run 完整快照，禁止阶段覆盖和跨模型自动回退。
 
@@ -49,6 +49,22 @@ $PY pipeline/workflow.py status <run_id>
 ```
 
 Codex 和 ImageGen 是交互式适配器：`run` 写任务包并进入 `awaiting_external`，由 `$video-maker-production` 读取任务包并写候选文件。DeepSeek 和万相直接调用 API，但候选路径和正式契约完全相同。
+
+## 新项目选择生图模式
+
+两个新项目可以分别使用两种模式，互不影响（示例 id 必须尚未被使用）：
+
+```bash
+$PY pipeline/workflow.py create --project 010 --llm codex --image imagegen
+$PY pipeline/workflow.py create --project 011 --llm codex --image wanxiang \
+  --image-model wan2.7-image
+```
+
+选择写入各自的 `project.json.providers.image`。已有项目重复 `create` 会沿用未指定的设置，相同配置可安全重复执行；更改图片 provider 或图片模型会被拒绝，即使项目已经完成。`init` 将完整配置快照到 run，并拒绝与该项目历史 run 不一致的图片 provider。切换模式应在另一个新项目创建时选择，不是在已开始的项目或某个阶段内切换。其他 provider 和模板的显式调整仍受原有活动 run 限制。
+
+万相从环境变量或根 `.env` 读取 `DASHSCOPE_API_KEY`，可用 `DASHSCOPE_BASE_URL` 指定与密钥地域匹配的服务地址（域名根地址或以 `/api/v1` 结尾）。创建项目与 `init` 不调用生图 API；用户授权后，完成前置阶段再执行 `run <run_id> images` 才产生请求。ImageGen 不需要该密钥。
+
+两种模式共用正式分镜、ImageTask、首图锚点、候选区和人工审核/提升。万相将任务中的本地参考图作为 Base64 图像输入，校验锚点哈希；生成 PNG 完整解码和比例检查通过后原子落盘，损坏候选可在续跑时重试。网络失败仍需重跑当前 provider；自动退避及下载结果持久化尚未实现，下载失败后续跑可能重新生成。
 
 首次图片没有既有视觉锚点时，工作流只生成一张首图候选；执行
 `select-image-anchor` 后会把其路径和 SHA-256 冻结在 run 状态中，第二次

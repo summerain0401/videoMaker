@@ -35,7 +35,8 @@ DEFAULT_PROVIDERS = {
 }
 NEGATIVE_PROMPT = (
     "dense text, multiple sentences, paragraphs, long captions, subtitles, "
-    "crowded labels, dense UI, dense chart, text-heavy infographic, "
+    "bottom text, bottom caption, lower-third text, crowded labels, dense UI, "
+    "dense chart, text-heavy infographic, "
     "illegible or gibberish text, logo, watermark, sticker, speech bubble, "
     "frame, border, bottom bar, letterbox, extra fingers, malformed hands, "
     "duplicated person"
@@ -584,8 +585,9 @@ def _build_image_prompt(style, palette, description, char_bits, shot,
         f"{shot} shot", f"emotion: {emotion}", text_policy,
         "16:9 horizontal, 1920x1080, full-bleed, clean readable subject; "
         "compose as a continuous full-frame scene with no reserved caption "
-        "panel or empty bottom band; keep critical faces and indispensable "
-        "semantic details away from the bottom-center subtitle line while "
+        "panel or empty bottom band; never place readable text, titles, labels, "
+        "captions or typography in the bottom-center subtitle area; keep "
+        "critical faces and indispensable semantic details away from that area while "
         "allowing natural scenery and texture to continue to every edge; "
         "no logo or watermark",
     ] if x)
@@ -739,6 +741,7 @@ def build_image_tasks(storyboard, project_meta, characters, images_dir,
             is_phase = phase_number is not None
             key = (f"phase_{phase_number:02d}" if is_phase else
                    f"{int(block['block_idx']):02d}_{int(beat['beat_idx'])}")
+            is_bootstrap_anchor = key == bootstrap_anchor_key
             char_bits = []
             for char_id in beat.get("character_ids", []):
                 if char_id == "none":
@@ -750,8 +753,9 @@ def build_image_tasks(storyboard, project_meta, characters, images_dir,
                 character_anchor = char.get("anchor") or ""
                 char_bits.append(", ".join(x for x in (identity, character_anchor)
                                            if x))
-            text_policy = (
-                f'chapter-opening image; render the exact simplified-Chinese '
+            if is_phase:
+                text_policy = (
+                    f'chapter-opening image; render the exact simplified-Chinese '
                 f'title "{phase_title}" verbatim as a prominent physical part '
                 "of the depicted world—such as lettering engraved, painted, "
                 "printed or mounted on the most semantically natural object or "
@@ -760,23 +764,32 @@ def build_image_tasks(storyboard, project_meta, characters, images_dir,
                 "must be immediately legible and contain no missing, incorrect "
                 "or extra characters; do not write PHASE or add other readable "
                 "text; never use a floating overlay, generic title card, separate "
-                "banner, lower-third, subtitle, UI panel or watermark"
-                if is_phase else
-                "semantically useful in-scene text is allowed when it helps the "
-                "viewer: one short headline or key phrase plus a few concise "
-                "labels, prices or numbers; keep text easy to scan and visually "
-                "secondary, normally no more than about 6 short groups and under "
-                "20 percent of the frame; avoid paragraphs or dense text layouts"
-            )
+                    "banner, lower-third, subtitle, UI panel or watermark"
+                )
+            elif is_bootstrap_anchor:
+                text_policy = (
+                    "style-anchor image with no visible words, letters, numbers, "
+                    "captions, labels, signs or typography anywhere in the frame; "
+                    "express bills and notifications through shapes and icons only"
+                )
+            else:
+                text_policy = (
+                    "semantically useful in-scene text is allowed when it helps the "
+                    "viewer: one short headline or key phrase plus a few concise "
+                    "labels, prices or numbers; keep text easy to scan and visually "
+                    "secondary, normally no more than about 6 short groups and under "
+                    "20 percent of the frame; avoid paragraphs or dense text layouts"
+                )
             sources = {"style": style, "palette": palette,
                        "description": description, "char_bits": char_bits,
                        "shot": beat.get("shot", "medium"),
                        "emotion": beat.get("emotion", "neutral"),
                        "text_policy": text_policy}
             prompt = _build_image_prompt(**sources)
-            is_bootstrap_anchor = key == bootstrap_anchor_key
             task_anchor = (dict(style_anchor_record, mode="bootstrap")
                            if is_bootstrap_anchor else style_anchor_record)
+            negative_prompt = NEGATIVE_PROMPT + (
+                ", text, letters, numbers, typography" if is_bootstrap_anchor else "")
             task = {
                 "key": key,
                 "kind": "phase_title" if is_phase else "scene",
@@ -784,21 +797,27 @@ def build_image_tasks(storyboard, project_meta, characters, images_dir,
                 "block_idx": block["block_idx"],
                 "beat_idx": beat["beat_idx"],
                 "prompt": prompt,
-                "negative_prompt": NEGATIVE_PROMPT,
+                "negative_prompt": negative_prompt,
                 "size": [1920, 1080],
                 "output_path": os.path.join(images_dir, key + ".png"),
                 "reference_images": ([] if is_bootstrap_anchor else
                                      [anchor_path] if anchor_path else []),
                 "style_anchor": task_anchor,
                 "rule_manifest": {
-                    "text_mode": "exact_title" if is_phase else "useful_in_scene",
+                    "text_mode": ("exact_title" if is_phase else
+                                  "forbidden" if is_bootstrap_anchor else
+                                  "useful_in_scene"),
                     "text_policy": (
                         {"mode": "required_exact", "exact_text": phase_title}
-                        if is_phase else {"mode": "useful_in_scene"}),
+                        if is_phase else {"mode": "forbidden"}
+                        if is_bootstrap_anchor else {"mode": "useful_in_scene"}),
                     "title_text": phase_title if is_phase else None,
-                    "max_text_density": "title_only" if is_phase else "6_groups_20_percent",
-                    "forbidden_text_types": ["paragraph", "subtitle", "watermark", "gibberish"],
-                    "negative_prompt": NEGATIVE_PROMPT,
+                    "max_text_density": ("title_only" if is_phase else
+                                         "none" if is_bootstrap_anchor else
+                                         "6_groups_20_percent"),
+                    "forbidden_text_types": (["readable_text"] if is_bootstrap_anchor else
+                                             ["paragraph", "subtitle", "watermark", "gibberish"]),
+                    "negative_prompt": negative_prompt,
                     "prompt_sources": sources,
                     "style_anchor": task_anchor,
                 },

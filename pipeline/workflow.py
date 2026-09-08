@@ -157,6 +157,9 @@ def _image_file_problem(task):
         return "候选图片尚未落盘"
     try:
         with Image.open(path) as image:
+            if image.format != "PNG":
+                return "候选图片必须是 PNG"
+            image.load()
             width, height = image.size
         if abs(width / height - 16 / 9) > 0.02:
             return f"候选图片比例不是 16:9：{width}x{height}"
@@ -422,34 +425,61 @@ def cmd_revise(args):
                       "state": paths["state"]}, ensure_ascii=False, indent=2))
 
 
+def _check_image_provider_history(project, image_config):
+    """所有历史 run 必须保持同一项目生图模式，不迁移或改写旧快照。"""
+    states = []
+    runs_root = os.path.join(project, "workflow", "runs")
+    if not os.path.isdir(runs_root):
+        return states
+    for name in os.listdir(runs_root):
+        state_path = os.path.join(runs_root, name, "state.json")
+        if os.path.isfile(state_path):
+            state = read_json(state_path)
+            previous = state.get("providers", {}).get("image")
+            if not isinstance(previous, dict) or "name" not in previous:
+                raise RuntimeError("历史 run 缺少图片 provider 快照，需先核查历史配置")
+            if normalize_providers({"image": previous})["image"] != image_config:
+                raise RuntimeError("项目图片 provider 与历史 run 快照不一致；请恢复项目配置，或新建项目")
+            states.append(state)
+    return states
+
+
 def cmd_create(args):
     PJ.CURRENT_ID = args.project
     PJ._CACHE.clear()
+    existed = PJ._find_dir(args.project) is not None
     project = PJ.project_dir(args.project, title="新项目", author="")
     meta_path = os.path.join(project, "project.json")
     meta = read_json(meta_path)
-    proposed = normalize_providers({
-        "llm": {"name": args.llm, "model": args.llm_model},
-        "image": {"name": args.image, "model": args.image_model},
-        "speech": {"name": "azure", "voice": args.azure_voice},
-    })
+    # 未指定的参数沿用已有配置；新项目使用公共默认值。
+    proposed = normalize_providers(meta.get("providers"))
+    for group, field, option in (
+            ("llm", "name", "llm"), ("llm", "model", "llm_model"),
+            ("image", "name", "image"), ("image", "model", "image_model"),
+            ("speech", "voice", "azure_voice")):
+        value = getattr(args, option, None)
+        if value is not None:
+            if field == "name" and proposed[group][field] != value:
+                proposed[group]["model"] = None
+            proposed[group][field] = value
     problems = validate_providers(proposed, LLM_PROVIDERS, IMAGE_PROVIDERS)
     if problems:
         raise ValueError("；".join(problems))
-    existing_states = []
-    workflow_root = os.path.join(project, "workflow", "runs")
-    if os.path.isdir(workflow_root):
-        for name in os.listdir(workflow_root):
-            state_file = os.path.join(workflow_root, name, "state.json")
-            if os.path.exists(state_file):
-                existing_states.append(read_json(state_file))
-    if any(s.get("stages", {}).get("qa", {}).get("status") != "promoted"
-           for s in existing_states):
-        raise RuntimeError("项目存在活动 run，禁止修改 provider 配置")
-    meta["providers"] = proposed
-    meta["content_template"] = get_template(
-        getattr(args, "content_template", None))["id"]
-    write_json(meta_path, meta)
+    template_id = get_template(getattr(args, "content_template", None)
+                               or meta.get("content_template"))["id"]
+    changed = (proposed != normalize_providers(meta.get("providers")) or
+               template_id != get_template(meta.get("content_template"))["id"])
+    if existed:
+        if proposed["image"] != normalize_providers(meta.get("providers"))["image"]:
+            raise RuntimeError("项目图片 provider 已固定，禁止切换；请使用新项目 id 选择生图模式")
+        states = _check_image_provider_history(project, proposed["image"])
+        if changed and any(state.get("stages", {}).get("qa", {}).get("status")
+                           != "promoted" for state in states):
+            raise RuntimeError("项目存在活动 run，禁止修改其他 provider 或内容模板配置")
+    if not existed or changed:
+        meta["providers"] = proposed
+        meta["content_template"] = template_id
+        write_json(meta_path, meta)
     request = os.path.join(project, "input", "topic_request.md")
     if not os.path.exists(request):
         os.makedirs(os.path.dirname(request), exist_ok=True)
@@ -458,7 +488,7 @@ def cmd_create(args):
                     "## 希望解决的问题\n\n## 排除方向\n\n"
                     "## 候选书池（可选）\n\n")
     print(json.dumps({"project": project, "providers": proposed,
-                      "content_template": meta["content_template"],
+                      "content_template": template_id,
                       "topic_request": request}, ensure_ascii=False, indent=2))
 
 
@@ -470,6 +500,7 @@ def cmd_init(args):
     if problems:
         raise ValueError("；".join(problems))
     providers = normalize_providers(configured)
+    _check_image_provider_history(project, providers["image"])
     content_template = template_snapshot(meta.get("content_template"))
     run_id = args.run_id or now_run_id()
     paths = state_paths(project, run_id)
@@ -718,7 +749,7 @@ def cmd_run(args):
         print(json.dumps(report, ensure_ascii=False, indent=2))
         return
     if stage == "image-review":
-        report = _image_review(paths, project)
+        report = _image_review(paths, project, state)
         transition(state, stage, "generated", "自动图片风格与安全审核已生成", paths["image-review"])
         save_state(paths, state)
         print(json.dumps(report, ensure_ascii=False, indent=2))
@@ -765,8 +796,7 @@ def cmd_run(args):
             selected_tasks = [task for task in tasks if task["key"] == bootstrap_key]
             packet_mode = "bootstrap"
         else:
-            selected_tasks = [task for task in tasks
-                              if not os.path.exists(_task_image_path(paths, task))]
+            selected_tasks = [task for task in tasks if _image_file_problem(task)]
             packet_mode = "full"
         if state["providers"]["image"]["name"] == "imagegen":
             # selected_tasks 仅保留给万相；ImageGen 的完整清单由状态机逐张签发。
@@ -948,10 +978,10 @@ def _verify_images(paths, project, state=None):
     return problems
 
 
-def _image_review(paths, project):
+def _image_review(paths, project, state=None):
     """Deterministic image review contract; provider-neutral and hash-bound."""
     packet = read_json(paths["image_tasks"])
-    anchor = _style_anchor(project)
+    anchor = _run_style_anchor(state or {}, project)
     if not anchor:
         report = {"version": 1, "source_sha256": _sha256(paths["image_tasks"]),
                   "reviewer_required": True, "verdict": "fail",
@@ -1903,16 +1933,17 @@ def parser():
     revise.add_argument("--project", required=True)
     revise.add_argument("--run-id", default=None)
     revise.set_defaults(func=cmd_revise)
-    create = sub.add_parser("create", help="创建项目并固定 provider")
+    create = sub.add_parser("create", help="新项目选择并固定图片 provider")
     create.add_argument("--project", required=True)
-    create.add_argument("--llm", choices=sorted(LLM_PROVIDERS), default="codex")
-    create.add_argument("--image", choices=sorted(IMAGE_PROVIDERS), default="imagegen")
+    create.add_argument("--llm", choices=sorted(LLM_PROVIDERS),
+                        help="新项目默认 codex；已有项目沿用原配置")
+    create.add_argument("--image", choices=sorted(IMAGE_PROVIDERS),
+                        help="新项目选择 imagegen 或 wanxiang，默认 imagegen；选定后项目内固定")
     create.add_argument("--llm-model")
     create.add_argument("--image-model")
-    create.add_argument("--azure-voice",
-                        default="zh-CN-Xiaochen:DragonHDFlashLatestNeural")
+    create.add_argument("--azure-voice")
     create.add_argument("--content-template", choices=CONTENT_TEMPLATE_IDS,
-                        default="classic_insight_v1")
+                        default=None)
     create.set_defaults(func=cmd_create)
     init = sub.add_parser("init", help="创建可恢复 run")
     init.add_argument("--project", required=True)

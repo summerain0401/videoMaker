@@ -198,6 +198,8 @@ class ContractTests(unittest.TestCase):
                           tasks[0]["prompt"])
             self.assertIn("no reserved caption panel or empty bottom band",
                           tasks[0]["prompt"])
+            self.assertIn("never place readable text, titles, labels, captions or typography "
+                          "in the bottom-center subtitle area", tasks[0]["prompt"])
             self.assertIn("natural scenery and texture to continue to every edge",
                           tasks[0]["prompt"])
             self.assertNotIn("bottom 15 percent", tasks[0]["prompt"])
@@ -205,6 +207,7 @@ class ContractTests(unittest.TestCase):
                              tasks[0]["prompt"])
             self.assertNotIn("no text or watermark", tasks[0]["prompt"])
             self.assertIn("dense text", tasks[0]["negative_prompt"])
+            self.assertIn("bottom caption", tasks[0]["negative_prompt"])
             self.assertNotIn("full sentences", tasks[0]["negative_prompt"])
             self.assertNotIn("text, letters, numbers",
                              tasks[0]["negative_prompt"])
@@ -233,6 +236,11 @@ class ContractTests(unittest.TestCase):
                                       tmp, anchor, bootstrap_anchor_key="00_0")
         self.assertEqual(tasks[0]["reference_images"], [])
         self.assertEqual(tasks[0]["style_anchor"]["mode"], "bootstrap")
+        self.assertEqual(tasks[0]["rule_manifest"]["text_policy"],
+                         {"mode": "forbidden"})
+        self.assertIn("no visible words, letters, numbers", tasks[0]["prompt"])
+        self.assertIn("text, letters, numbers, typography",
+                      tasks[0]["negative_prompt"])
         self.assertEqual(tasks[1]["reference_images"], ["/tmp/style.png"])
 
     def test_phase_image_task_integrates_exact_title_and_uses_stable_key(self):
