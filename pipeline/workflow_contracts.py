@@ -768,9 +768,12 @@ def build_image_tasks(storyboard, project_meta, characters, images_dir,
                 )
             elif is_bootstrap_anchor:
                 text_policy = (
-                    "style-anchor image with no visible words, letters, numbers, "
-                    "captions, labels, signs or typography anywhere in the frame; "
-                    "express bills and notifications through shapes and icons only"
+                    "style-anchor image; limited semantically useful in-scene text, "
+                    "numbers or currency symbols are allowed when naturally part of "
+                    "the setting; keep them sparse, immediately scannable and visually "
+                    "secondary; never create subtitles, long passages, dense text, "
+                    "gibberish or watermarks, and keep readable elements away from the "
+                    "bottom-center subtitle area"
                 )
             else:
                 text_policy = (
@@ -788,8 +791,7 @@ def build_image_tasks(storyboard, project_meta, characters, images_dir,
             prompt = _build_image_prompt(**sources)
             task_anchor = (dict(style_anchor_record, mode="bootstrap")
                            if is_bootstrap_anchor else style_anchor_record)
-            negative_prompt = NEGATIVE_PROMPT + (
-                ", text, letters, numbers, typography" if is_bootstrap_anchor else "")
+            negative_prompt = NEGATIVE_PROMPT
             task = {
                 "key": key,
                 "kind": "phase_title" if is_phase else "scene",
@@ -805,18 +807,15 @@ def build_image_tasks(storyboard, project_meta, characters, images_dir,
                 "style_anchor": task_anchor,
                 "rule_manifest": {
                     "text_mode": ("exact_title" if is_phase else
-                                  "forbidden" if is_bootstrap_anchor else
                                   "useful_in_scene"),
                     "text_policy": (
                         {"mode": "required_exact", "exact_text": phase_title}
-                        if is_phase else {"mode": "forbidden"}
-                        if is_bootstrap_anchor else {"mode": "useful_in_scene"}),
+                        if is_phase else {"mode": "useful_in_scene"}),
                     "title_text": phase_title if is_phase else None,
                     "max_text_density": ("title_only" if is_phase else
-                                         "none" if is_bootstrap_anchor else
                                          "6_groups_20_percent"),
-                    "forbidden_text_types": (["readable_text"] if is_bootstrap_anchor else
-                                             ["paragraph", "subtitle", "watermark", "gibberish"]),
+                    "forbidden_text_types": [
+                        "paragraph", "subtitle", "watermark", "gibberish"],
                     "negative_prompt": negative_prompt,
                     "prompt_sources": sources,
                     "style_anchor": task_anchor,

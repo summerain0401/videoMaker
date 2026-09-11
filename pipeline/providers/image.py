@@ -3,11 +3,13 @@
 """ImageGen interactive and Wanxiang API image providers."""
 
 import base64
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
 import io
 import json
 import os
 import tempfile
+import time
 import urllib.error
 import urllib.request
 
@@ -51,6 +53,9 @@ class ImageGenProvider:
 class WanxiangProvider:
     mode = "api"
     default_model = "wan2.7-image"
+    max_workers = 5
+    retry_attempts = 3
+    retryable_http_codes = {429, 500, 502, 503, 504}
 
     def __init__(self, config, root):
         self.config = config
@@ -68,7 +73,7 @@ class WanxiangProvider:
 
     def generate(self, tasks):
         key, base, model = self._config()
-        made, skipped, failed = [], [], []
+        made, skipped, pending = [], [], []
         for task in tasks:
             output = task["output_path"]
             if os.path.exists(output):
@@ -80,16 +85,64 @@ class WanxiangProvider:
                 else:
                     skipped.append(task["key"])
                     continue
-            try:
-                self._generate_one(task, key, base, model)
-                made.append(task["key"])
-            except Exception as exc:
-                failed.append({"key": task["key"], "error": str(exc)})
+            pending.append(task)
+
+        results = {}
+        worker_count = min(self.max_workers, len(pending))
+        if worker_count:
+            with ThreadPoolExecutor(max_workers=worker_count) as executor:
+                futures = {
+                    executor.submit(self._generate_one, task, key, base, model):
+                    task["key"] for task in pending
+                }
+                for future in as_completed(futures):
+                    task_key = futures[future]
+                    try:
+                        future.result()
+                    except Exception as exc:
+                        results[task_key] = str(exc)
+                    else:
+                        results[task_key] = None
+
+        failed = []
+        for task in pending:
+            task_key = task["key"]
+            error = results[task_key]
+            if error is None:
+                made.append(task_key)
+            else:
+                failed.append({"key": task_key, "error": error})
         if failed:
             raise RuntimeError(json.dumps({"made": made, "skipped": skipped,
                                            "failed": failed},
                                           ensure_ascii=False))
         return {"mode": self.mode, "made": made, "skipped": skipped}
+
+    def _read_with_retry(self, request, *, timeout=600):
+        """仅重试限流、暂时性服务错误和网络故障。"""
+        for attempt in range(self.retry_attempts):
+            try:
+                with urllib.request.urlopen(request, timeout=timeout) as resp:
+                    return resp.read()
+            except urllib.error.HTTPError as exc:
+                detail = exc.read().decode("utf-8", "ignore")[:400]
+                retryable = exc.code in self.retryable_http_codes
+                if not retryable or attempt + 1 == self.retry_attempts:
+                    raise RuntimeError(
+                        f"万相请求失败 {exc.code}：{detail}") from exc
+                retry_after = (
+                    exc.headers.get("Retry-After") if exc.headers else None)
+                try:
+                    delay = float(retry_after)
+                except (TypeError, ValueError):
+                    delay = 0.5 * (2 ** attempt)
+                time.sleep(min(max(delay, 0.0), 8.0))
+            except (urllib.error.URLError, ConnectionError, TimeoutError) as exc:
+                if attempt + 1 == self.retry_attempts:
+                    reason = getattr(exc, "reason", str(exc))
+                    raise RuntimeError(f"万相网络请求失败：{reason}") from exc
+                time.sleep(0.5 * (2 ** attempt))
+        raise AssertionError("万相重试状态异常")
 
     def _generate_one(self, task, key, base, model):
         # 与 ImageGen 共用任务中的参考图；本地图片通过 Base64 直接传给 API。
@@ -147,19 +200,13 @@ class WanxiangProvider:
             data=json.dumps(body).encode("utf-8"),
             headers={"Content-Type": "application/json",
                      "Authorization": f"Bearer {key}"})
+        data = json.loads(self._read_with_retry(req).decode("utf-8"))
         try:
-            with urllib.request.urlopen(req, timeout=600) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            try:
-                items = data["output"]["choices"][0]["message"]["content"]
-                url = next(item["image"] for item in items if item.get("image"))
-            except (KeyError, IndexError, TypeError, StopIteration) as exc:
-                raise RuntimeError("万相响应未包含生成图片地址") from exc
-            with urllib.request.urlopen(url, timeout=600) as resp:
-                content = resp.read()
-        except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", "ignore")[:400]
-            raise RuntimeError(f"万相请求失败 {exc.code}：{detail}") from exc
+            items = data["output"]["choices"][0]["message"]["content"]
+            url = next(item["image"] for item in items if item.get("image"))
+        except (KeyError, IndexError, TypeError, StopIteration) as exc:
+            raise RuntimeError("万相响应未包含生成图片地址") from exc
+        content = self._read_with_retry(url)
         _validate_candidate(content)
         directory = os.path.dirname(task["output_path"])
         os.makedirs(directory, exist_ok=True)

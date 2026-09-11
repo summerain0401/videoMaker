@@ -237,10 +237,12 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(tasks[0]["reference_images"], [])
         self.assertEqual(tasks[0]["style_anchor"]["mode"], "bootstrap")
         self.assertEqual(tasks[0]["rule_manifest"]["text_policy"],
-                         {"mode": "forbidden"})
-        self.assertIn("no visible words, letters, numbers", tasks[0]["prompt"])
-        self.assertIn("text, letters, numbers, typography",
-                      tasks[0]["negative_prompt"])
+                         {"mode": "useful_in_scene"})
+        self.assertIn("currency symbols are allowed", tasks[0]["prompt"])
+        self.assertIn("keep readable elements away from the bottom-center",
+                      tasks[0]["prompt"])
+        self.assertNotIn("text, letters, numbers, typography",
+                         tasks[0]["negative_prompt"])
         self.assertEqual(tasks[1]["reference_images"], ["/tmp/style.png"])
 
     def test_phase_image_task_integrates_exact_title_and_uses_stable_key(self):

@@ -8,7 +8,10 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+import threading
+import time
 import unittest
+import urllib.error
 from contextlib import redirect_stdout
 from unittest import mock
 
@@ -257,6 +260,80 @@ class WanxiangCompatibilityTests(unittest.TestCase):
             result = self.provider.generate([self.task])
             self.assertEqual(result["skipped"], ["00_0"])
             generate.assert_not_called()
+
+    def test_generate_uses_bounded_parallelism_and_keeps_task_order(self):
+        tasks = []
+        for index in range(8):
+            task = dict(self.task)
+            task["key"] = f"00_{index}"
+            task["output_path"] = str(Path(self.tmp.name) / f"{index}.png")
+            tasks.append(task)
+        lock = threading.Lock()
+        active = 0
+        maximum = 0
+
+        def generate_one(task, *_args):
+            nonlocal active, maximum
+            with lock:
+                active += 1
+                maximum = max(maximum, active)
+            time.sleep(0.02)
+            with lock:
+                active -= 1
+
+        with mock.patch.object(self.provider, "_config",
+                               return_value=("k", "u", "m")), \
+                mock.patch.object(self.provider, "_generate_one",
+                                  side_effect=generate_one):
+            result = self.provider.generate(tasks)
+        self.assertGreater(maximum, 1)
+        self.assertLessEqual(maximum, 5)
+        self.assertEqual(result["made"], [task["key"] for task in tasks])
+
+    def test_generate_aggregates_parallel_failures_in_task_order(self):
+        tasks = []
+        for index in range(3):
+            task = dict(self.task)
+            task["key"] = f"00_{index}"
+            task["output_path"] = str(Path(self.tmp.name) / f"{index}.png")
+            tasks.append(task)
+
+        def generate_one(task, *_args):
+            if task["key"] != "00_1":
+                return
+            raise RuntimeError("boom")
+
+        with mock.patch.object(self.provider, "_config",
+                               return_value=("k", "u", "m")), \
+                mock.patch.object(self.provider, "_generate_one",
+                                  side_effect=generate_one):
+            with self.assertRaises(RuntimeError) as raised:
+                self.provider.generate(tasks)
+        result = json.loads(str(raised.exception))
+        self.assertEqual(result["made"], ["00_0", "00_2"])
+        self.assertEqual(result["failed"], [{"key": "00_1", "error": "boom"}])
+
+    def test_transient_rate_limit_is_retried(self):
+        limited = urllib.error.HTTPError(
+            "https://example.test", 429, "rate limited",
+            {"Retry-After": "0"}, io.BytesIO(b"try later"))
+        with mock.patch("providers.image.urllib.request.urlopen",
+                        side_effect=[limited, io.BytesIO(b"ok")]) as opened, \
+                mock.patch("providers.image.time.sleep") as sleep:
+            result = self.provider._read_with_retry("https://example.test")
+        self.assertEqual(result, b"ok")
+        self.assertEqual(opened.call_count, 2)
+        sleep.assert_called_once_with(0.0)
+
+    def test_connection_reset_is_retried(self):
+        with mock.patch("providers.image.urllib.request.urlopen",
+                        side_effect=[ConnectionResetError("reset"),
+                                     io.BytesIO(b"ok")]) as opened, \
+                mock.patch("providers.image.time.sleep") as sleep:
+            result = self.provider._read_with_retry("https://example.test")
+        self.assertEqual(result, b"ok")
+        self.assertEqual(opened.call_count, 2)
+        sleep.assert_called_once_with(0.5)
 
     def test_bad_download_does_not_overwrite_candidate(self):
         for data in (b"\x89PNGbroken", png_bytes(size=(360, 360))):
