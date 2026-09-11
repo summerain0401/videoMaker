@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""ImageGen interactive and Wanxiang API image providers."""
+"""Interactive workspace-agent and Wanxiang API image providers."""
 
 import base64
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -40,6 +40,19 @@ def _dotenv(root):
 
 
 class ImageGenProvider:
+    mode = "interactive"
+
+    def __init__(self, config, root):
+        self.config = config
+        self.root = root
+
+    def generate(self, tasks):
+        return {"mode": self.mode, "tasks": tasks}
+
+
+class AntigravityImageProvider:
+    """由 Antigravity workspace skill 消费密封任务的交互式 provider。"""
+
     mode = "interactive"
 
     def __init__(self, config, root):

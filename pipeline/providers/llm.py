@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Codex interactive and DeepSeek API LLM providers."""
+"""Interactive workspace-agent and DeepSeek API LLM providers."""
 
 import json
 import os
@@ -40,6 +40,20 @@ def _extract_json(text):
 
 
 class CodexProvider:
+    mode = "interactive"
+    stages = {"topic", "copy", "script", "storyboard", "brand", "publish"}
+
+    def __init__(self, config, root):
+        self.config = config
+        self.root = root
+
+    def generate(self, stage, task, destination):
+        return {"mode": self.mode, "task": task, "destination": destination}
+
+
+class AntigravityLLMProvider:
+    """由 Antigravity workspace skill 消费任务包的交互式 provider。"""
+
     mode = "interactive"
     stages = {"topic", "copy", "script", "storyboard", "brand", "publish"}
 

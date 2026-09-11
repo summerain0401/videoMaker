@@ -153,8 +153,10 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(beat_section.count("zoompan=z='"), 1)
 
     def test_provider_registry_and_no_stage_override(self):
-        self.assertEqual(set(LLM_PROVIDERS), {"codex", "deepseek"})
-        self.assertEqual(set(IMAGE_PROVIDERS), {"imagegen", "wanxiang"})
+        self.assertEqual(set(LLM_PROVIDERS),
+                         {"antigravity", "codex", "deepseek"})
+        self.assertEqual(set(IMAGE_PROVIDERS),
+                         {"antigravity", "imagegen", "wanxiang"})
         self.assertEqual(validate_providers(
             normalize_providers(), LLM_PROVIDERS, IMAGE_PROVIDERS), [])
         bad = normalize_providers({"speech": {"name": "edge"}})
@@ -165,6 +167,13 @@ class ContractTests(unittest.TestCase):
         self.assertTrue(any("禁止阶段覆盖" in error for error in
                             validate_providers(overridden, LLM_PROVIDERS,
                                                IMAGE_PROVIDERS)))
+        antigravity = normalize_providers({
+            "llm": {"name": "antigravity", "model": "gemini-any"},
+            "image": {"name": "antigravity", "model": "nano-any"},
+        })
+        self.assertEqual(sum("model 必须为 null" in error for error in
+                             validate_providers(antigravity, LLM_PROVIDERS,
+                                                IMAGE_PROVIDERS)), 2)
         with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             workflow.parser().parse_args(
                 ["run", "run_x", "script", "--llm", "deepseek"])
@@ -402,7 +411,8 @@ class SerialImageGenTests(unittest.TestCase):
             args = SimpleNamespace(beats=None)
             with mock.patch.object(workflow, "make_image", return_value=provider), \
                     redirect_stdout(io.StringIO()):
-                workflow._run_serial_imagegen(paths, state, tasks, "full", None, args)
+                workflow._run_serial_interactive_images(
+                    paths, state, tasks, "full", None, args)
             current = read_json(paths["state"])
             self.assertEqual(current["image_generation"]["active_key"], "00_0")
             sealed = current["image_generation"]["active_request"]
@@ -413,13 +423,15 @@ class SerialImageGenTests(unittest.TestCase):
             # 未落盘时不能签发 00_1，也不会再次调用 provider。
             with mock.patch.object(workflow, "make_image", return_value=provider), \
                     redirect_stdout(io.StringIO()):
-                workflow._run_serial_imagegen(paths, current, tasks, "full", None, args)
+                workflow._run_serial_interactive_images(
+                    paths, current, tasks, "full", None, args)
             self.assertEqual(provider.generate.call_count, 1)
             Image.new("RGB", (160, 90), "white").save(tasks[0]["output_path"])
 
             with mock.patch.object(workflow, "make_image", return_value=provider), \
                     redirect_stdout(io.StringIO()):
-                workflow._run_serial_imagegen(paths, current, tasks, "full", None, args)
+                workflow._run_serial_interactive_images(
+                    paths, current, tasks, "full", None, args)
             current = read_json(paths["state"])
             self.assertEqual(current["image_generation"]["completed_keys"], ["00_0"])
             self.assertEqual(current["image_generation"]["active_key"], "00_1")
@@ -435,13 +447,15 @@ class SerialImageGenTests(unittest.TestCase):
             args = SimpleNamespace(beats=None)
             with mock.patch.object(workflow, "make_image", return_value=provider), \
                     redirect_stdout(io.StringIO()):
-                workflow._run_serial_imagegen(paths, state, tasks, "full", None, args)
+                workflow._run_serial_interactive_images(
+                    paths, state, tasks, "full", None, args)
             Image.new("RGB", (160, 90), "white").save(tasks[0]["output_path"])
             current = read_json(paths["state"])
             current["image_generation"]["active_request"]["request_sha256"] = "tampered"
             write_json(paths["state"], current)
             with self.assertRaisesRegex(RuntimeError, "密封请求哈希不一致"):
-                workflow._run_serial_imagegen(paths, current, tasks, "full", None, args)
+                workflow._run_serial_interactive_images(
+                    paths, current, tasks, "full", None, args)
         finally:
             tmp.cleanup()
 
@@ -453,13 +467,15 @@ class SerialImageGenTests(unittest.TestCase):
             args = SimpleNamespace(beats=None)
             with mock.patch.object(workflow, "make_image", return_value=provider), \
                     redirect_stdout(io.StringIO()):
-                workflow._run_serial_imagegen(paths, state, tasks, "full", None, args)
+                workflow._run_serial_interactive_images(
+                    paths, state, tasks, "full", None, args)
             packet = read_json(paths["image_tasks"])
             packet["tasks"][0]["prompt"] = "tampered"
             write_json(paths["image_tasks"], packet)
             with self.assertRaisesRegex(RuntimeError, "任务包与正式分镜不一致|清单已变化"):
-                workflow._run_serial_imagegen(paths, read_json(paths["state"]),
-                                               tasks, "full", None, args)
+                workflow._run_serial_interactive_images(
+                    paths, read_json(paths["state"]), tasks, "full", None,
+                    args)
         finally:
             tmp.cleanup()
 

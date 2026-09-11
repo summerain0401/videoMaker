@@ -2,7 +2,9 @@
 
 ## Model routing
 
-本项目仅使用 Sol 和 Luna：Sol 主控、创作与工程判断，Luna 按需执行明确任务。
+在 Codex 运行环境中仅使用 Sol 和 Luna：Sol 主控、创作与工程判断，Luna 按需执行明确任务。
+当项目选择 `llm=antigravity` 时，本节的 Codex 内部模型路由不适用，由 Antigravity
+当前会话模型按工作区 skill 执行；不得把 Antigravity 会话模型伪装成 Codex 模型。
 
 - 默认主控为 `gpt-5.6-sol`，推理强度为 `medium`；负责需求沟通、任务包、内容创作、架构设计、工程实现、复杂调试、调度与最终验收。仅在任务确有需要且运行环境支持时提高推理强度，不默认使用高强度推理；不得声称配置文件修改已热切换当前会话模型。
 - `topic`、`copy`、`script`、`storyboard` 的新候选与任何主题、论点、叙事、案例、口播或镜头语义的实质修订均由 Sol 主控直接完成，不再为这些阶段例行启动另一个 Sol 子代理。`script` 仍是独立创作，不得作为 `copy` 的机械转写。
@@ -21,7 +23,7 @@
 
 - `pipeline/workflow.py`：唯一 provider-neutral 编排入口。
 - `pipeline/workflow_contracts.py`：四阶段 schema、校验、ImageTask 组装。
-- `pipeline/providers/`：LLM registry（Codex/DeepSeek）与图片 registry（ImageGen/万相）。
+- `pipeline/providers/`：LLM registry（Codex/DeepSeek/Antigravity）与图片 registry（ImageGen/万相/Antigravity）。
 - `pipeline/build_long.py`：公共字幕、运镜、SFX、BGM、1080p 渲染。
 - `pipeline/tts_azure.py`：唯一 TTS；Azure 内重试，不允许跨语音服务回退。
 - `pipeline/migrate_provider_architecture.py`：V5 旧项目一次性迁移工具。
@@ -44,11 +46,11 @@
 
 ## Contracts and state
 
-- 每次开始新视频项目时，先确认用户选择 ImageGen（`imagegen`）还是万相 API（`wanxiang`）；用户已明确指定时直接采用。通过 `create --image` 将选择写入该新项目，不修改全局默认或其他项目。
-- 一个项目只能配置一个 LLM 和一个图片 provider；图片 provider 及模型在创建时选定后项目内固定，完成后也不切换；需要另一种生图模式时新建项目。不得增加阶段覆盖参数或修改已有 run 快照。
+- 每次开始新视频项目时，必须先确认 LLM（`codex`/`deepseek`/`antigravity`）和图片 provider（`imagegen`/`wanxiang`/`antigravity`），并同时传给 `create --llm --image`；不得依赖静默默认值。
+- 一个项目只能配置一个 LLM 和一个图片 provider；两者及其模型配置在创建时选定后永久固定，完成后也不切换；需要另一种组合时新建项目。不得增加阶段覆盖参数或修改已有 run 快照。
 - `state.json` 必须保存 `project.json.providers` 的完整快照。
 - topic/copy/script/storyboard/images 必须进入 run 候选区，校验后由用户明确提升。
-- Codex/ImageGen 只生成任务包；DeepSeek/万相只写相同候选契约；不得自动回退。
+- Codex、ImageGen 与 Antigravity 只生成交互任务包；DeepSeek/万相直接写相同候选契约；不得自动回退。
 - `script.txt` 是 Azure 与字幕唯一文本源；`storyboard.json` 是图片和渲染唯一分镜源。
 - 正式分镜不得出现 provider/model/final prompt/negative prompt 字段。
 
@@ -58,4 +60,4 @@ Python 遵循 PEP 8，4 空格缩进，中文注释；子进程使用参数数�
 
 ## Security
 
-密钥只来自环境变量或根 `.env`，不得写入项目配置、状态或日志。默认 Codex/ImageGen 不需要 `OPENAI_API_KEY`。调用 DeepSeek、万相或 Azure 前仍需用户授权。候选资产只有在用户明确确认后才可 `promote`。
+密钥只来自环境变量或根 `.env`，不得写入项目配置、状态或日志。Codex、ImageGen 与 Antigravity 原生任务包不需要项目 API key；调用 DeepSeek、万相或 Azure 前仍需用户授权。候选资产只有在用户明确确认后才可 `promote`。

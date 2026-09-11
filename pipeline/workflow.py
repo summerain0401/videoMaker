@@ -140,11 +140,11 @@ def _task_image_path(paths, task):
     return os.path.join(paths["images"], task["key"] + ".png")
 
 
-def _image_execution_policy():
-    """ImageGen 的交互式任务必须逐张签发，不能由调用方自行并发。"""
+def _image_execution_policy(provider_name="imagegen"):
+    """交互式图片任务必须逐张签发，不能由调用方自行并发。"""
     return {
         "mode": "serial",
-        "provider": "imagegen",
+        "provider": provider_name,
         "unit": "single_task",
         "completion": "上一张候选图片可读取且为 16:9 后，才可签发下一张",
     }
@@ -294,7 +294,7 @@ def _upgrade_state_schema(paths, state):
             packet = read_json(paths["image_tasks"])
             if isinstance(packet, dict) and isinstance(packet.get("tasks"), list):
                 if "execution_policy" not in packet:
-                    packet["execution_policy"] = _image_execution_policy()
+                    packet["execution_policy"] = _image_execution_policy("imagegen")
                     write_json(paths["image_tasks"], packet)
                 if "image_generation" not in state:
                     state["image_generation"] = _new_image_generation(packet, state)
@@ -425,8 +425,8 @@ def cmd_revise(args):
                       "state": paths["state"]}, ensure_ascii=False, indent=2))
 
 
-def _check_image_provider_history(project, image_config):
-    """所有历史 run 必须保持同一项目生图模式，不迁移或改写旧快照。"""
+def _check_provider_history(project, providers):
+    """所有历史 run 必须保持项目 LLM 与图片配置，不改写旧快照。"""
     states = []
     runs_root = os.path.join(project, "workflow", "runs")
     if not os.path.isdir(runs_root):
@@ -435,11 +435,16 @@ def _check_image_provider_history(project, image_config):
         state_path = os.path.join(runs_root, name, "state.json")
         if os.path.isfile(state_path):
             state = read_json(state_path)
-            previous = state.get("providers", {}).get("image")
-            if not isinstance(previous, dict) or "name" not in previous:
-                raise RuntimeError("历史 run 缺少图片 provider 快照，需先核查历史配置")
-            if normalize_providers({"image": previous})["image"] != image_config:
-                raise RuntimeError("项目图片 provider 与历史 run 快照不一致；请恢复项目配置，或新建项目")
+            for group, label in (("llm", "LLM"), ("image", "图片")):
+                previous = state.get("providers", {}).get(group)
+                if not isinstance(previous, dict) or "name" not in previous:
+                    raise RuntimeError(
+                        f"历史 run 缺少 {label} provider 快照，需先核查历史配置")
+                previous = normalize_providers({group: previous})[group]
+                if previous != providers[group]:
+                    raise RuntimeError(
+                        f"项目 {label} provider 与历史 run 快照不一致；"
+                        "请恢复项目配置，或新建项目")
             states.append(state)
     return states
 
@@ -448,10 +453,26 @@ def cmd_create(args):
     PJ.CURRENT_ID = args.project
     PJ._CACHE.clear()
     existed = PJ._find_dir(args.project) is not None
+    if not existed:
+        missing = [option for option in ("llm", "image")
+                   if getattr(args, option, None) is None]
+        if missing:
+            flags = "、".join("--" + option for option in missing)
+            raise ValueError(
+                f"新项目必须显式指定 {flags}；"
+                f"LLM 可选 {', '.join(sorted(LLM_PROVIDERS))}；"
+                f"图片可选 {', '.join(sorted(IMAGE_PROVIDERS))}")
+    if getattr(args, "llm", None) == "antigravity" and \
+            getattr(args, "llm_model", None) is not None:
+        raise ValueError("Antigravity LLM 跟随当前会话模型，禁止指定 --llm-model")
+    if getattr(args, "image", None) == "antigravity" and \
+            getattr(args, "image_model", None) is not None:
+        raise ValueError("Antigravity 使用平台内置生图模型，禁止指定 --image-model")
     project = PJ.project_dir(args.project, title="新项目", author="")
     meta_path = os.path.join(project, "project.json")
     meta = read_json(meta_path)
-    # 未指定的参数沿用已有配置；新项目使用公共默认值。
+    # 已有项目未指定的参数沿用原配置；新项目已在创建目录前强制显式选择。
+    current = normalize_providers(meta.get("providers"))
     proposed = normalize_providers(meta.get("providers"))
     for group, field, option in (
             ("llm", "name", "llm"), ("llm", "model", "llm_model"),
@@ -470,9 +491,11 @@ def cmd_create(args):
     changed = (proposed != normalize_providers(meta.get("providers")) or
                template_id != get_template(meta.get("content_template"))["id"])
     if existed:
-        if proposed["image"] != normalize_providers(meta.get("providers"))["image"]:
-            raise RuntimeError("项目图片 provider 已固定，禁止切换；请使用新项目 id 选择生图模式")
-        states = _check_image_provider_history(project, proposed["image"])
+        if any(proposed[group] != current[group] for group in ("llm", "image")):
+            raise RuntimeError(
+                "项目 LLM 与图片 provider/model 已固定，禁止切换；"
+                "请使用新项目 id 重新选择")
+        states = _check_provider_history(project, proposed)
         if changed and any(state.get("stages", {}).get("qa", {}).get("status")
                            != "promoted" for state in states):
             raise RuntimeError("项目存在活动 run，禁止修改其他 provider 或内容模板配置")
@@ -493,6 +516,10 @@ def cmd_create(args):
 
 
 def cmd_init(args):
+    if PJ._find_dir(args.project) is None:
+        raise RuntimeError(
+            f"PROJECT={args.project} 尚未创建；"
+            "请先使用 create 并显式选择 --llm 与 --image")
     project = set_project(args.project)
     meta = project_meta(project)
     configured = meta.get("providers") or {}
@@ -500,7 +527,7 @@ def cmd_init(args):
     if problems:
         raise ValueError("；".join(problems))
     providers = normalize_providers(configured)
-    _check_image_provider_history(project, providers["image"])
+    _check_provider_history(project, providers)
     content_template = template_snapshot(meta.get("content_template"))
     run_id = args.run_id or now_run_id()
     paths = state_paths(project, run_id)
@@ -593,28 +620,34 @@ def build_task(paths, state, stage):
     raise ValueError(stage)
 
 
-def _run_serial_imagegen(paths, state, tasks, mode, bootstrap_key, args):
-    """签发 ImageGen 的唯一下一张任务；外部生成结束后由下一次 run 确认落盘。"""
+def _run_serial_interactive_images(paths, state, tasks, mode, bootstrap_key,
+                                   args):
+    """签发交互式 provider 的唯一下一张图片任务并确认落盘。"""
     with _image_generation_lock(paths):
         # 领取锁后重新读取，避免两个调用者各自从旧 state 签发不同图片。
         state = read_json(paths["state"])
+        provider_name = state["providers"]["image"]["name"]
+        execution_policy = _image_execution_policy(provider_name)
         packet = None
         if os.path.exists(paths["image_tasks"]):
             packet = read_json(paths["image_tasks"])
         generation = state.get("image_generation")
         if generation:
-            if not isinstance(packet, dict) or packet.get("execution_policy") != _image_execution_policy():
-                raise RuntimeError("ImageGen 串行任务包缺少或篡改 execution_policy")
+            if not isinstance(packet, dict) or \
+                    packet.get("execution_policy") != execution_policy:
+                raise RuntimeError(
+                    f"{provider_name} 串行任务包缺少或篡改 execution_policy")
             if _image_task_packet_problems(tasks, packet.get("tasks", [])):
                 raise RuntimeError("图片任务包与正式分镜不一致，禁止变更串行队列")
             if generation.get("manifest_sha256") != _sha256(paths["image_tasks"]):
-                raise RuntimeError("ImageGen 串行任务清单已变化，禁止继续；请创建新的 run")
+                raise RuntimeError(
+                    f"{provider_name} 串行任务清单已变化，禁止继续；请创建新的 run")
         else:
             packet = {
                 "tasks": tasks,
                 "mode": mode,
                 "bootstrap_key": bootstrap_key,
-                "execution_policy": _image_execution_policy(),
+                "execution_policy": execution_policy,
             }
             write_json(paths["image_tasks"], packet)
             generation = _new_image_generation(packet, state)
@@ -624,7 +657,7 @@ def _run_serial_imagegen(paths, state, tasks, mode, bootstrap_key, args):
         completed = list(generation.get("completed_keys", []))
         completed_hashes = dict(generation.get("completed_sha256", {}))
         if len(completed) != len(set(completed)) or any(key not in by_key for key in completed):
-            raise RuntimeError("ImageGen 串行状态的 completed_keys 无效")
+            raise RuntimeError(f"{provider_name} 串行状态的 completed_keys 无效")
         for key in completed:
             task = by_key[key]
             problem = _image_file_problem(task)
@@ -636,24 +669,27 @@ def _run_serial_imagegen(paths, state, tasks, mode, bootstrap_key, args):
         active_key = generation.get("active_key")
         if active_key:
             if active_key not in by_key or active_key in completed:
-                raise RuntimeError("ImageGen 串行状态的 active_key 无效")
+                raise RuntimeError(f"{provider_name} 串行状态的 active_key 无效")
             active = by_key[active_key]
             # 历史 active_key 允许补齐密封请求；如果图片尚未落盘，它会以
             # 相同哈希重签，不会把旧的自由附加提示带入后续执行。
             try:
                 request = compile_image_generation_request(active)
             except ValueError as exc:
-                raise RuntimeError("ImageGen 提示契约门禁失败：" + str(exc)) from exc
+                raise RuntimeError(
+                    f"{provider_name} 提示契约门禁失败：{exc}") from exc
             recorded = generation.get("active_request")
             if recorded and (recorded.get("semantic_sha256") != request["semantic_sha256"] or
                              recorded.get("request_sha256") != request["request_sha256"]):
-                raise RuntimeError("ImageGen 当前任务的密封请求哈希不一致，禁止完成或重签")
+                raise RuntimeError(
+                    f"{provider_name} 当前任务的密封请求哈希不一致，禁止完成或重签")
             if not recorded:
                 generation["active_request"] = request
             problem = _image_file_problem(active)
             if problem:
                 transition(state, "images", "awaiting_external",
-                           f"等待当前 ImageGen 候选落盘：{active_key}（{problem}）",
+                           f"等待当前 {provider_name} 候选落盘："
+                           f"{active_key}（{problem}）",
                            paths["image_tasks"])
                 save_state(paths, state)
                 signed_task = dict(active, generation_request=request)
@@ -672,7 +708,8 @@ def _run_serial_imagegen(paths, state, tasks, mode, bootstrap_key, args):
 
         next_task = next((task for task in tasks if task["key"] not in completed), None)
         if not next_task:
-            transition(state, "images", "generated", "全部 ImageGen 候选已逐张校验落盘",
+            transition(state, "images", "generated",
+                       f"全部 {provider_name} 候选已逐张校验落盘",
                        paths["image_tasks"])
             save_state(paths, state)
             print(json.dumps({"state": state["stages"]["images"], "tasks": [],
@@ -682,12 +719,14 @@ def _run_serial_imagegen(paths, state, tasks, mode, bootstrap_key, args):
             return
         wanted = set(getattr(args, "beats", None) or [])
         if wanted and wanted != {next_task["key"]}:
-            raise RuntimeError("ImageGen 串行模式只能签发当前下一张：" + next_task["key"])
+            raise RuntimeError(
+                f"{provider_name} 串行模式只能签发当前下一张：{next_task['key']}")
         # 先编译并验证密封请求，失败时绝不占用 active_key。
         try:
             request = compile_image_generation_request(next_task)
         except ValueError as exc:
-            raise RuntimeError("ImageGen 提示契约门禁失败：" + str(exc)) from exc
+            raise RuntimeError(
+                f"{provider_name} 提示契约门禁失败：{exc}") from exc
         generation["active_key"] = next_task["key"]
         generation["active_request"] = request
         state["image_generation"] = generation
@@ -699,9 +738,10 @@ def _run_serial_imagegen(paths, state, tasks, mode, bootstrap_key, args):
             save_state(paths, state)
             raise
         if result.get("mode") != "interactive":
-            raise RuntimeError("ImageGen 必须使用交互式逐张生成模式")
+            raise RuntimeError(f"{provider_name} 必须使用交互式逐张生成模式")
         transition(state, "images", "awaiting_external",
-                   f"已签发 ImageGen 单图：{next_task['key']}；落盘并通过 16:9 检查后再运行 images",
+                   f"已签发 {provider_name} 单图：{next_task['key']}；"
+                   "落盘并通过 16:9 检查后再运行 images",
                    paths["image_tasks"])
         save_state(paths, state)
         signed_task = dict(next_task, generation_request=request)
@@ -758,7 +798,9 @@ def cmd_run(args):
         task = build_task(paths, state, stage)
         task_path = os.path.join(paths["tasks"], stage + ".json")
         write_json(task_path, task)
-        provider = make_llm(state["providers"]["llm"], ROOT)
+        provider_config = state["providers"]["llm"]
+        provider_name = provider_config["name"]
+        provider = make_llm(provider_config, ROOT)
         try:
             result = provider.generate(stage, task, paths[stage])
         except Exception as exc:
@@ -767,9 +809,11 @@ def cmd_run(args):
             raise
         if result["mode"] == "interactive":
             transition(state, stage, "awaiting_external",
-                       f"等待外部 Codex 写入候选：{paths[stage]}", task_path)
+                       f"等待外部 {provider_name} 写入候选：{paths[stage]}",
+                       task_path)
         else:
-            transition(state, stage, "generated", "DeepSeek 候选已生成",
+            transition(state, stage, "generated",
+                       f"{provider_name} 候选已生成",
                        paths[stage])
         save_state(paths, state)
         print(json.dumps({"state": state["stages"][stage],
@@ -798,12 +842,13 @@ def cmd_run(args):
         else:
             selected_tasks = [task for task in tasks if _image_file_problem(task)]
             packet_mode = "full"
-        if state["providers"]["image"]["name"] == "imagegen":
-            # selected_tasks 仅保留给万相；ImageGen 的完整清单由状态机逐张签发。
+        provider = make_image(state["providers"]["image"], ROOT)
+        if provider.mode == "interactive":
+            # selected_tasks 仅保留给 API provider；交互式完整清单逐张签发。
             serial_tasks = selected_tasks if bootstrap_key else tasks
-            _run_serial_imagegen(paths, state, serial_tasks, packet_mode,
-                                 bootstrap_key or state.get("image_anchor", {}).get("key"),
-                                 args)
+            _run_serial_interactive_images(
+                paths, state, serial_tasks, packet_mode,
+                bootstrap_key or state.get("image_anchor", {}).get("key"), args)
             return
         write_json(paths["image_tasks"], {"tasks": (selected_tasks if bootstrap_key else tasks),
                                           "mode": packet_mode,
@@ -816,7 +861,6 @@ def cmd_run(args):
             if bootstrap_key and wanted != {bootstrap_key}:
                 raise RuntimeError("尚未确认首图锚点；首次只能生成 " + bootstrap_key)
             selected_tasks = [task for task in tasks if task["key"] in wanted]
-        provider = make_image(state["providers"]["image"], ROOT)
         try:
             result = provider.generate(selected_tasks)
         except Exception as exc:
@@ -824,8 +868,10 @@ def cmd_run(args):
             save_state(paths, state)
             raise
         status = "awaiting_external" if result["mode"] == "interactive" else "generated"
+        provider_name = state["providers"]["image"]["name"]
         transition(state, stage, status,
-                   "等待 ImageGen 写入候选图片" if status == "awaiting_external"
+                   f"等待 {provider_name} 写入候选图片"
+                   if status == "awaiting_external"
                    else f"已生成 {len(selected_tasks)} 张候选图片", paths["image_tasks"])
         save_state(paths, state)
         print(json.dumps({"state": state["stages"][stage],
@@ -928,15 +974,21 @@ def _verify_images(paths, project, state=None):
                               bootstrap_anchor_key=bootstrap_key)
     problems = []
     generation = (state or {}).get("image_generation")
-    if (state or {}).get("providers", {}).get("image", {}).get("name") == "imagegen":
+    image_config = (state or {}).get("providers", {}).get("image", {})
+    interactive = (image_config.get("name") in IMAGE_PROVIDERS and
+                   make_image(image_config, ROOT).mode == "interactive")
+    if interactive:
+        provider_name = image_config["name"]
         if not isinstance(generation, dict):
-            problems.append("缺少 ImageGen 串行生成状态")
+            problems.append(f"缺少 {provider_name} 串行生成状态")
         elif generation.get("manifest_sha256") != _sha256(paths["image_tasks"]):
-            problems.append("ImageGen 串行任务清单哈希不一致")
+            problems.append(f"{provider_name} 串行任务清单哈希不一致")
         elif generation.get("active_key"):
-            problems.append("ImageGen 仍有未确认落盘的当前任务：" + generation["active_key"])
+            problems.append(
+                f"{provider_name} 仍有未确认落盘的当前任务："
+                + generation["active_key"])
         elif set(generation.get("completed_keys", [])) != {task["key"] for task in tasks}:
-            problems.append("ImageGen 串行队列尚未全部完成")
+            problems.append(f"{provider_name} 串行队列尚未全部完成")
     exception = _valid_manual_image_exception(paths)
     if not anchor and not exception:
         problems.append("缺少项目视觉锚点图片，禁止图片审核和提升")
@@ -1933,12 +1985,12 @@ def parser():
     revise.add_argument("--project", required=True)
     revise.add_argument("--run-id", default=None)
     revise.set_defaults(func=cmd_revise)
-    create = sub.add_parser("create", help="新项目选择并固定图片 provider")
+    create = sub.add_parser("create", help="新项目选择并固定 LLM 与图片 provider")
     create.add_argument("--project", required=True)
     create.add_argument("--llm", choices=sorted(LLM_PROVIDERS),
-                        help="新项目默认 codex；已有项目沿用原配置")
+                        help="新项目必须显式选择；已有项目沿用原配置")
     create.add_argument("--image", choices=sorted(IMAGE_PROVIDERS),
-                        help="新项目选择 imagegen 或 wanxiang，默认 imagegen；选定后项目内固定")
+                        help="新项目必须显式选择；已有项目沿用原配置")
     create.add_argument("--llm-model")
     create.add_argument("--image-model")
     create.add_argument("--azure-voice")

@@ -13,10 +13,10 @@ topic → copy → script → storyboard → ImageTask → images
         Azure voice + 字幕/SFX/BGM/运镜/渲染/QA
 ```
 
-- LLM：默认 `codex`，可切换 `deepseek`。
-- 图片：每个新项目独立选择 `imagegen` 或万相 API `wanxiang`（CLI 默认 `imagegen`）；选定后项目内固定。
+- LLM：新项目显式选择 `codex`、`deepseek` 或 `antigravity`。
+- 图片：新项目显式选择 `imagegen`、万相 API `wanxiang` 或 `antigravity`。
 - 语音：固定 Azure，不存在 Piper、Edge 或系统语音回退。
-- provider 只在项目级配置；单个 run 完整快照，禁止阶段覆盖和跨模型自动回退。
+- LLM 与图片 provider/model 创建后永久固定；单个 run 完整快照，禁止阶段覆盖和跨模型自动回退。
 
 ## 快速开始
 
@@ -48,23 +48,28 @@ $PY pipeline/workflow.py run <run_id> qa
 $PY pipeline/workflow.py status <run_id>
 ```
 
-Codex 和 ImageGen 是交互式适配器：`run` 写任务包并进入 `awaiting_external`，由 `$video-maker-production` 读取任务包并写候选文件。DeepSeek 和万相直接调用 API，但候选路径和正式契约完全相同。
+Codex、ImageGen 和 Antigravity 是交互式适配器：`run` 写任务包并进入 `awaiting_external`，由对应工作区 skill 读取任务包并写候选文件。DeepSeek 和万相直接调用 API，但候选路径和正式契约完全相同。
 
-## 新项目选择生图模式
+## 新项目选择 Provider
 
-两个新项目可以分别使用两种模式，互不影响（示例 id 必须尚未被使用）：
+新项目必须同时选择 LLM 与图片 provider；两者可以自由组合（示例 id 必须尚未被使用）：
 
 ```bash
 $PY pipeline/workflow.py create --project 010 --llm codex --image imagegen
 $PY pipeline/workflow.py create --project 011 --llm codex --image wanxiang \
   --image-model wan2.7-image
+$PY pipeline/workflow.py create --project 012 --llm antigravity --image antigravity
+$PY pipeline/workflow.py create --project 013 --llm antigravity --image wanxiang \
+  --image-model wan2.7-image
 ```
 
-选择写入各自的 `project.json.providers.image`。已有项目重复 `create` 会沿用未指定的设置，相同配置可安全重复执行；更改图片 provider 或图片模型会被拒绝，即使项目已经完成。`init` 将完整配置快照到 run，并拒绝与该项目历史 run 不一致的图片 provider。切换模式应在另一个新项目创建时选择，不是在已开始的项目或某个阶段内切换。其他 provider 和模板的显式调整仍受原有活动 run 限制。
+选择写入各自的 `project.json.providers`。新项目缺少 `--llm` 或 `--image` 时不会创建目录；`init` 也不会隐式创建项目。已有项目重复 `create` 会沿用未指定的设置，相同配置可安全重复执行；更改 LLM、图片 provider 或对应模型会被拒绝，即使项目已经完成。`init` 将完整配置快照到 run，并拒绝与任一历史 run 不一致的配置。切换组合必须新建项目。
+
+Antigravity provider 不调用 `agy`、Gemini API 或 Antigravity SDK。它读取仓库内 `.agents/skills/video-maker-production/SKILL.md`，使用当前 Antigravity 会话选中的 LLM 和平台内置生图工具。具体 LLM 与生图模型不写入项目，因此 `antigravity` 禁止同时指定 `--llm-model` 或 `--image-model`。使用前需在 Antigravity 中完成登录并打开本仓库。
 
 万相从环境变量或根 `.env` 读取 `DASHSCOPE_API_KEY`，可用 `DASHSCOPE_BASE_URL` 指定与密钥地域匹配的服务地址（域名根地址或以 `/api/v1` 结尾）。创建项目与 `init` 不调用生图 API；用户授权后，完成前置阶段再执行 `run <run_id> images` 才产生请求。ImageGen 不需要该密钥。
 
-两种模式共用正式分镜、ImageTask、首图锚点、候选区和人工审核/提升。万相将任务中的本地参考图作为 Base64 图像输入，校验锚点哈希；生成 PNG 完整解码和比例检查通过后原子落盘，损坏候选可在续跑时重试。网络失败仍需重跑当前 provider；自动退避及下载结果持久化尚未实现，下载失败后续跑可能重新生成。
+三种图片模式共用正式分镜、ImageTask、首图锚点、候选区和人工审核/提升。ImageGen 与 Antigravity 逐张签发密封任务，上一张 PNG 完整解码和 16:9 检查通过后才会签发下一张。万相将本地参考图作为 Base64 输入并校验锚点哈希，使用有限并发和暂时性错误重试；失败后仍只能重跑当前 provider。
 
 首次图片没有既有视觉锚点时，工作流只生成一张首图候选；执行
 `select-image-anchor` 后会把其路径和 SHA-256 冻结在 run 状态中，第二次

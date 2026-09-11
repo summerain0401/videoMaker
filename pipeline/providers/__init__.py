@@ -1,14 +1,16 @@
 """Provider registries for the production workflow."""
 
-from .image import ImageGenProvider, WanxiangProvider
-from .llm import CodexProvider, DeepSeekProvider
+from .image import AntigravityImageProvider, ImageGenProvider, WanxiangProvider
+from .llm import AntigravityLLMProvider, CodexProvider, DeepSeekProvider
 
 
 LLM_PROVIDERS = {
+    "antigravity": AntigravityLLMProvider,
     "codex": CodexProvider,
     "deepseek": DeepSeekProvider,
 }
 IMAGE_PROVIDERS = {
+    "antigravity": AntigravityImageProvider,
     "imagegen": ImageGenProvider,
     "wanxiang": WanxiangProvider,
 }

@@ -1,4 +1,4 @@
-"""两种项目生图模式的配置隔离和真实请求构造回归（不访问网络）。"""
+"""项目 provider 配置隔离与图片请求构造回归（不访问真实网络）。"""
 
 import base64
 import hashlib
@@ -22,7 +22,7 @@ sys.path.insert(0, str(ROOT / "pipeline"))
 
 import proj as PJ
 import workflow
-from providers.image import WanxiangProvider
+from providers.image import AntigravityImageProvider, WanxiangProvider
 from workflow_contracts import read_json, write_json
 
 
@@ -50,14 +50,48 @@ class ProjectImageModeTests(unittest.TestCase):
             args.func(args)
 
     def test_new_projects_choose_independently_and_snapshot_mode(self):
-        for pid, mode in (("801", "imagegen"), ("802", "wanxiang")):
-            self.command("create", "--project", pid, "--image", mode)
-            self.command("init", "--project", pid, "--run-id", "run_a")
-            project = workflow.project_for_id(pid)
-            meta = workflow.project_meta(project)
-            state = read_json(workflow.state_paths(project, "run_a")["state"])
-            self.assertEqual(meta["providers"]["image"]["name"], mode)
-            self.assertEqual(state["providers"], meta["providers"])
+        index = 0
+        for llm in ("codex", "deepseek", "antigravity"):
+            for image in ("imagegen", "wanxiang", "antigravity"):
+                with self.subTest(llm=llm, image=image):
+                    pid = str(801 + index)
+                    index += 1
+                    self.command("create", "--project", pid,
+                                 "--llm", llm, "--image", image)
+                    self.command("init", "--project", pid,
+                                 "--run-id", "run_a")
+                    project = workflow.project_for_id(pid)
+                    meta = workflow.project_meta(project)
+                    state = read_json(
+                        workflow.state_paths(project, "run_a")["state"])
+                    self.assertEqual(meta["providers"]["llm"]["name"], llm)
+                    self.assertEqual(meta["providers"]["image"]["name"], image)
+                    self.assertEqual(state["providers"], meta["providers"])
+
+    def test_new_project_requires_both_providers_before_creating_directory(self):
+        for pid, args in (("820", ()),
+                          ("821", ("--llm", "codex")),
+                          ("822", ("--image", "imagegen"))):
+            with self.subTest(args=args), self.assertRaisesRegex(
+                    ValueError, "必须显式指定"):
+                self.command("create", "--project", pid, *args)
+            self.assertIsNone(PJ._find_dir(pid))
+
+    def test_init_cannot_implicitly_create_project(self):
+        with self.assertRaisesRegex(RuntimeError, "请先使用 create"):
+            self.command("init", "--project", "823", "--run-id", "run_a")
+        self.assertIsNone(PJ._find_dir("823"))
+
+    def test_antigravity_rejects_model_overrides_before_creation(self):
+        with self.assertRaisesRegex(ValueError, "禁止指定 --llm-model"):
+            self.command("create", "--project", "824", "--llm",
+                         "antigravity", "--llm-model", "gemini-any",
+                         "--image", "imagegen")
+        with self.assertRaisesRegex(ValueError, "禁止指定 --image-model"):
+            self.command("create", "--project", "825", "--llm", "codex",
+                         "--image", "antigravity", "--image-model", "nano")
+        self.assertIsNone(PJ._find_dir("824"))
+        self.assertIsNone(PJ._find_dir("825"))
 
     def test_repeated_create_preserves_all_settings_and_existing_run(self):
         self.command("create", "--project", "803", "--image", "wanxiang",
@@ -72,7 +106,8 @@ class ProjectImageModeTests(unittest.TestCase):
         self.assertEqual((project / "project.json").read_bytes(), before)
 
     def test_mode_cannot_change_before_or_after_completed_run(self):
-        self.command("create", "--project", "804", "--image", "imagegen")
+        self.command("create", "--project", "804", "--llm", "codex",
+                     "--image", "imagegen")
         project = workflow.project_for_id("804")
         before = workflow.project_meta(project)
         for completed in (False, True):
@@ -82,18 +117,21 @@ class ProjectImageModeTests(unittest.TestCase):
                 state = read_json(paths["state"])
                 state["stages"]["qa"]["status"] = "promoted"
                 write_json(paths["state"], state)
-            with self.assertRaisesRegex(RuntimeError, "provider 已固定"):
+            with self.assertRaisesRegex(RuntimeError, "provider/model 已固定"):
                 self.command("create", "--project", "804", "--image", "wanxiang")
             self.assertEqual(workflow.project_meta(project), before)
         state["superseded_by"] = "run_later"
         state["stages"]["qa"]["status"] = "blocked"
         write_json(paths["state"], state)
         self.command("create", "--project", "804")
-        with self.assertRaisesRegex(RuntimeError, "provider 已固定"):
+        with self.assertRaisesRegex(RuntimeError, "provider/model 已固定"):
             self.command("create", "--project", "804", "--image-model", "other-model")
+        with self.assertRaisesRegex(RuntimeError, "provider/model 已固定"):
+            self.command("create", "--project", "804", "--llm", "deepseek")
 
     def test_init_rejects_metadata_drift_without_creating_run(self):
-        self.command("create", "--project", "805", "--image", "imagegen")
+        self.command("create", "--project", "805", "--llm", "codex",
+                     "--image", "imagegen")
         self.command("init", "--project", "805", "--run-id", "run_a")
         project = workflow.project_for_id("805")
         meta = workflow.project_meta(project)
@@ -103,11 +141,24 @@ class ProjectImageModeTests(unittest.TestCase):
             self.command("init", "--project", "805", "--run-id", "run_b")
         self.assertFalse(os.path.exists(workflow.state_paths(project, "run_b")["state"]))
 
-    def test_both_modes_share_bootstrap_verification_and_review(self):
-        # 只模拟外部出图，实际执行两种 provider 的路由、锚点和审核状态机。
-        for pid, mode in (("806", "imagegen"), ("807", "wanxiang")):
+    def test_init_rejects_llm_metadata_drift(self):
+        self.command("create", "--project", "826", "--llm", "codex",
+                     "--image", "imagegen")
+        self.command("init", "--project", "826", "--run-id", "run_a")
+        project = workflow.project_for_id("826")
+        meta = workflow.project_meta(project)
+        meta["providers"]["llm"]["name"] = "deepseek"
+        write_json(os.path.join(project, "project.json"), meta)
+        with self.assertRaisesRegex(RuntimeError, "历史 run 快照不一致"):
+            self.command("init", "--project", "826", "--run-id", "run_b")
+
+    def test_all_image_modes_share_bootstrap_verification_and_review(self):
+        # 只模拟外部出图，实际执行三种 provider 的路由、锚点和审核状态机。
+        for pid, mode in (("830", "imagegen"), ("831", "wanxiang"),
+                          ("832", "antigravity")):
             with self.subTest(mode=mode):
-                self.command("create", "--project", pid, "--image", mode)
+                self.command("create", "--project", pid, "--llm", "codex",
+                             "--image", mode)
                 self.command("init", "--project", pid, "--run-id", "run_images")
                 project = workflow.project_for_id(pid)
                 paths = workflow.state_paths(project, "run_images")
@@ -143,9 +194,12 @@ class ProjectImageModeTests(unittest.TestCase):
                     packet = read_json(paths["image_tasks"])
                     self.assertEqual(packet["mode"], "bootstrap")
                     self.assertEqual(len(packet["tasks"]), 1)
+                    if mode in ("imagegen", "antigravity"):
+                        self.assertEqual(
+                            packet["execution_policy"]["provider"], mode)
                     first = packet["tasks"][0]
                     self.assertEqual(first["reference_images"], [])
-                    if mode == "imagegen":
+                    if mode in ("imagegen", "antigravity"):
                         Path(first["output_path"]).parent.mkdir(parents=True, exist_ok=True)
                         Path(first["output_path"]).write_bytes(png_bytes())
                     self.command("select-image-anchor", "run_images", first["key"], "--project", pid)
@@ -154,7 +208,7 @@ class ProjectImageModeTests(unittest.TestCase):
                         state = read_json(paths["state"])
                         if state["stages"]["images"]["status"] == "generated":
                             break
-                        self.assertEqual(mode, "imagegen")
+                        self.assertIn(mode, ("imagegen", "antigravity"))
                         active = state["image_generation"]["active_key"]
                         Path(paths["images"], active + ".png").write_bytes(png_bytes(color="blue"))
                     self.assertEqual(state["stages"]["images"]["status"], "generated")
@@ -167,6 +221,25 @@ class ProjectImageModeTests(unittest.TestCase):
                 if mode == "wanxiang":
                     self.assertEqual(len(requests), 2)
                     self.assertIn("image", requests[1]["input"]["messages"][0]["content"][0])
+
+    def test_antigravity_llm_writes_task_packet_and_waits_for_agent(self):
+        self.command("create", "--project", "833", "--llm", "antigravity",
+                     "--image", "imagegen")
+        self.command("init", "--project", "833", "--run-id", "run_topic")
+        self.command("run", "run_topic", "topic", "--project", "833")
+        project = workflow.project_for_id("833")
+        paths = workflow.state_paths(project, "run_topic")
+        state = read_json(paths["state"])
+        task = read_json(os.path.join(paths["tasks"], "topic.json"))
+        self.assertEqual(state["stages"]["topic"]["status"],
+                         "awaiting_external")
+        self.assertIn("antigravity", state["stages"]["topic"]["note"])
+        self.assertEqual(task["candidate_path"], paths["topic"])
+
+    def test_antigravity_image_provider_is_interactive(self):
+        tasks = [{"key": "00_0", "output_path": "/tmp/00_0.png"}]
+        self.assertEqual(AntigravityImageProvider({}, ROOT).generate(tasks),
+                         {"mode": "interactive", "tasks": tasks})
 
 
 class WanxiangCompatibilityTests(unittest.TestCase):

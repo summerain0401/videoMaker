@@ -200,6 +200,9 @@ def validate_providers(providers, llm_names, image_names):
         model = providers[group].get("model")
         if model is not None and not isinstance(model, str):
             problems.append(f"providers.{group}.model 必须为字符串或 null")
+        if providers[group].get("name") == "antigravity" and model is not None:
+            problems.append(
+                f"providers.{group} 选择 antigravity 时 model 必须为 null")
     return problems
 
 
@@ -685,7 +688,7 @@ def _stable_hash(value):
 
 
 def compile_image_generation_request(task):
-    """把唯一正式语义源编译成不可追加提示的 ImageGen 单图请求。"""
+    """把唯一正式语义源编译成不可追加提示的交互式单图请求。"""
     problems = validate_image_task_prompt(task)
     if problems:
         raise ValueError("；".join(problems))
