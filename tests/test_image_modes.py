@@ -68,6 +68,28 @@ class ProjectImageModeTests(unittest.TestCase):
                     self.assertEqual(meta["providers"]["image"]["name"], image)
                     self.assertEqual(state["providers"], meta["providers"])
 
+    def test_create_explains_generation_methods_and_agent_handoff(self):
+        args = workflow.parser().parse_args([
+            "create", "--project", "819", "--llm", "antigravity",
+            "--image", "imagegen"])
+        output = io.StringIO()
+        with redirect_stdout(output):
+            args.func(args)
+        result = output.getvalue()
+        self.assertIn('"label": "Antigravity 当前会话"', result)
+        self.assertIn('"label": "Codex 内置 ImageGen"', result)
+        self.assertIn("切换到 Codex", result)
+
+    def test_create_help_distinguishes_agent_sessions_from_api_methods(self):
+        output = io.StringIO()
+        with redirect_stdout(output), self.assertRaises(SystemExit):
+            workflow.parser().parse_args(["create", "--help"])
+        help_text = output.getvalue()
+        self.assertIn("Codex 当前会话", help_text)
+        self.assertIn("Antigravity 当前会话", help_text)
+        self.assertIn("Codex 内置 ImageGen", help_text)
+        self.assertIn("wanxiang=万相", help_text)
+
     def test_new_project_requires_both_providers_before_creating_directory(self):
         for pid, args in (("820", ()),
                           ("821", ("--llm", "codex")),

@@ -1,6 +1,6 @@
 ---
 name: video-maker-production
-description: Run or resume videoMaker's provider-neutral long-video workflow in Antigravity, including Antigravity LLM task packets and serial built-in image generation.
+description: Run or resume videoMaker's provider-neutral long-video workflow in Antigravity, with explicit content/image generation methods and cross-agent handoff when required.
 ---
 
 # Antigravity 长视频制作
@@ -17,8 +17,12 @@ provider 的唯一事实源，run 只使用 `state.json` 中的完整快照。�
 
 ## 创建与恢复
 
-1. 开始新项目前，先让用户分别选择 LLM provider：`codex`、`deepseek` 或
-   `antigravity`；图片 provider：`imagegen`、`wanxiang` 或 `antigravity`。
+1. 开始新项目前，先让用户分别选择两类生成方式，不要只报底层值：
+   - 内容生成：`codex` = Codex 当前会话，`deepseek` = DeepSeek API，
+     `antigravity` = Antigravity 当前会话。
+   - 图片生成：`imagegen` = Codex 内置 ImageGen，`wanxiang` = 万相 API，
+     `antigravity` = Antigravity 内置生图。
+   Agent 是执行工作流与调用工具的环境，不等同于项目的 LLM 选择。
    用户已经明确选择时不重复询问。
 2. 将两项选择同时传给
    `pipeline/workflow.py create --project <id> --llm <name> --image <name>`。
@@ -26,7 +30,10 @@ provider 的唯一事实源，run 只使用 `state.json` 中的完整快照。�
    组合时创建新项目。
 3. Antigravity LLM 跟随当前会话模型，Antigravity 图片使用平台内置生图工具；
    两者都不得传 model 参数，也不得调用 `agy`、Gemini API 或 Antigravity SDK。
-4. 新 run 执行 `pipeline/workflow.py init --project <id>`；恢复时先执行
+4. `create` 后向用户回显两类生成方式的完整名称。若选择
+   `--llm antigravity --image imagegen`，明确说明内容在 Antigravity 完成，
+   图片阶段需切换到 Codex。工作流不会自动启动或调用另一个 Agent。
+5. 新 run 执行 `pipeline/workflow.py init --project <id>`；恢复时先执行
    `pipeline/workflow.py status <run_id> --project <id>`。读取 `AGENTS.md`、项目
    `project.json`、`input/topic_request.md`、角色库和命令帮助，只使用状态输出的路径。
 
@@ -35,7 +42,8 @@ provider 的唯一事实源，run 只使用 `state.json` 中的完整快照。�
 - 只有 `state.json.providers.llm.name == "antigravity"` 时，才由当前 Antigravity
   会话创作 topic、copy、script、storyboard、brand 或 publish 候选。
 - 只有 `state.json.providers.image.name == "antigravity"` 时，才调用 Antigravity
-  内置生图工具。若选择 Codex/ImageGen，应保留任务给 Codex；若选择 DeepSeek/万相，
+  内置生图工具。若选择 `imagegen`（Codex 内置 ImageGen），应保留
+  密封图片任务给 Codex，不得在 Antigravity 中用其他生图工具代替；若选择 DeepSeek/万相，
   只在用户授权对应外部调用后运行工作流命令。
 - 任一 provider 失败时保存已有状态并只恢复当前 provider，不自动回退或混用来源。
 

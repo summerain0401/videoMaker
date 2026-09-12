@@ -36,6 +36,16 @@ from publishing_contracts import (PLATFORMS, TITLE_LIMITS, source_hashes,
 
 
 STATE_VERSION = 4
+CONTENT_METHOD_LABELS = {
+    "codex": "Codex 当前会话",
+    "deepseek": "DeepSeek API",
+    "antigravity": "Antigravity 当前会话",
+}
+IMAGE_METHOD_LABELS = {
+    "imagegen": "Codex 内置 ImageGen",
+    "wanxiang": "万相 API",
+    "antigravity": "Antigravity 内置生图",
+}
 DEPENDENCIES = {
     "topic": [], "copy": ["topic"], "script": ["copy"],
     "storyboard": ["script"], "storyboard-review": ["script"],
@@ -44,6 +54,36 @@ DEPENDENCIES = {
     "voice": ["script"], "render": ["images", "voice"],
     "qa": ["render"],
 }
+
+
+def generation_method_summary(providers):
+    """生成面向使用者的执行说明，底层 provider 值保持不变。"""
+    llm = providers["llm"]["name"]
+    image = providers["image"]["name"]
+    handoff = None
+    if llm == "antigravity" and image == "imagegen":
+        handoff = (
+            "内容阶段在 Antigravity 当前会话完成；"
+            "图片阶段需切换到 Codex，由内置 ImageGen 执行密封任务。")
+    elif llm == "codex" and image == "antigravity":
+        handoff = (
+            "内容阶段在 Codex 当前会话完成；"
+            "图片阶段需切换到 Antigravity，使用平台内置生图。")
+    elif llm == "deepseek" and image == "imagegen":
+        handoff = "内容由 DeepSeek API 生成；图片阶段需在 Codex 中使用内置 ImageGen。"
+    elif llm == "deepseek" and image == "antigravity":
+        handoff = "内容由 DeepSeek API 生成；图片阶段需在 Antigravity 中使用内置生图。"
+    return {
+        "content_generation": {
+            "value": llm,
+            "label": CONTENT_METHOD_LABELS[llm],
+        },
+        "image_generation": {
+            "value": image,
+            "label": IMAGE_METHOD_LABELS[image],
+        },
+        "agent_handoff": handoff,
+    }
 
 
 def now_run_id():
@@ -460,8 +500,12 @@ def cmd_create(args):
             flags = "、".join("--" + option for option in missing)
             raise ValueError(
                 f"新项目必须显式指定 {flags}；"
-                f"LLM 可选 {', '.join(sorted(LLM_PROVIDERS))}；"
-                f"图片可选 {', '.join(sorted(IMAGE_PROVIDERS))}")
+                "内容生成方式可选 "
+                "codex=Codex 当前会话、deepseek=DeepSeek API、"
+                "antigravity=Antigravity 当前会话；"
+                "图片生成方式可选 "
+                "imagegen=Codex 内置 ImageGen、wanxiang=万相 API、"
+                "antigravity=Antigravity 内置生图")
     if getattr(args, "llm", None) == "antigravity" and \
             getattr(args, "llm_model", None) is not None:
         raise ValueError("Antigravity LLM 跟随当前会话模型，禁止指定 --llm-model")
@@ -511,6 +555,7 @@ def cmd_create(args):
                     "## 希望解决的问题\n\n## 排除方向\n\n"
                     "## 候选书池（可选）\n\n")
     print(json.dumps({"project": project, "providers": proposed,
+                      "generation_methods": generation_method_summary(proposed),
                       "content_template": template_id,
                       "topic_request": request}, ensure_ascii=False, indent=2))
 
@@ -1985,14 +2030,20 @@ def parser():
     revise.add_argument("--project", required=True)
     revise.add_argument("--run-id", default=None)
     revise.set_defaults(func=cmd_revise)
-    create = sub.add_parser("create", help="新项目选择并固定 LLM 与图片 provider")
+    create = sub.add_parser("create", help="新项目选择并固定内容与图片生成方式")
     create.add_argument("--project", required=True)
     create.add_argument("--llm", choices=sorted(LLM_PROVIDERS),
-                        help="新项目必须显式选择；已有项目沿用原配置")
+                        metavar="CONTENT_METHOD",
+                        help=("内容生成方式：codex=Codex 当前会话；"
+                              "deepseek=DeepSeek API；"
+                              "antigravity=Antigravity 当前会话"))
     create.add_argument("--image", choices=sorted(IMAGE_PROVIDERS),
-                        help="新项目必须显式选择；已有项目沿用原配置")
-    create.add_argument("--llm-model")
-    create.add_argument("--image-model")
+                        metavar="IMAGE_METHOD",
+                        help=("图片生成方式：imagegen=Codex 内置 ImageGen；"
+                              "wanxiang=万相 API；"
+                              "antigravity=Antigravity 内置生图"))
+    create.add_argument("--llm-model", help="仅 API 内容生成方式可指定模型")
+    create.add_argument("--image-model", help="仅 API 图片生成方式可指定模型")
     create.add_argument("--azure-voice")
     create.add_argument("--content-template", choices=CONTENT_TEMPLATE_IDS,
                         default=None)

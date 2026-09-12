@@ -5,7 +5,7 @@
 ## 架构
 
 ```text
-LLM provider                    Image provider
+Content generation             Image generation
 topic → copy → script → storyboard → ImageTask → images
    │       每阶段候选、校验、人工提升          │
    └──────────────────┬───────────────────────┘
@@ -13,10 +13,17 @@ topic → copy → script → storyboard → ImageTask → images
         Azure voice + 字幕/SFX/BGM/运镜/渲染/QA
 ```
 
-- LLM：新项目显式选择 `codex`、`deepseek` 或 `antigravity`。
-- 图片：新项目显式选择 `imagegen`、万相 API `wanxiang` 或 `antigravity`。
+- 内容生成方式：`codex` = Codex 当前会话，`deepseek` = DeepSeek API，
+  `antigravity` = Antigravity 当前会话。
+- 图片生成方式：`imagegen` = Codex 内置 ImageGen，`wanxiang` = 万相 API，
+  `antigravity` = Antigravity 内置生图。
 - 语音：固定 Azure，不存在 Piper、Edge 或系统语音回退。
-- LLM 与图片 provider/model 创建后永久固定；单个 run 完整快照，禁止阶段覆盖和跨模型自动回退。
+- 内容与图片生成方式/model 创建后永久固定；单个 run 完整快照，禁止阶段覆盖和跨模型自动回退。
+
+Agent 是执行工作流、读写文件和调用工具的环境；项目中的 `llm`/`image`
+则是生成方式。两者不必相同。例如 `--llm antigravity --image imagegen`
+表示内容由 Antigravity 当前会话完成，到图片阶段再切换到 Codex，
+由内置 ImageGen 消费同一 run 的密封任务。
 
 ## 快速开始
 
@@ -50,9 +57,10 @@ $PY pipeline/workflow.py status <run_id>
 
 Codex、ImageGen 和 Antigravity 是交互式适配器：`run` 写任务包并进入 `awaiting_external`，由对应工作区 skill 读取任务包并写候选文件。DeepSeek 和万相直接调用 API，但候选路径和正式契约完全相同。
 
-## 新项目选择 Provider
+## 新项目选择生成方式
 
-新项目必须同时选择 LLM 与图片 provider；两者可以自由组合（示例 id 必须尚未被使用）：
+新项目必须同时选择内容与图片生成方式；两者可以自由组合
+（示例 id 必须尚未被使用）：
 
 ```bash
 $PY pipeline/workflow.py create --project 010 --llm codex --image imagegen
@@ -61,6 +69,15 @@ $PY pipeline/workflow.py create --project 011 --llm codex --image wanxiang \
 $PY pipeline/workflow.py create --project 012 --llm antigravity --image antigravity
 $PY pipeline/workflow.py create --project 013 --llm antigravity --image wanxiang \
   --image-model wan2.7-image
+$PY pipeline/workflow.py create --project 014 --llm antigravity --image imagegen
+```
+
+`014` 的创建结果会明确显示：
+
+```text
+内容生成：Antigravity 当前会话
+图片生成：Codex 内置 ImageGen
+交接：图片阶段需切换到 Codex
 ```
 
 选择写入各自的 `project.json.providers`。新项目缺少 `--llm` 或 `--image` 时不会创建目录；`init` 也不会隐式创建项目。已有项目重复 `create` 会沿用未指定的设置，相同配置可安全重复执行；更改 LLM、图片 provider 或对应模型会被拒绝，即使项目已经完成。`init` 将完整配置快照到 run，并拒绝与任一历史 run 不一致的配置。切换组合必须新建项目。

@@ -46,7 +46,15 @@
 
 ## Contracts and state
 
-- 每次开始新视频项目时，必须先确认 LLM（`codex`/`deepseek`/`antigravity`）和图片 provider（`imagegen`/`wanxiang`/`antigravity`），并同时传给 `create --llm --image`；不得依赖静默默认值。
+- 面向用户时使用“内容生成方式”和“图片生成方式”，不把 Agent 工具与 LLM
+  provider 混为同一概念。`codex` 表示 Codex 当前会话，`deepseek` 表示
+  DeepSeek API，LLM `antigravity` 表示 Antigravity 当前会话；`imagegen`
+  表示 Codex 内置 ImageGen，`wanxiang` 表示万相 API，图片 `antigravity`
+  表示 Antigravity 内置生图。底层配置键和值保持不变。
+- 每次开始新视频项目时，必须先确认内容生成方式（`codex`/`deepseek`/`antigravity`）
+  和图片生成方式（`imagegen`/`wanxiang`/`antigravity`），并同时传给
+  `create --llm --image`；不得依赖静默默认值。两者落在不同 Agent 环境时，
+  创建结果和交付摘要必须明确说明切换时机。
 - 一个项目只能配置一个 LLM 和一个图片 provider；两者及其模型配置在创建时选定后永久固定，完成后也不切换；需要另一种组合时新建项目。不得增加阶段覆盖参数或修改已有 run 快照。
 - `state.json` 必须保存 `project.json.providers` 的完整快照。
 - topic/copy/script/storyboard/images 必须进入 run 候选区，校验后由用户明确提升。
