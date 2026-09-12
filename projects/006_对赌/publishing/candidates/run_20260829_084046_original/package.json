@@ -1,7 +1,10 @@
 {
-  "version": 1,
-  "publish_id": "pub_20260829_171217",
+  "version": 3,
+  "publish_id": "pub_20260912_copy_refresh",
   "channel_id": "main",
+  "visual_snapshot": {"config": {"phase_transition": "direct"}, "sha256": "350d5bd193369b58bc52aa34ddd14a37f5c5cb12c9aa7b8681bbbf0eefa16029"},
+  "character_library_hash": "23d5aba101b00d184b7117b3181c9ff314a3de82dc2c296b29820a188afdaa43",
+  "style_anchor": {"id": "00_0", "path": "assets/scenes/00_0.png", "sha256": "341713690a89fb1570f63864989df0c692fae71c36c4d8cb577d8640343c51b8", "purpose": "正式成片风格与角色身份参考"},
   "source": {
     "project_id": "006",
     "video_run_id": "run_20260829_084046",
@@ -27,48 +30,69 @@
   "cover": {
     "aspect_ratio": "16:9",
     "copy_lines": ["好决定", "也可能输"],
-    "concept": "以同一位圆金框眼镜、深海军蓝西装和红领带的年轻上班族为主体：他坐在分岔路口前，左侧是标有“稳妥”的短路，右侧是通向明亮城市但远处被云雾遮住的路。桌前放一张仅有三行的决策卡：把握度、下行边界、复盘日期。右上方以两行大字呈现“好决定／也可能输”，借由晴雨交界和两条道路表达结果并非决策质量的唯一证据。",
-    "subject": "正式成片中的同一位年轻男性上班族：蓬松黑发、圆金框眼镜、深海军蓝西装、白衬衫与暗红领带；表情从焦虑转为专注，手握决策卡而非合同或赌具。",
-    "composition": "主体置于左下至中部的中景，视线望向右侧分岔道路；右上保留深蓝至暖金渐变的两行短文案区域。背景道路与城市形成纵深，底部中央避开人物脸部、决策卡与标题，适配平台 UI。",
-    "contrast": "深海军蓝与雨云作为不确定感底色，远处城市与右侧道路使用暖金光，红领带和决策卡上的细小青绿色标记作为视觉锚点；大标题使用象牙白与频道青绿色，保证移动端对比。",
-    "brand_anchor": "延续“认知生财”的 2D chibi editorial 叙事插画、清晰深色描边、哑光平涂与书页罗盘式的判断感；不使用写实、3D 或博彩视觉。",
-    "safe_zone": "右上为两行标题安全区，单行不超过四字；底部中央不放关键文字或人物面部，保留平台按钮遮挡空间。",
-    "forbidden_elements": ["收益承诺", "K线图", "赌场或赌桌", "筹码与扑克牌", "密集表格", "悬浮大段文字", "水印", "不同画风或角色"],
-    "style_references": [
-      {"path": "assets/scenes/00_0.png", "sha256": "341713690a89fb1570f63864989df0c692fae71c36c4d8cb577d8640343c51b8", "purpose": "正式成片风格与角色身份参考"},
-      {"path": "assets/scenes/00_1.png", "sha256": "c48f43795f516f9c9f78ae37044e51c1b4f1e048c7c09e358082606323a416df", "purpose": "正式成片风格与角色身份参考"},
-      {"path": "assets/scenes/02_0.png", "sha256": "0b008125d77363275f6d77b7899b92b7167520d5292110889c445982d8bbc1dd", "purpose": "正式成片风格与角色身份参考"}
-    ],
-    "style_requirements": "必须将三张正式场景图作为风格与角色身份参考，保持同一 2D chibi editorial 插画、蓬松黑发、圆金框眼镜、深海军蓝西装、红领带、清晰线条与哑光平涂；禁止写实、油画、3D、换角色、博彩场景和水印。"
+    "concept": "保留 006 已确认的封面：深夜书桌前的年轻上班族面对决策树思考，左侧以高对比大字呈现“好决定／也可能输”。",
+    "subject": "蓬松黑发、圆金框眼镜、深海军蓝西装与暗红领带的年轻上班族，保持与正式成片相同的角色身份。",
+    "composition": "左侧为两行主标题、解释句与书籍信息，右侧为思考中的主角与决策树。",
+    "contrast": "深海军蓝背景配象牙白和暖金标题，台灯暖光聚焦主角和决策树。",
+    "brand_anchor": "延续“认知生财”的 2D chibi editorial 叙事插画、清晰深色描边与哑光平涂风格。",
+    "safe_zone": "左侧文字和右侧人物均留有外边距，底部中央不放人物面部或主标题。",
+    "forbidden_elements": ["收益承诺", "K线图", "赌场或赌桌", "筹码与扑克牌", "写实画风", "3D 画风", "水印"],
+    "style_references": [{"id": "00_0", "path": "assets/scenes/00_0.png", "sha256": "341713690a89fb1570f63864989df0c692fae71c36c4d8cb577d8640343c51b8", "purpose": "正式成片风格与角色身份参考"}],
+    "style_requirements": "保持正式成片中同一 2D chibi editorial 画风与同一年轻上班族角色，禁止写实、油画、3D、换角色、博彩场景和水印。",
+    "selected_cover_id": "existing_cover_b",
+    "candidates": [
+      {
+        "id": "existing_cover_a",
+        "layout_id": "reference_006_v1",
+        "concept": "已有封面备选：晴雨交界的岔路与决策卡，强调选择和结果的不确定性。",
+        "base_path": "publishing/candidates/run_20260829_084046_original/covers/cover_006_original_v1.png",
+        "base_sha256": "3f512ec6770865c6fa89dbf7993f750b5e9bd8cf8b2845308905e2a86ce20420",
+        "final_path": "publishing/candidates/run_20260829_084046_original/covers/cover_006_v3_existing_a.png",
+        "sha256": "ae3b46d3ca4328457f3b6394ae269717cb8a56091b4ef1a601cf81ca580a1ab5",
+        "text": {"title_lines": ["好决定", "也可能输"], "subtitle": "信息不足时，如何不靠运气做选择？", "book_title": "对赌", "author": "安妮·杜克"},
+        "cover_task": {"reference_images": ["assets/scenes/00_0.png"], "character_ids": ["young_pro"], "task_sha256": "9adbf3d523b6b8bd0a9ba2c97e74b62969f819e2efe82fcb3404aac6109ba5d8", "prompt_sha256": "af47e41aef721eb34506cce42ca3563019d200038ceb4babb8aa47f54967c6b7"},
+        "visual_review": {"status": "passed", "asset_sha256": "ae3b46d3ca4328457f3b6394ae269717cb8a56091b4ef1a601cf81ca580a1ab5", "style": true, "character": true, "semantic": true, "layout": true, "thumbnail_legibility": true}
+      },
+      {
+        "id": "existing_cover_b",
+        "layout_id": "reference_006_v1",
+        "concept": "已有主封面：深夜决策树与思考中的年轻上班族，左侧完整呈现标题、解释句及书籍信息。",
+        "base_path": "publishing/candidates/run_20260829_084046_original/covers/cover_006_original_v2.png",
+        "base_sha256": "3f80c2efee627fdb3cdb872a2c1e923330e0c58f25ab23cbd5eb699fd339663a",
+        "final_path": "publishing/candidates/run_20260829_084046_original/covers/cover_006_v3_existing_b.png",
+        "sha256": "9a6113a95f8e22f44ec00b60598e205ba4064ff80153619e8d9f30c24d11961f",
+        "text": {"title_lines": ["好决定", "也可能输"], "subtitle": "信息不足时，如何不靠运气做选择？", "book_title": "对赌", "author": "安妮·杜克"},
+        "cover_task": {"reference_images": ["assets/scenes/00_0.png"], "character_ids": ["young_pro"], "task_sha256": "9adbf3d523b6b8bd0a9ba2c97e74b62969f819e2efe82fcb3404aac6109ba5d8", "prompt_sha256": "57adbbfb76474f856e63ab3a105b7eea92eb526fecb58b71f2da0d87d60241d3"},
+        "visual_review": {"status": "passed", "asset_sha256": "9a6113a95f8e22f44ec00b60598e205ba4064ff80153619e8d9f30c24d11961f", "style": true, "character": true, "semantic": true, "layout": true, "thumbnail_legibility": true}
+      }
+    ]
   },
   "platforms": {
     "youtube": {
-      "primary_title": "好决定，也可能输：信息不足时，普通人如何不靠运气做选择？《对赌》",
-      "alternate_titles": ["信息不够又怕选错？用三步把不确定变成可行动的选择", "《对赌》：别等到完全确定，先把下行风险保护好"],
-      "description": "很多重要选择都等不到信息齐全：跳槽、副业、大额消费，越想等一个不会错的答案，越容易停在原地。本期从安妮·杜克的《对赌》出发，拆解一套适用于日常选择的三步方法：写下判断把握度、限定可承受损失、提前约好复盘点。好决定可能遇到坏结果，坏决定也可能暂时被好运托住；真正能改进的，是你的决策过程。",
-      "tags": ["对赌", "安妮杜克", "决策", "概率思维", "职场选择"],
-      "cta": "关注认知生财，一起看懂选择背后的规则。"
-    },
-    "bilibili": {
-      "primary_title": "好决定，也可能输：信息不足时怎样做选择？",
-      "alternate_titles": ["别等完全确定：普通人的三步决策法", "《对赌》：把人生选择变成可复盘的小实验"],
-      "description": "信息不全时，等待不一定更谨慎。用把握度、下行边界和复盘点三步，帮自己在跳槽、副业和消费选择中更清醒地行动。",
-      "tags": ["对赌", "决策思维", "概率", "职场", "个人成长"],
-      "cta": "关注认知生财，一起看懂选择背后的规则。"
-    },
-    "douyin": {
-      "primary_title": "好决定，也可能输",
-      "alternate_titles": ["别等完全确定再行动", "不靠运气做选择的三步法"],
-      "description": "信息不全时，先写把握度、下行边界和复盘点。别追求永远选对，先让自己越来越会选。",
-      "tags": ["决策", "对赌", "职场选择", "认知"],
-      "cta": "关注认知生财。"
-    },
-    "wechat": {
-      "primary_title": "好决定，也可能输：信息不足时怎样做选择？",
-      "alternate_titles": ["《对赌》：别把等待当谨慎", "不确定时，如何把选择做得更清醒"],
-      "description": "面对跳槽、副业和大额消费，我们常想等一个不会错的答案。但多数重要决定都等不到信息齐全。本期从《对赌》出发，分享一套可用于日常选择的三步框架：标注把握度、限制损失、预约复盘。它不保证结果，却能让你在不确定中持续改进判断。",
-      "tags": ["对赌", "决策", "概率思维", "职业选择", "财富认知"],
-      "cta": "关注认知生财，一起看懂选择背后的规则。"
+      "keywords": ["对赌", "决策", "信息不足"],
+      "titles": [
+        {"id": "title_pain_point", "strategy": "pain_point", "title": "信息不足又怕选错？《对赌》教你用3步结束犹豫，在跳槽、副业和大额消费前做出更清醒的决定，也不再被等待拖住"},
+        {"id": "title_counter_intuitive", "strategy": "counter_intuitive", "title": "好决定也可能得到坏结果：《对赌》为什么说别用一次输赢判断选择质量，以及普通人该如何复盘，并持续改进下一次判断"},
+        {"id": "title_number_solution", "strategy": "number_solution", "title": "3步决策法应对信息不足：写下把握度、守住下行边界、提前约好复盘，让重要选择不再靠猜，把豪赌拆成可调整的小实验"},
+        {"id": "title_seo", "strategy": "seo", "title": "《对赌》决策方法完整拆解：普通人如何用概率思维面对跳槽、副业与消费中的不确定性，不靠运气也不等待绝对确定"},
+        {"id": "title_emotional_story", "strategy": "emotional_story", "title": "一次认真选择却输了之后，我才读懂《对赌》：成熟的决策不是押中结果，而是为下一步留下余地，把失败变成下一次选择的证据"}
+      ],
+      "selected_title_id": "title_counter_intuitive",
+      "description": {
+        "lead": "你不是不会选，只是想等一个“一定不会错”的答案。可多数重要决定，都等不到信息齐全的那一天。",
+        "highlights": ["🧩 分清能查到的事实，与只能在行动中验证的感受", "🎯 把“我觉得”改写成把握度，暴露真正的信息缺口", "🛡️ 先设定可承受损失和退出信号，再用小实验换取反馈", "📝 在结果出现前约好复盘，避免用一次输赢审判过去的自己"],
+        "timestamps": [
+          {"time": "00:00", "title": "为什么重要决定总等不到完整信息"},
+          {"time": "00:48", "title": "别把等待当成谨慎"},
+          {"time": "03:02", "title": "第一步：给判断标上把握度"},
+          {"time": "05:22", "title": "第二步：先保护下行，再开始试验"},
+          {"time": "08:05", "title": "第三步：在结果出现前约好复盘"},
+          {"time": "10:34", "title": "不必永远选对，要让自己越来越会选"}
+        ],
+        "cta": "你最近在犹豫哪件事？在评论区写下它，再试着补上三行：几成把握、最坏能承受什么、什么时候复盘。关注认知生财，一起看懂选择背后的规则。",
+        "resources": "本期书目：《对赌》，安妮·杜克著。\n相关资料：[待补充书籍与频道链接]",
+        "hashtags": ["#对赌", "#决策思维", "#概率思维", "#选择焦虑", "#个人成长"]
+      }
     }
   }
 }
