@@ -169,7 +169,7 @@ python3 pipeline/workflow.py publish-cover-promote <video_run_id> <publish_id> -
 python3 pipeline/workflow.py publish-finalize <video_run_id> <publish_id> --project 001
 ```
 
-封面模板来自版本化注册表，没有默认选择。`reference_006_v1` 沿用正式场景锚点、主题人物和左右钩子结构；`book_title_author_v1` 保留品牌色、抽象纹理与居中出版海报结构；`book_title_author_v2` 保持居中书名作者层级，但使用正式场景参考锁定正片画风，以暖色手绘环境和具象叙事物件形成前中后景，不要求人物或角色。所有模板都生成两个无模型文字底图，再由本地确定性合成文字。
+封面模板来自版本化注册表，没有默认选择。`reference_006_v1` 沿用正式场景锚点、主题人物和左右钩子结构；`book_title_author_v2` 保持居中书名作者层级，使用正式场景参考锁定正片画风，以暖色手绘环境和具象叙事物件形成前中后景，不要求人物或角色。所有模板都生成两个无模型文字底图，再由本地确定性合成文字。
 
 任务包会记录下一图片阶段所需的 Agent 环境。项目图片生成方式为 `imagegen` 时，Antigravity 只能写入发布文案或封面语义方案，随后必须停止；`publish-cover-generate` 只允许在带 Codex 会话标记的环境签发和确认 ImageGen 图片，避免其他工具生成的 PNG 被误记为 ImageGen 产物。
 

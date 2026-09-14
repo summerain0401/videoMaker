@@ -101,24 +101,34 @@ class PublishingV4Tests(unittest.TestCase):
                                 "cta": "关注频道", "resources": "书目见置顶",
                                 "hashtags": ["#财富", "#认知", "#读书"]}}}}
 
+    def _write_style_references(self):
+        scenes = os.path.join(self.project, "assets", "scenes")
+        os.makedirs(scenes, exist_ok=True)
+        for index, color in enumerate(("#B66A3C", "#D39A51", "#355B6D")):
+            Image.new("RGB", (1920, 1080), color).save(
+                os.path.join(scenes, f"00_{index}.png"))
+
     def _select_and_verify_plan(self):
+        self._write_style_references()
         select = SimpleNamespace(**vars(self.args),
-                                 template_id="book_title_author_v1",
+                                 template_id="book_title_author_v2",
                                  recommended="reference_006_v1",
-                                 reason="选题也适合钩子，但用户选择出版海报")
+                                 reason="用户选择与正片一致的叙事出版海报")
         workflow.cmd_publish_cover_select_template(select)
         workflow.cmd_publish_cover_plan(self.args)
         state = workflow.read_json(self.paths["state"])
         workflow.write_json(self.paths["cover_plan"], {
             "version": 1, "publish_id": "pub_v4",
             "source_hashes": state["source_hashes"],
-            "template_id": "book_title_author_v1",
+            "template_id": "book_title_author_v2",
             "candidates": [
                 {"id": "cover_a", "concept": "双轨财富系统",
-                 "abstract_symbol": "两条交汇轨道", "subtitle": ""},
+                 "narrative_motif": "两条交汇轨道与守护锁扣",
+                 "environment": "暖光书房延伸至城市橱窗", "subtitle": ""},
                 {"id": "cover_b", "concept": "创造与守护",
-                 "abstract_symbol": "圆环包围火花",
-                 "subtitle": "创造财富之后更要学会守住财富"},
+                 "narrative_motif": "火花、账本与环形护盾",
+                 "environment": "夕阳桌面形成前中后三层空间",
+                 "subtitle": "创造之后学会守住"},
             ]})
         workflow.cmd_publish_cover_verify_plan(self.args)
 
@@ -126,7 +136,7 @@ class PublishingV4Tests(unittest.TestCase):
         workflow.cmd_publish_cover_generate(self.args)
         packet = workflow.read_json(self.paths["cover_image_tasks"])
         first, second = packet["tasks"]
-        self.assertEqual(first["reference_images"], [])
+        self.assertEqual(len(first["reference_images"]), 3)
         self.assertEqual(first["character_ids"], [])
         self.assertIn("person", first["negative_prompt"])
         Image.new("RGB", (1920, 1080), "#C8C8C8").save(first["output_path"])
@@ -135,18 +145,16 @@ class PublishingV4Tests(unittest.TestCase):
         workflow.cmd_publish_cover_generate(self.args)
 
     def test_registry_is_versioned_hashed_and_auto_enumerated(self):
-        first = cover_templates.cover_template_snapshot("book_title_author_v1")
-        second = cover_templates.cover_template_snapshot("book_title_author_v1")
+        first = cover_templates.cover_template_snapshot("book_title_author_v2")
+        second = cover_templates.cover_template_snapshot("book_title_author_v2")
         self.assertEqual(first, second)
-        self.assertEqual(first["spec"]["layout"], "centered_editorial_poster")
-        self.assertFalse(first["spec"]["requires_character_ids"])
-        narrative = cover_templates.cover_template_snapshot(
-            "book_title_author_v2")
-        self.assertEqual(narrative["spec"]["version"], 2)
-        self.assertEqual(narrative["spec"]["layout"],
+        self.assertEqual(first["spec"]["version"], 2)
+        self.assertEqual(first["spec"]["layout"],
                          "centered_illustrated_editorial_poster")
-        self.assertTrue(narrative["spec"]["requires_style_anchor"])
-        self.assertFalse(narrative["spec"]["requires_character_ids"])
+        self.assertTrue(first["spec"]["requires_style_anchor"])
+        self.assertFalse(first["spec"]["requires_character_ids"])
+        with self.assertRaisesRegex(ValueError, "未知封面模板"):
+            cover_templates.cover_template_snapshot("retired_template_v1")
         original = dict(cover_templates._TEMPLATES)
         try:
             cover_templates._TEMPLATES["future_v1"] = dict(
@@ -166,7 +174,7 @@ class PublishingV4Tests(unittest.TestCase):
         self.assertEqual(selection["recommended_template_id"],
                          "reference_006_v1")
         self.assertEqual(selection["selected_template_id"],
-                         "book_title_author_v1")
+                         "book_title_author_v2")
         with self.assertRaisesRegex(RuntimeError, "不可变更"):
             workflow.cmd_publish_cover_select_template(SimpleNamespace(
                 **vars(self.args), template_id="reference_006_v1",
@@ -207,11 +215,7 @@ class PublishingV4Tests(unittest.TestCase):
                             for task in tasks))
 
     def test_narrative_poster_uses_video_style_without_characters(self):
-        scenes = os.path.join(self.project, "assets", "scenes")
-        os.makedirs(scenes, exist_ok=True)
-        for index, color in enumerate(("#B66A3C", "#D39A51", "#355B6D")):
-            Image.new("RGB", (1920, 1080), color).save(
-                os.path.join(scenes, f"00_{index}.png"))
+        self._write_style_references()
         selection = SimpleNamespace(
             **vars(self.args), template_id="book_title_author_v2",
             recommended="book_title_author_v2",
@@ -272,12 +276,14 @@ class PublishingV4Tests(unittest.TestCase):
         poster = {"text": {"title_lines": [self.topic["book_title"]],
                            "subtitle": "", "book_title": self.topic["book_title"],
                            "author": self.topic["author"]}}
-        third = os.path.join(self.temp.name, "poster_1.png")
-        fourth = os.path.join(self.temp.name, "poster_2.png")
+        third = os.path.join(self.temp.name, "story_poster_1.png")
+        fourth = os.path.join(self.temp.name, "story_poster_2.png")
         palette = {"background": "#172033", "foreground": "#EDF4FF",
                    "accent": "#58C4D8"}
-        lines = workflow._compose_book_poster(base, third, poster, palette, font)
-        workflow._compose_book_poster(base, fourth, poster, palette, font)
+        lines = workflow._compose_book_story_poster(
+            base, third, poster, palette, font)
+        workflow._compose_book_story_poster(
+            base, fourth, poster, palette, font)
         self.assertEqual(workflow._sha256(third), workflow._sha256(fourth))
         self.assertEqual("".join(lines), self.topic["book_title"])
         self.assertLessEqual(len(lines), 3)
@@ -285,16 +291,6 @@ class PublishingV4Tests(unittest.TestCase):
             self.assertEqual(image.size, (1920, 1080))
             thumbnail = image.resize((320, 180))
             self.assertGreater(len(thumbnail.getcolors(maxcolors=320 * 180)), 2)
-
-        fifth = os.path.join(self.temp.name, "story_poster_1.png")
-        sixth = os.path.join(self.temp.name, "story_poster_2.png")
-        story_lines = workflow._compose_book_story_poster(
-            base, fifth, poster, palette, font)
-        workflow._compose_book_story_poster(base, sixth, poster, palette, font)
-        self.assertEqual(workflow._sha256(fifth), workflow._sha256(sixth))
-        self.assertEqual("".join(story_lines), self.topic["book_title"])
-        with Image.open(fifth) as image:
-            self.assertEqual(image.size, (1920, 1080))
 
     def test_finalize_rejects_promoted_child_hash_drift(self):
         os.makedirs(self.paths["approved_root"], exist_ok=True)
@@ -355,7 +351,7 @@ class PublishingV4Tests(unittest.TestCase):
         package = workflow.read_json(self.paths["release"])
         self.assertEqual(package["version"], 4)
         self.assertEqual(package["cover"]["template"]["id"],
-                         "book_title_author_v1")
+                         "book_title_author_v2")
         for path in (self.paths["release_copy"], self.paths["release_cover"],
                      self.paths["release_cover_image"], self.paths["upload"]):
             self.assertTrue(os.path.isfile(path))

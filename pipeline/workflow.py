@@ -2450,10 +2450,7 @@ def cmd_publish_cover_select_template(args):
 
 def _cover_plan_contract(parent, state, hashes):
     template_id = state["template"]["id"]
-    if template_id == "book_title_author_v1":
-        candidate = {"id": "string", "concept": "string",
-                     "abstract_symbol": "string", "subtitle": "0-14 chars"}
-    elif template_id == "book_title_author_v2":
+    if template_id == "book_title_author_v2":
         candidate = {"id": "string", "concept": "string",
                      "narrative_motif": "concrete thematic objects",
                      "environment": "rich foreground/midground/background scene",
@@ -2576,13 +2573,7 @@ def _cover_image_tasks(project, paths, state, source):
         anchors = anchors[:expected_count]
     tasks = []
     for candidate in plan["candidates"]:
-        if spec["id"] == "book_title_author_v1":
-            description = (f"centered editorial publishing poster background; concept: "
-                           f"{candidate['concept']}; abstract symbol: {candidate['abstract_symbol']}; "
-                           "low contrast center, abstract details around edges and corners")
-            character_ids, char_bits, references = [], [], []
-            style = "refined abstract centered editorial poster, full-frame"
-        elif spec["id"] == "book_title_author_v2":
+        if spec["id"] == "book_title_author_v2":
             description = (
                 "full-frame richly layered illustrated editorial scene; "
                 f"concept: {candidate['concept']}; concrete narrative motif: "
@@ -2611,9 +2602,7 @@ def _cover_image_tasks(project, paths, state, source):
                     "book mockup, photorealistic corporate stock art, flat vector "
                     "technology wallpaper" +
                     (", person, people, character"
-                     if not spec["allows_people"] else "") +
-                    (", complete scene" if spec["id"] == "book_title_author_v1"
-                     else ""))
+                     if not spec["allows_people"] else ""))
         sources = {"style": style, "palette": palette_text,
                    "description": description, "char_bits": char_bits,
                    "shot": "wide", "emotion": "neutral",
@@ -2792,48 +2781,6 @@ def _cover_font_path():
     return next((path for path in candidates if os.path.exists(path)), None)
 
 
-def _compose_book_poster(base, destination, candidate, palette, font_path):
-    image = base.convert("RGB").resize((1920, 1080), Image.Resampling.LANCZOS)
-    background = _hex_rgb(palette.get("background"), (23, 32, 51))
-    foreground = _hex_rgb(palette.get("foreground"), (237, 244, 255))
-    accent = _hex_rgb(palette.get("accent"), (88, 196, 216))
-    # 品牌色渐变遮罩稳定中央文字对比，同时保留边缘抽象底图。
-    overlay = Image.new("RGBA", image.size, (*background, 0))
-    overlay_draw = ImageDraw.Draw(overlay)
-    for x in range(1920):
-        distance = abs(x - 960) / 960
-        alpha = int(205 - 85 * min(1, distance))
-        overlay_draw.line((x, 0, x, 1080), fill=(*background, alpha))
-    image = Image.alpha_composite(image.convert("RGBA"), overlay).convert("RGB")
-    draw = ImageDraw.Draw(image)
-    title = candidate["text"]["book_title"]
-    lines, title_font, line_height = _fit_centered_title(draw, font_path, title)
-    total = line_height * len(lines)
-    y = 230 + (450 - total) / 2
-    for line in lines:
-        box = draw.textbbox((0, 0), line, font=title_font)
-        width = box[2] - box[0]
-        draw.text(((1920 - width) / 2, y), line, font=title_font,
-                  fill=foreground, stroke_width=2, stroke_fill=background)
-        y += line_height
-    author = candidate["text"]["author"]
-    author_font = _cover_font(draw, font_path, author, 1100, 58)
-    author_width = draw.textbbox((0, 0), author, font=author_font)[2]
-    subtitle = candidate["text"].get("subtitle", "")
-    divider_y = 750 if subtitle else 720
-    author_y = 790 if subtitle else 758
-    draw.line((730, divider_y, 1190, divider_y), fill=accent, width=4)
-    draw.text(((1920 - author_width) / 2, author_y), author,
-              font=author_font, fill=accent)
-    if subtitle:
-        subtitle_font = _cover_font(draw, font_path, subtitle, 1050, 42)
-        width = draw.textbbox((0, 0), subtitle, font=subtitle_font)[2]
-        draw.text(((1920 - width) / 2, 910), subtitle, font=subtitle_font,
-                  fill=foreground)
-    image.save(destination, "PNG")
-    return lines
-
-
 def _compose_book_story_poster(base, destination, candidate, palette, font_path):
     """Compose centered typography while preserving a rich illustrated scene."""
     image = base.convert("RGB").resize((1920, 1080), Image.Resampling.LANCZOS)
@@ -2935,11 +2882,7 @@ def cmd_publish_cover_compose(args):
             raise RuntimeError("封面底图 hash 已变化")
         destination = os.path.join(paths["covers_dir"], candidate["id"] + ".png")
         with Image.open(base_path) as base:
-            if state["template"]["id"] == "book_title_author_v1":
-                lines = _compose_book_poster(base, destination, candidate,
-                                             palette, font_path)
-                candidate["text"]["title_lines"] = lines
-            elif state["template"]["id"] == "book_title_author_v2":
+            if state["template"]["id"] == "book_title_author_v2":
                 lines = _compose_book_story_poster(base, destination, candidate,
                                                    palette, font_path)
                 candidate["text"]["title_lines"] = lines

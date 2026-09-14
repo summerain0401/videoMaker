@@ -90,9 +90,8 @@ provider 的唯一事实源，run 只使用 `state.json` 中的完整快照。�
   标题候选、两张封面候选及 verify 结果出现后必须分别停止；只有用户最新回复明确给出
   对应模板 ID、标题 ID、封面 ID 或确认提升时，才能执行相应 select/promote。Agent
   不得替用户选择、把自身审核当作用户确认，或一次性越过多个门禁并 finalize。
-- `reference_006_v1` 使用正式场景锚点与必要角色；`book_title_author_v1` 保留品牌色
-  简洁抽象底图，不传角色或场景参考图；`book_title_author_v2` 使用正式场景参考锁定
-  正片手绘质感，并以丰富的主题环境和具象叙事物件构图，不要求人物或角色。所有模板
+- `reference_006_v1` 使用正式场景锚点与必要角色；`book_title_author_v2` 使用正式场景
+  参考锁定正片手绘质感，并以丰富的主题环境和具象叙事物件构图，不要求人物或角色。所有模板
   都沿用视频 run 固定的图片 provider，交互式 provider 逐张消费密封任务，不增加阶段
   provider 覆盖。
 - 当图片 provider 为 `imagegen` 时，Antigravity 在写完 copy 或 cover plan 候选后必须

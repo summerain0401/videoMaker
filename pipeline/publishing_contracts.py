@@ -355,16 +355,7 @@ def validate_cover_plan(data, template_snapshot, topic, publish_id,
             errors.append("封面方案候选必须是对象")
             continue
         concepts.append(candidate.get("concept"))
-        if spec.get("id") == "book_title_author_v1":
-            if set(candidate) != {"id", "concept", "abstract_symbol", "subtitle"}:
-                errors.append("书名作者海报候选字段不符合契约")
-            symbols.append(candidate.get("abstract_symbol"))
-            if not candidate.get("concept") or not candidate.get("abstract_symbol"):
-                errors.append("书名作者海报必须提供抽象概念与符号")
-            subtitle = candidate.get("subtitle", "")
-            if not isinstance(subtitle, str) or len(subtitle) > 14:
-                errors.append("书名作者海报副标题不得超过14个字符")
-        elif spec.get("id") == "book_title_author_v2":
+        if spec.get("id") == "book_title_author_v2":
             required_candidate = {"id", "concept", "narrative_motif",
                                   "environment", "subtitle"}
             if set(candidate) != required_candidate:
@@ -389,7 +380,7 @@ def validate_cover_plan(data, template_snapshot, topic, publish_id,
                 errors.append("观点钩子封面必须提供角色 ID")
     if len(set(concepts)) != len(candidates):
         errors.append("两个封面候选必须使用不同视觉概念")
-    if spec.get("id") in ("book_title_author_v1", "book_title_author_v2") and \
+    if spec.get("id") == "book_title_author_v2" and \
             len(set(symbols)) != len(candidates):
         errors.append("两个书名作者海报候选必须使用不同视觉母题")
     errors.extend(scan_compliance(data))
@@ -428,18 +419,14 @@ def validate_publish_cover(data, template_snapshot, topic, project_root,
                 text.get("author") != topic.get("author"):
             errors.append("封面书名和作者必须与正式 topic 完全一致")
         lines = text.get("title_lines", [])
-        if spec.get("id") in ("book_title_author_v1", "book_title_author_v2"):
+        if spec.get("id") == "book_title_author_v2":
             if not 1 <= len(lines) <= 3 or "".join(lines) != topic.get("book_title"):
                 errors.append("书名必须完整排成1-3行且不可改写")
             if len(text.get("subtitle", "")) > 14:
                 errors.append("书名作者海报副标题不得超过14个字符")
             if candidate.get("cover_task", {}).get("character_ids"):
                 errors.append("书名作者海报不得要求角色 ID")
-            if spec.get("id") == "book_title_author_v1" and \
-                    candidate.get("cover_task", {}).get("reference_images"):
-                errors.append("书名作者海报不得要求场景参考图")
-            if spec.get("id") == "book_title_author_v2" and not \
-                    candidate.get("cover_task", {}).get("reference_images"):
+            if not candidate.get("cover_task", {}).get("reference_images"):
                 errors.append("书名作者叙事海报必须绑定正式场景参考图")
         elif len(lines) != 2:
             errors.append("观点钩子封面必须严格使用两行标题")
