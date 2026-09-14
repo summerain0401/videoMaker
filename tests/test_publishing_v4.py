@@ -140,6 +140,13 @@ class PublishingV4Tests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(first["spec"]["layout"], "centered_editorial_poster")
         self.assertFalse(first["spec"]["requires_character_ids"])
+        narrative = cover_templates.cover_template_snapshot(
+            "book_title_author_v2")
+        self.assertEqual(narrative["spec"]["version"], 2)
+        self.assertEqual(narrative["spec"]["layout"],
+                         "centered_illustrated_editorial_poster")
+        self.assertTrue(narrative["spec"]["requires_style_anchor"])
+        self.assertFalse(narrative["spec"]["requires_character_ids"])
         original = dict(cover_templates._TEMPLATES)
         try:
             cover_templates._TEMPLATES["future_v1"] = dict(
@@ -199,6 +206,48 @@ class PublishingV4Tests(unittest.TestCase):
         self.assertTrue(all(task["character_ids"] == ["young_pro"]
                             for task in tasks))
 
+    def test_narrative_poster_uses_video_style_without_characters(self):
+        scenes = os.path.join(self.project, "assets", "scenes")
+        os.makedirs(scenes, exist_ok=True)
+        for index, color in enumerate(("#B66A3C", "#D39A51", "#355B6D")):
+            Image.new("RGB", (1920, 1080), color).save(
+                os.path.join(scenes, f"00_{index}.png"))
+        selection = SimpleNamespace(
+            **vars(self.args), template_id="book_title_author_v2",
+            recommended="book_title_author_v2",
+            reason="正片是暖色手绘叙事风格，需要具象环境延续视觉语言")
+        workflow.cmd_publish_cover_select_template(selection)
+        workflow.cmd_publish_cover_plan(self.args)
+        planning_task = workflow.read_json(self.paths["cover_task"])
+        self.assertEqual(len(planning_task["source"]["style_references"]), 3)
+        parent = workflow.read_json(self.paths["state"])
+        workflow.write_json(self.paths["cover_plan"], {
+            "version": 1, "publish_id": "pub_v4",
+            "source_hashes": parent["source_hashes"],
+            "template_id": "book_title_author_v2",
+            "candidates": [
+                {"id": "cover_a", "concept": "从众漩涡",
+                 "narrative_motif": "散落价签、沙漏与向中心汇聚的脚印",
+                 "environment": "暖光书房桌面延伸到夜色商店橱窗",
+                 "subtitle": "看穿从众与稀缺"},
+                {"id": "cover_b", "concept": "稀缺牢笼",
+                 "narrative_motif": "空展示柜、倒计时钟面与破裂的泡沫",
+                 "environment": "夕阳城市橱窗形成前中后三层空间",
+                 "subtitle": "守住理性判断"},
+            ]})
+        workflow.cmd_publish_cover_verify_plan(self.args)
+        state = workflow.read_json(self.paths["cover_state"])
+        _, source, _ = workflow._publish_sources(self.project, "main")
+        tasks = workflow._cover_image_tasks(self.project, self.paths,
+                                            state, source)
+        self.assertTrue(all(len(task["reference_images"]) == 3
+                            for task in tasks))
+        self.assertTrue(all(not task["character_ids"] for task in tasks))
+        self.assertTrue(all("warm cinematic hand-drawn animation" in task["prompt"]
+                            for task in tasks))
+        self.assertTrue(all("complete scene" not in task["negative_prompt"]
+                            for task in tasks))
+
     def test_imagegen_tasks_cannot_be_claimed_outside_codex(self):
         self._select_and_verify_plan()
         with mock.patch.dict(os.environ, {"CODEX_SESSION_ID": ""}):
@@ -236,6 +285,16 @@ class PublishingV4Tests(unittest.TestCase):
             self.assertEqual(image.size, (1920, 1080))
             thumbnail = image.resize((320, 180))
             self.assertGreater(len(thumbnail.getcolors(maxcolors=320 * 180)), 2)
+
+        fifth = os.path.join(self.temp.name, "story_poster_1.png")
+        sixth = os.path.join(self.temp.name, "story_poster_2.png")
+        story_lines = workflow._compose_book_story_poster(
+            base, fifth, poster, palette, font)
+        workflow._compose_book_story_poster(base, sixth, poster, palette, font)
+        self.assertEqual(workflow._sha256(fifth), workflow._sha256(sixth))
+        self.assertEqual("".join(story_lines), self.topic["book_title"])
+        with Image.open(fifth) as image:
+            self.assertEqual(image.size, (1920, 1080))
 
     def test_finalize_rejects_promoted_child_hash_drift(self):
         os.makedirs(self.paths["approved_root"], exist_ok=True)

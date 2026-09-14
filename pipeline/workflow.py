@@ -15,7 +15,7 @@ import subprocess
 import sys
 from collections import Counter
 
-from PIL import Image, ImageStat, ImageDraw, ImageFont
+from PIL import Image, ImageStat, ImageDraw, ImageFont, ImageFilter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -2450,12 +2450,18 @@ def cmd_publish_cover_select_template(args):
 
 def _cover_plan_contract(parent, state, hashes):
     template_id = state["template"]["id"]
-    candidate = ({"id": "string", "concept": "string",
-                  "abstract_symbol": "string", "subtitle": "0-14 chars"}
-                 if template_id == "book_title_author_v1" else
-                 {"id": "string", "concept": "string", "subject": "string",
-                  "composition": "string", "title_lines": "exactly 2 strings",
-                  "subtitle": "string", "character_ids": ["registered id"]})
+    if template_id == "book_title_author_v1":
+        candidate = {"id": "string", "concept": "string",
+                     "abstract_symbol": "string", "subtitle": "0-14 chars"}
+    elif template_id == "book_title_author_v2":
+        candidate = {"id": "string", "concept": "string",
+                     "narrative_motif": "concrete thematic objects",
+                     "environment": "rich foreground/midground/background scene",
+                     "subtitle": "0-14 chars"}
+    else:
+        candidate = {"id": "string", "concept": "string", "subject": "string",
+                     "composition": "string", "title_lines": "exactly 2 strings",
+                     "subtitle": "string", "character_ids": ["registered id"]}
     return {"version": 1, "publish_id": parent["publish_id"],
             "source_hashes": hashes, "template_id": template_id,
             "candidates": [candidate, candidate]}
@@ -2472,9 +2478,14 @@ def cmd_publish_cover_plan(args):
     spec = state["template"]["spec"]
     context = {"topic": source["topic"], "brand": source["brand"]}
     if spec["requires_style_anchor"]:
-        context["style_anchor"] = _cover_style_references(set_project(args.project))[0]
-        chars_path = os.path.join(ROOT, "assets", "characters.json")
-        context["characters"] = read_json(chars_path) if os.path.isfile(chars_path) else {}
+        style_references = _cover_style_references(set_project(args.project))
+        count = spec.get("style_reference_count", 1)
+        context["style_anchor"] = style_references[0]
+        context["style_references"] = style_references[:count]
+        if spec["requires_character_ids"]:
+            chars_path = os.path.join(ROOT, "assets", "characters.json")
+            context["characters"] = (read_json(chars_path)
+                                     if os.path.isfile(chars_path) else {})
     image_route = _interactive_image_execution_route(
         parent["providers"]["image"])
     task = {"stage": "publish-cover", "source": context,
@@ -2543,17 +2554,26 @@ def _cover_image_tasks(project, paths, state, source):
     spec = state["template"]["spec"]
     palette = source["brand"].get("visual", {}).get("palette", {})
     palette_text = ", ".join(f"{key} {value}" for key, value in palette.items())
-    anchor = None
+    anchors = []
     if spec["requires_style_anchor"]:
         planning_task = read_json(paths["cover_task"])
-        anchor = planning_task.get("source", {}).get("style_anchor")
-        if not isinstance(anchor, dict) or not anchor.get("path") or not anchor.get("sha256"):
-            raise RuntimeError("观点钩子封面缺少规划阶段冻结的风格锚点")
-        anchor_path = os.path.realpath(os.path.join(project, anchor["path"]))
+        source_context = planning_task.get("source", {})
+        anchors = source_context.get("style_references") or [
+            source_context.get("style_anchor")]
+        expected_count = spec.get("style_reference_count", 1)
+        if len(anchors) < expected_count:
+            raise RuntimeError("封面缺少规划阶段冻结的正式场景风格参考")
         scenes = os.path.realpath(os.path.join(project, "assets", "scenes"))
-        if os.path.commonpath((scenes, anchor_path)) != scenes or \
-                not os.path.isfile(anchor_path) or _sha256(anchor_path) != anchor["sha256"]:
-            raise RuntimeError("观点钩子封面风格锚点路径或 hash 已变化")
+        for anchor in anchors[:expected_count]:
+            if not isinstance(anchor, dict) or not anchor.get("path") or \
+                    not anchor.get("sha256"):
+                raise RuntimeError("封面风格参考记录无效")
+            anchor_path = os.path.realpath(os.path.join(project, anchor["path"]))
+            if os.path.commonpath((scenes, anchor_path)) != scenes or \
+                    not os.path.isfile(anchor_path) or \
+                    _sha256(anchor_path) != anchor["sha256"]:
+                raise RuntimeError("封面风格参考路径或 hash 已变化")
+        anchors = anchors[:expected_count]
     tasks = []
     for candidate in plan["candidates"]:
         if spec["id"] == "book_title_author_v1":
@@ -2562,17 +2582,38 @@ def _cover_image_tasks(project, paths, state, source):
                            "low contrast center, abstract details around edges and corners")
             character_ids, char_bits, references = [], [], []
             style = "refined abstract centered editorial poster, full-frame"
+        elif spec["id"] == "book_title_author_v2":
+            description = (
+                "full-frame richly layered illustrated editorial scene; "
+                f"concept: {candidate['concept']}; concrete narrative motif: "
+                f"{candidate['narrative_motif']}; environment: "
+                f"{candidate['environment']}; use foreground, midground and "
+                "background storytelling details; reserve a naturally quiet "
+                "central title field without drawing a flat panel"
+            )
+            character_ids, char_bits = [], []
+            references = [os.path.realpath(os.path.join(project, item["path"]))
+                          for item in anchors]
+            style = (
+                "match supplied official video frames: warm cinematic hand-drawn "
+                "animation, tactile materials, expressive lighting and rich depth; "
+                "use brand navy and cyan only as secondary accents"
+            )
         else:
             description = (f"cover background concept: {candidate['concept']}; subject: "
                            f"{candidate['subject']}; composition: {candidate['composition']}; "
                            "leave readable left hook area and character emphasis on right")
             character_ids = candidate["character_ids"]
             char_bits = character_ids
-            references = [anchor_path]
+            references = [os.path.realpath(os.path.join(project, anchors[0]["path"]))]
             style = "match the supplied official scene style anchor"
         negative = ("readable text, letters, words, title, captions, logo, watermark, "
-                    "book mockup" + (", person, people, character, complete scene"
-                                      if not spec["allows_people"] else ""))
+                    "book mockup, photorealistic corporate stock art, flat vector "
+                    "technology wallpaper" +
+                    (", person, people, character"
+                     if not spec["allows_people"] else "") +
+                    (", complete scene" if spec["id"] == "book_title_author_v1"
+                     else ""))
         sources = {"style": style, "palette": palette_text,
                    "description": description, "char_bits": char_bits,
                    "shot": "wide", "emotion": "neutral",
@@ -2584,8 +2625,7 @@ def _cover_image_tasks(project, paths, state, source):
                 "output_path": os.path.join(paths["covers_dir"],
                                              candidate["id"] + "_base.png"),
                 "character_ids": character_ids,
-                "style_anchor": ({"path": references[0], "sha256": anchor["sha256"]}
-                                 if anchor else None),
+                "style_anchor": (anchors[0] if anchors else None),
                 "rule_manifest": {"prompt_sources": sources,
                                   "negative_prompt": negative,
                                   "text_policy": {"mode": "forbidden"},
@@ -2723,10 +2763,10 @@ def _balanced_title_lines(title, count):
     return [title[a:b] for a, b in zip([0] + cuts, cuts + [length])]
 
 
-def _fit_centered_title(draw, font_path, title):
+def _fit_centered_title(draw, font_path, title, start=154):
     for count in range(1, 4):
         lines = _balanced_title_lines(title, count)
-        for size in range(154, 59, -2):
+        for size in range(start, 59, -2):
             font = ImageFont.truetype(font_path, size)
             widths = [draw.textbbox((0, 0), line, font=font)[2] for line in lines]
             line_height = draw.textbbox((0, 0), "国Ag", font=font)[3] + 22
@@ -2794,6 +2834,65 @@ def _compose_book_poster(base, destination, candidate, palette, font_path):
     return lines
 
 
+def _compose_book_story_poster(base, destination, candidate, palette, font_path):
+    """Compose centered typography while preserving a rich illustrated scene."""
+    image = base.convert("RGB").resize((1920, 1080), Image.Resampling.LANCZOS)
+    background = _hex_rgb(palette.get("background"), (23, 32, 51))
+    foreground = _hex_rgb(palette.get("foreground"), (237, 244, 255))
+    accent = _hex_rgb(palette.get("accent"), (88, 196, 216))
+
+    # 柔化的中央书封光场只负责可读性，保留四周叙事物件和正片色彩。
+    mask = Image.new("L", image.size, 0)
+    mask_draw = ImageDraw.Draw(mask)
+    mask_draw.rounded_rectangle((260, 105, 1660, 970), radius=170, fill=158)
+    mask = mask.filter(ImageFilter.GaussianBlur(95))
+    veil = Image.new("RGBA", image.size, (*background, 0))
+    veil.putalpha(mask)
+    image = Image.alpha_composite(image.convert("RGBA"), veil).convert("RGB")
+
+    # 轻量品牌框线提供出版物秩序，但避免形成企业科技面板。
+    draw = ImageDraw.Draw(image)
+    draw.line((440, 144, 1480, 144), fill=(*accent,), width=3)
+    draw.ellipse((948, 132, 972, 156), fill=accent,
+                 outline=background, width=3)
+    draw.line((570, 920, 1350, 920), fill=(*accent,), width=3)
+
+    title = candidate["text"]["book_title"]
+    lines, title_font, line_height = _fit_centered_title(
+        draw, font_path, title, start=228)
+    total = line_height * len(lines)
+    y = 225 + (430 - total) / 2
+    for line in lines:
+        box = draw.textbbox((0, 0), line, font=title_font)
+        width = box[2] - box[0]
+        draw.text(((1920 - width) / 2 + 7, y + 9), line,
+                  font=title_font, fill=background,
+                  stroke_width=7, stroke_fill=background)
+        draw.text(((1920 - width) / 2, y), line, font=title_font,
+                  fill=foreground, stroke_width=2, stroke_fill=background)
+        y += line_height
+
+    author = candidate["text"]["author"]
+    author_font = _cover_font(draw, font_path, author, 1050, 60)
+    author_width = draw.textbbox((0, 0), author, font=author_font)[2]
+    subtitle = candidate["text"].get("subtitle", "")
+    divider_y = 733 if subtitle else 755
+    draw.line((770, divider_y, 1150, divider_y), fill=accent, width=5)
+    author_y = divider_y + 36
+    draw.text(((1920 - author_width) / 2, author_y), author,
+              font=author_font, fill=accent,
+              stroke_width=2, stroke_fill=background)
+    if subtitle:
+        subtitle_font = _cover_font(draw, font_path, subtitle, 1000, 42)
+        subtitle_width = draw.textbbox((0, 0), subtitle,
+                                       font=subtitle_font)[2]
+        draw.text(((1920 - subtitle_width) / 2, 875), subtitle,
+                  font=subtitle_font, fill=foreground,
+                  stroke_width=2, stroke_fill=background)
+    image.save(destination, "PNG")
+    return lines
+
+
 def _compose_reference_cover(base, destination, candidate, font_path):
     image = base.convert("RGB").resize((1920, 1080), Image.Resampling.LANCZOS)
     draw = ImageDraw.Draw(image)
@@ -2839,6 +2938,10 @@ def cmd_publish_cover_compose(args):
             if state["template"]["id"] == "book_title_author_v1":
                 lines = _compose_book_poster(base, destination, candidate,
                                              palette, font_path)
+                candidate["text"]["title_lines"] = lines
+            elif state["template"]["id"] == "book_title_author_v2":
+                lines = _compose_book_story_poster(base, destination, candidate,
+                                                   palette, font_path)
                 candidate["text"]["title_lines"] = lines
             else:
                 _compose_reference_cover(base, destination, candidate, font_path)

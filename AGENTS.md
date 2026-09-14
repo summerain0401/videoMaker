@@ -64,8 +64,9 @@
 - V4 发布文案与封面使用独立子状态、独立校验和独立提升；只有两个子产物均已提升且
   hash 未变化时，`publish-finalize` 才能汇总 release。历史 V1–V3 发布包只读。
 - 封面模板没有默认选择。Sol 根据正式选题推荐并展示注册表全部选项，用户明确选择后
-  才能规划；选择记录绑定 topic hash 且不可变更。`book_title_author_v1` 使用居中出版
-  海报、品牌色和抽象元素，不要求人物、角色 ID 或正式场景参考图。
+  才能规划；选择记录绑定 topic hash 且不可变更。`book_title_author_v1` 保留简洁抽象
+  居中海报；`book_title_author_v2` 使用居中书名作者结构以及正式场景风格参考，以暖色
+  手绘的主题环境和具象叙事物件延续正片视觉语言，不要求人物或角色 ID。
 - 发布任务包必须显式记录下一图片阶段的 provider 与 Agent 执行环境。若图片 provider
   为 `imagegen`，Antigravity 写完 copy/cover plan 后必须停止；只有带 Codex 会话标记
   的执行环境才能签发或确认 ImageGen 封面任务，禁止用其他工具产图后冒充 ImageGen。

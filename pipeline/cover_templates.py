@@ -51,6 +51,36 @@ _TEMPLATES = {
             "角色、完整场景、书籍实物模型、模型生成文字、标识和水印。"
         ),
     },
+    "book_title_author_v2": {
+        "id": "book_title_author_v2",
+        "version": 2,
+        "display_name": "书名作者叙事海报",
+        "description": (
+            "居中书名作者结构，使用与正片一致的暖色手绘场景语言和主题物件，"
+            "不依赖人物角色。"
+        ),
+        "layout": "centered_illustrated_editorial_poster",
+        "canvas": [1920, 1080],
+        "candidate_count": 2,
+        "requires_style_anchor": True,
+        "style_reference_count": 3,
+        "requires_character_ids": False,
+        "allows_people": False,
+        "subtitle_max_chars": 14,
+        "title_line_range": [1, 3],
+        "review_dimensions": [
+            "video_style_consistency", "illustrated_depth",
+            "thematic_object_semantic", "brand_palette", "text_accuracy",
+            "centered_layout", "no_model_text", "thumbnail_legibility",
+        ],
+        "generation_policy": (
+            "以正式场景参考图锁定正片的手绘动画质感、暖色照明、材质与景深。"
+            "使用与选题相关的具象叙事物件和完整空间层次，画面必须包含前景、中景"
+            "与背景，细节丰富但中央文字区保持安静。品牌深蓝和青色作为局部阴影、"
+            "描边或小面积强调色，不得把画面退化成纯色科技背景。禁止人物、角色、"
+            "模型生成文字、标识和水印。"
+        ),
+    },
 }
 
 COVER_TEMPLATE_IDS = tuple(_TEMPLATES)
