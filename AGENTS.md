@@ -61,6 +61,17 @@
   根据正式选题推荐模板并展示全部选项；只有用户明确选择并执行 `select-template` 后
   才能解锁 copy。模板注册表新增项必须自动进入候选目录。
 - topic/copy/script/storyboard/images 必须进入 run 候选区，校验后由用户明确提升。
+- V4 发布文案与封面使用独立子状态、独立校验和独立提升；只有两个子产物均已提升且
+  hash 未变化时，`publish-finalize` 才能汇总 release。历史 V1–V3 发布包只读。
+- 封面模板没有默认选择。Sol 根据正式选题推荐并展示注册表全部选项，用户明确选择后
+  才能规划；选择记录绑定 topic hash 且不可变更。`book_title_author_v1` 使用居中出版
+  海报、品牌色和抽象元素，不要求人物、角色 ID 或正式场景参考图。
+- 发布任务包必须显式记录下一图片阶段的 provider 与 Agent 执行环境。若图片 provider
+  为 `imagegen`，Antigravity 写完 copy/cover plan 后必须停止；只有带 Codex 会话标记
+  的执行环境才能签发或确认 ImageGen 封面任务，禁止用其他工具产图后冒充 ImageGen。
+- 用户笼统要求“执行/测试发布流程”不构成模板、标题、最终封面或提升授权。Agent 每到
+  一个对应人工门禁都必须停止并展示候选；只有用户最新回复明确给出 ID 或确认提升后，
+  才能执行单个 select/promote，不得一次性代选、代审并 finalize。
 - storyboard 必须先校验候选，再运行并校验 storyboard-review；用户确认后执行
   `promote storyboard`，由该操作同时锁定正式分镜与匹配哈希的审核记录。不得先提升
   storyboard 再审核。

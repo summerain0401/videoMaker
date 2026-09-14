@@ -147,11 +147,30 @@ python3 pipeline/workflow.py brand-select <brand_run_id> --project 001 --channel
 python3 pipeline/workflow.py brand-verify <brand_run_id> --project 001 --channel main
 python3 pipeline/workflow.py brand-promote <brand_run_id> --project 001 --channel main
 python3 pipeline/workflow.py publish-init <video_run_id> --project 001 --channel main
-python3 pipeline/workflow.py publish-run <video_run_id> <publish_id> --project 001 --channel main --revision v2
-python3 pipeline/workflow.py publish-verify <video_run_id> <publish_id> --project 001 --channel main --revision v2
-python3 pipeline/workflow.py publish-promote <video_run_id> <publish_id> --project 001 --channel main --revision v2
+
+# 发布文案：生成后必须人工选择标题，再验证和提升
+python3 pipeline/workflow.py publish-copy-run <video_run_id> <publish_id> --project 001
+python3 pipeline/workflow.py publish-copy-select <video_run_id> <publish_id> --project 001 --title-id title_0
+python3 pipeline/workflow.py publish-copy-verify <video_run_id> <publish_id> --project 001
+python3 pipeline/workflow.py publish-copy-promote <video_run_id> <publish_id> --project 001
+
+# 封面：先查看推荐依据并人工锁定模板，再规划、生成、合成和审核
+python3 pipeline/workflow.py publish-cover-template-options <video_run_id> <publish_id> --project 001
+python3 pipeline/workflow.py publish-cover-select-template <video_run_id> <publish_id> book_title_author_v1 --project 001 --recommended book_title_author_v1 --reason "突出本期书名与作者"
+python3 pipeline/workflow.py publish-cover-plan <video_run_id> <publish_id> --project 001
+python3 pipeline/workflow.py publish-cover-verify-plan <video_run_id> <publish_id> --project 001
+python3 pipeline/workflow.py publish-cover-generate <video_run_id> <publish_id> --project 001
+python3 pipeline/workflow.py publish-cover-compose <video_run_id> <publish_id> --project 001
+python3 pipeline/workflow.py publish-cover-review <video_run_id> <publish_id> --project 001 --cover-id cover_0 --result pass
+python3 pipeline/workflow.py publish-cover-select <video_run_id> <publish_id> --project 001 --cover-id cover_0
+python3 pipeline/workflow.py publish-cover-verify <video_run_id> <publish_id> --project 001
+python3 pipeline/workflow.py publish-cover-promote <video_run_id> <publish_id> --project 001
+
+python3 pipeline/workflow.py publish-finalize <video_run_id> <publish_id> --project 001
 ```
 
-发布任务会从项目 `assets/scenes/` 中按文件名选择最多三张正式常规 PNG 作为封面风格与角色参考（排除 `phase_*.png` 和候选素材）。封面任务包会锁定这些文件的路径与 SHA-256；生成封面时必须将其作为 input references，并保持与正式成片一致的画风、角色、比例、线条、色彩和光影。
+封面模板来自版本化注册表，没有默认选择。`reference_006_v1` 沿用正式场景锚点、主题人物和左右钩子结构；`book_title_author_v1` 使用品牌色、抽象纹理与居中出版海报结构，不需要角色或场景参考图。两者都生成两个无模型文字底图，再由本地确定性合成文字。
 
-品牌和发布候选均须人工选择/确认后提升；`promote` 只生成发布清单，不执行平台上传。
+任务包会记录下一图片阶段所需的 Agent 环境。项目图片生成方式为 `imagegen` 时，Antigravity 只能写入发布文案或封面语义方案，随后必须停止；`publish-cover-generate` 只允许在带 Codex 会话标记的环境签发和确认 ImageGen 图片，避免其他工具生成的 PNG 被误记为 ImageGen 产物。
+
+V4 发布文案与封面分别进入 `publishing/approved/<publish_id>/`。两者都提升且 hash 未变化后，`publish-finalize` 才会写入 `publishing/releases/<publish_id>/`；所有命令都不执行平台上传。历史 V1–V3 发布包只读。

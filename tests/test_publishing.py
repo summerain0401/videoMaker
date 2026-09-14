@@ -208,16 +208,16 @@ class PublishingContractTests(unittest.TestCase):
             self.assertTrue(os.path.exists(bp["avatar"])); self.assertTrue(os.path.exists(bp["profile"])); self.assertEqual(workflow.read_json(bp["state"])["status"], "promoted")
             pargs = SimpleNamespace(project="001", channel="main", video_run_id=run_id, publish_id="pub_test", revision="v2")
             workflow.cmd_publish_init(pargs); pp = workflow._publish_paths(project, run_id, "v2", "pub_test")
-            hashes = source_hashes({**formal, "brand": bp["brand"]}); package = self.package(hashes); package["publish_id"] = "pub_test"; package["channel_id"] = "main"; package["source"]["video_run_id"] = run_id; package["fact_core"]["script_evidence"] = ["证据原文。"]
-            package["cover"]["style_references"][0]["sha256"] = workflow._sha256(os.path.join(scenes, "00_0.png"))
-            workflow.write_json(pp["task"], {"cover_style_references": package["cover"]["style_references"]})
-            workflow.write_json(pp["candidate"], package)
-            workflow.cmd_publish_verify(SimpleNamespace(project="001", channel="main", video_run_id=run_id, publish_id="pub_test", revision="v2")); workflow.cmd_publish_promote(pargs)
+            self.assertEqual(workflow.read_json(pp["state"])["version"], 4)
+            self.assertTrue(os.path.exists(pp["copy_state"]))
+            self.assertTrue(os.path.exists(pp["cover_state"]))
+            with self.assertRaisesRegex(RuntimeError, "V1–V3.*只读"):
+                workflow.cmd_publish_verify(SimpleNamespace(
+                    project="001", channel="main", video_run_id=run_id,
+                    publish_id="pub_test", revision="v2"))
             with open(video, "rb") as handle:
                 self.assertEqual(handle.read(), b"video-bytes")
-            with open(pp["upload"], encoding="utf-8") as handle:
-                upload = handle.read()
-            for heading in ("统一事实核心", "封面文案与视觉任务", "YouTube", "上传前人工检查"): self.assertIn(heading, upload)
+            self.assertFalse(os.path.exists(pp["release"]))
         workflow.ROOT, workflow.PJ.PROJECTS_DIR, workflow.PJ._CACHE = old_root, old_projects, old_cache
 
 

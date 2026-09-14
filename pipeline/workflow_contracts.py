@@ -596,6 +596,13 @@ def _build_image_prompt(style, palette, description, char_bits, shot,
     ] if x)
 
 
+def build_image_prompt(style, palette, description, char_bits=None,
+                       shot="medium", emotion="neutral", text_policy=""):
+    """Public deterministic prompt builder for non-storyboard ImageTasks."""
+    return _build_image_prompt(style, palette, description, char_bits or [],
+                               shot, emotion, text_policy)
+
+
 def validate_image_task_prompt(task):
     """验证任务 prompt 只能由其结构化来源确定性构造。"""
     manifest = task.get("rule_manifest")

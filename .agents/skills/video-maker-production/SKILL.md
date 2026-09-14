@@ -80,6 +80,26 @@ provider 的唯一事实源，run 只使用 `state.json` 中的完整快照。�
 5. 全部候选落盘后执行 `verify images` 和 `run image-review`，检查语义、角色一致性、
    文字克制、字幕安全区、构图和风格。只有用户明确确认后才提升 images/image-review。
 
+## V4 发布准备
+
+- 发布文案与封面是两个独立子流程，可以并行生成、验证和提升；不得把封面字段写回
+  copy 子产物，也不得在任一子产物未提升或 hash 过期时执行 `publish-finalize`。
+- 封面模板必须先展示注册表选项，由 Sol 基于正式 topic 推荐，再由用户明确选择并
+  锁定；没有默认模板，推荐与最终选择可以不同。
+- “执行/测试完整发布流程”不是人工选择或提升授权。Antigravity/Codex 在模板选项、
+  标题候选、两张封面候选及 verify 结果出现后必须分别停止；只有用户最新回复明确给出
+  对应模板 ID、标题 ID、封面 ID 或确认提升时，才能执行相应 select/promote。Agent
+  不得替用户选择、把自身审核当作用户确认，或一次性越过多个门禁并 finalize。
+- `reference_006_v1` 使用正式场景锚点与必要角色；`book_title_author_v1` 仅使用品牌色
+  抽象底图，不传角色或场景参考图。两种模板都沿用视频 run 固定的图片 provider，
+  交互式 provider 逐张消费密封任务，不增加阶段 provider 覆盖。
+- 当图片 provider 为 `imagegen` 时，Antigravity 在写完 copy 或 cover plan 候选后必须
+  立即停止并交还用户切换到 Codex；不得执行 `publish-cover-generate`、调用任何生图
+  工具、伪造 PNG 或继续 compose/review/select/promote/finalize。该命令会检查 Codex
+  会话标记，不在 Codex 环境时应把门禁错误原样报告给用户。
+- 模型只写封面语义方案；书名、作者及其他关键文字由确定性本地合成写入。两个候选都
+  必须留下模板定义的视觉审核记录，最终只允许选择审核通过的候选。
+
 图片必须是连续全屏构图，不预留字幕栏或底部空带。允许语义必要且少量的场景内短文字、
 数字或价格，但禁止段落、密集 UI、乱码、字幕和水印；底部中央不得放关键面部或不可遮挡
 信息。`kind=phase_title` 时必须把 `title_text` 逐字生成在真实物体或建筑表面，不能做成

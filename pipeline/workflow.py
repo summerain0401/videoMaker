@@ -24,6 +24,10 @@ import proj as PJ
 from content_templates import (
     CONTENT_TEMPLATE_IDS, get_template, template_catalog, template_snapshot,
 )
+from cover_templates import (
+    COVER_TEMPLATE_IDS, cover_template_catalog, cover_template_snapshot,
+    validate_cover_template_snapshot,
+)
 from providers import IMAGE_PROVIDERS, LLM_PROVIDERS, make_image, make_llm
 from workflow_contracts import (
     ALL_STAGES, APPROVAL_STAGES, STAGE_STATES, build_image_tasks,
@@ -32,9 +36,14 @@ from workflow_contracts import (
     validate_copy, validate_image_task_prompt, validate_providers,
     validate_script, validate_storyboard,
     validate_topic, write_json, compile_image_generation_request,
+    build_image_prompt,
 )
 from publishing_contracts import (PLATFORMS, TITLE_LIMITS, source_hashes,
-                                   validate_brand, validate_package, validate_svg_text)
+                                   validate_brand, validate_cover_plan,
+                                   validate_package, validate_publish_copy,
+                                   validate_publish_cover,
+                                   validate_publish_release_v4,
+                                   validate_svg_text)
 
 
 STATE_VERSION = 5
@@ -86,6 +95,33 @@ def generation_method_summary(providers):
         },
         "agent_handoff": handoff,
     }
+
+
+def _interactive_image_execution_route(image_config):
+    """Describe and enforce the Agent environment that owns native image tools."""
+    provider_name = image_config.get("name")
+    required = {"imagegen": "codex", "antigravity": "antigravity"}.get(
+        provider_name, "api")
+    return {
+        "image_provider": provider_name,
+        "required_agent_environment": required,
+        "handoff_required": required in ("codex", "antigravity"),
+        "instruction": (
+            "内容 Agent 只写候选 JSON 后立即停止；不得生成、导入或伪造图片。"
+            f"图片任务只能由 {required} 环境领取并执行。"
+        ),
+    }
+
+
+def _require_native_image_executor(image_config):
+    """Prevent Antigravity or a plain shell from claiming Codex ImageGen work."""
+    route = _interactive_image_execution_route(image_config)
+    if route["required_agent_environment"] == "codex" and not os.environ.get(
+            "CODEX_SESSION_ID"):
+        raise RuntimeError(
+            "图片生成方式为 Codex ImageGen：当前不是 Codex 会话，禁止签发或确认图片；"
+            "请停止当前 Agent，并在 Codex 中继续该图片阶段")
+    return route
 
 
 def _configured_template_id(meta):
@@ -722,6 +758,7 @@ def _run_serial_interactive_images(paths, state, tasks, mode, bootstrap_key,
         # 领取锁后重新读取，避免两个调用者各自从旧 state 签发不同图片。
         state = read_json(paths["state"])
         provider_name = state["providers"]["image"]["name"]
+        _require_native_image_executor(state["providers"]["image"])
         execution_policy = _image_execution_policy(provider_name)
         packet = None
         if os.path.exists(paths["image_tasks"]):
@@ -1808,12 +1845,34 @@ def _publish_root(project):
 
 def _publish_paths(project, video_run, revision, publish_id):
     root = _publish_root(project)
-    candidate = os.path.join(root, "candidates", f"{video_run}_{revision}", "package.json")
+    legacy_root = os.path.join(root, "candidates", f"{video_run}_{revision}")
+    candidate = os.path.join(legacy_root, "package.json")
+    candidate_root = os.path.join(legacy_root, publish_id or "unknown")
     release = os.path.join(root, "releases", publish_id)
+    approved = os.path.join(root, "approved", publish_id)
     run = os.path.join(project, "workflow", "runs", video_run, "publish", publish_id)
     return {"candidate": candidate, "release": os.path.join(release, "package.json"),
             "upload": os.path.join(release, "upload.md"), "run": run,
-            "state": os.path.join(run, "state.json"), "task": os.path.join(run, "task.json")}
+            "state": os.path.join(run, "state.json"),
+            "task": os.path.join(run, "task.json"),
+            "copy_state": os.path.join(run, "copy", "state.json"),
+            "cover_state": os.path.join(run, "cover", "state.json"),
+            "copy_task": os.path.join(run, "copy", "task.json"),
+            "cover_task": os.path.join(run, "cover", "task.json"),
+            "cover_image_tasks": os.path.join(run, "cover", "image_tasks.json"),
+            "candidate_root": candidate_root,
+            "copy_candidate": os.path.join(candidate_root, "copy.json"),
+            "cover_plan": os.path.join(candidate_root, "cover_plan.json"),
+            "cover_candidate": os.path.join(candidate_root, "cover.json"),
+            "covers_dir": os.path.join(candidate_root, "covers"),
+            "approved_root": approved,
+            "approved_copy": os.path.join(approved, "copy.json"),
+            "approved_cover": os.path.join(approved, "cover.json"),
+            "approved_cover_image": os.path.join(approved, "cover.png"),
+            "release_root": release,
+            "release_copy": os.path.join(release, "copy.json"),
+            "release_cover": os.path.join(release, "cover.json"),
+            "release_cover_image": os.path.join(release, "cover.png")}
 
 
 def _formal_source_paths(project):
@@ -2139,6 +2198,911 @@ def cmd_publish_status(args):
     p = _publish_paths(set_project(args.project), args.video_run_id, args.revision, args.publish_id); print(json.dumps(read_json(p["state"]), ensure_ascii=False, indent=2))
 
 
+# V4 发布流程：文案与封面独立推进，最终只汇总已提升且未过期的子产物。
+def _stable_json_hash(value):
+    raw = json.dumps(value, ensure_ascii=False, sort_keys=True,
+                     separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _publish_sources(project, channel):
+    formal = _formal_source_paths(project)
+    brand = _brand_paths(project, channel, "unused")["brand"]
+    paths = {**formal, "brand": brand}
+    if any(not os.path.isfile(path) for path in paths.values()):
+        missing = [name for name, path in paths.items() if not os.path.isfile(path)]
+        raise RuntimeError("发布正式输入缺失：" + "、".join(missing))
+    values = {name: read_json(path) for name, path in paths.items()
+              if name != "script"}
+    with open(paths["script"], encoding="utf-8") as handle:
+        values["script"] = handle.read()
+    return paths, values, source_hashes(paths)
+
+
+def _publish_v4_context(args):
+    project = set_project(args.project)
+    probe = _publish_paths(project, args.video_run_id,
+                           getattr(args, "revision", "unused"), args.publish_id)
+    if not os.path.isfile(probe["state"]):
+        raise FileNotFoundError(probe["state"])
+    parent = read_json(probe["state"])
+    if parent.get("version") != 4:
+        raise RuntimeError("历史 V1–V3 发布流程只读；请用 publish-init 创建新的 V4 publish ID")
+    if parent.get("video_run_id") != args.video_run_id:
+        raise RuntimeError("publish ID 与 video run 不匹配")
+    paths = _publish_paths(project, args.video_run_id, parent["revision"],
+                           args.publish_id)
+    source_paths_value, source, hashes = _publish_sources(
+        project, parent["channel_id"])
+    if hashes != parent.get("source_hashes"):
+        raise RuntimeError("正式发布输入 hash 已变化；请创建新的 V4 publish ID")
+    return project, paths, parent, source_paths_value, source, hashes
+
+
+def _save_publish_parent(paths, state):
+    state["updated_at"] = datetime.datetime.now().isoformat()
+    write_json(paths["state"], state)
+
+
+def _save_publish_child(path, state):
+    state["updated_at"] = datetime.datetime.now().isoformat()
+    write_json(path, state)
+
+
+def cmd_publish_init(args):
+    project = set_project(args.project)
+    video = _load_video_run(project, args.video_run_id)
+    if video.get("stages", {}).get("qa", {}).get("status") != "promoted":
+        raise RuntimeError("视频 run QA 尚未 promoted")
+    brand = _brand_paths(project, args.channel, "unused")["brand"]
+    if not os.path.isfile(brand):
+        raise RuntimeError("频道 brand 尚未 promoted")
+    revision = video.get("stages", {}).get("render", {}).get("revision") or "original"
+    publish_id = args.publish_id or now_run_id().replace("run_", "pub_")
+    paths = _publish_paths(project, args.video_run_id, revision, publish_id)
+    if os.path.exists(paths["state"]):
+        raise FileExistsError(paths["state"])
+    _, _, hashes = _publish_sources(project, args.channel)
+    parent = {
+        "version": 4, "publish_id": publish_id,
+        "project_id": str(args.project), "channel_id": args.channel,
+        "video_run_id": args.video_run_id, "revision": revision,
+        "status": "active", "providers": video["providers"],
+        "video_artifact": video["stages"]["render"]["artifact"],
+        "source_hashes": hashes, "children": {
+            "copy": "pending", "cover": "awaiting_template"},
+        "updated_at": "",
+    }
+    copy_state = {"version": 1, "publish_id": publish_id,
+                  "status": "pending", "verified_hash": None,
+                  "promoted_hash": None, "updated_at": ""}
+    cover_state = {"version": 1, "publish_id": publish_id,
+                   "status": "awaiting_template", "template_selection": None,
+                   "template": None, "verified_plan_hash": None,
+                   "verified_hash": None, "promoted_hash": None,
+                   "generation": None, "updated_at": ""}
+    for path in (paths["state"], paths["copy_state"], paths["cover_state"]):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+    _save_publish_parent(paths, parent)
+    _save_publish_child(paths["copy_state"], copy_state)
+    _save_publish_child(paths["cover_state"], cover_state)
+    print(json.dumps({"publish_id": publish_id, "state": paths["state"],
+                      "copy_state": paths["copy_state"],
+                      "cover_state": paths["cover_state"]},
+                     ensure_ascii=False, indent=2))
+
+
+def _copy_contract(parent, hashes):
+    return {
+        "version": 1, "publish_id": parent["publish_id"],
+        "channel_id": parent["channel_id"],
+        "source": {"project_id": parent["project_id"],
+                   "video_run_id": parent["video_run_id"],
+                   "revision": parent["revision"],
+                   "video_artifact": parent["video_artifact"],
+                   "hashes": hashes},
+        "fact_core": {"summary": "string", "claim_refs": "copy.claims indexes",
+                      "script_evidence": "literal script substrings"},
+        "platforms": {"youtube": {
+            "keywords": ["string"],
+            "titles": [{"id": "string", "strategy":
+                        "pain_point|counter_intuitive|number_solution|seo|emotional_story",
+                        "title": "50-60 chars"}],
+            "selected_title_id": None,
+            "description": {"lead": "<=100 chars", "highlights": "3-4 items",
+                            "timestamps": "4-6 increasing entries from 00:00",
+                            "cta": "string", "resources": "string",
+                            "hashtags": "3-5"}}},
+    }
+
+
+def cmd_publish_copy_run(args):
+    project, paths, parent, _, source, hashes = _publish_v4_context(args)
+    state = read_json(paths["copy_state"])
+    if state.get("status") not in ("pending", "awaiting_external", "generated",
+                                   "failed"):
+        raise RuntimeError("发布文案已经选择、验证或提升，不能重新生成")
+    image_route = _interactive_image_execution_route(
+        parent["providers"]["image"])
+    task = {"stage": "publish-copy", "source": source,
+            "source_hashes": hashes, "candidate_path": paths["copy_candidate"],
+            "output_contract": _copy_contract(parent, hashes),
+            "execution_boundary": {
+                "allowed_in_this_task": ["write_copy_candidate_json"],
+                "must_stop_after_candidate": True,
+                "forbidden": ["select_title", "verify", "promote", "finalize",
+                              "plan_cover", "generate_image", "compose_cover"],
+                "next_image_stage": image_route,
+            },
+            "instruction": ("只生成发布文案，不得输出任何封面、视觉或图片字段；"
+                            "标题不得预选。写入 candidate_path 后必须立即停止，"
+                            "不得继续封面规划、生图、审核、选择、提升或最终汇总。")}
+    write_json(paths["copy_task"], task)
+    provider = make_llm(parent["providers"]["llm"], ROOT)
+    result = provider.generate("publish-copy", task, paths["copy_candidate"])
+    state["status"] = "awaiting_external" if result["mode"] == "interactive" else "generated"
+    _save_publish_child(paths["copy_state"], state)
+    parent["children"]["copy"] = state["status"]
+    _save_publish_parent(paths, parent)
+    print(json.dumps({"task": paths["copy_task"],
+                      "candidate": paths["copy_candidate"],
+                      "state": state["status"]}, ensure_ascii=False, indent=2))
+
+
+def cmd_publish_copy_select(args):
+    _, paths, parent, _, source, hashes = _publish_v4_context(args)
+    state = read_json(paths["copy_state"])
+    if state.get("status") not in ("generated", "awaiting_external"):
+        raise RuntimeError("发布文案当前状态不可选择标题")
+    data = read_json(paths["copy_candidate"])
+    errors = validate_publish_copy(data, hashes, source["script"], source["copy"],
+                                   parent["project_id"], parent["video_run_id"],
+                                   parent["revision"], require_selection=False)
+    if errors:
+        raise RuntimeError("；".join(errors))
+    youtube = data["platforms"]["youtube"]
+    if args.title_id not in {x["id"] for x in youtube["titles"]}:
+        raise RuntimeError("标题候选 ID 无效")
+    youtube["selected_title_id"] = args.title_id
+    write_json(paths["copy_candidate"], data)
+    state.update(status="selected", verified_hash=None)
+    _save_publish_child(paths["copy_state"], state)
+    parent["children"]["copy"] = "selected"
+    _save_publish_parent(paths, parent)
+    print("发布标题已人工选择")
+
+
+def cmd_publish_copy_verify(args):
+    _, paths, parent, _, source, hashes = _publish_v4_context(args)
+    state = read_json(paths["copy_state"])
+    if state.get("status") != "selected":
+        raise RuntimeError("发布标题必须先由用户人工选择")
+    data = read_json(paths["copy_candidate"])
+    errors = validate_publish_copy(data, hashes, source["script"], source["copy"],
+                                   parent["project_id"], parent["video_run_id"],
+                                   parent["revision"], require_selection=True)
+    if errors:
+        raise RuntimeError("；".join(errors))
+    state.update(status="verified", verified_hash=_sha256(paths["copy_candidate"]))
+    _save_publish_child(paths["copy_state"], state)
+    parent["children"]["copy"] = "verified"
+    _save_publish_parent(paths, parent)
+    print("发布文案校验通过")
+
+
+def cmd_publish_copy_promote(args):
+    _, paths, parent, _, _, _ = _publish_v4_context(args)
+    state = read_json(paths["copy_state"])
+    if state.get("status") != "verified" or state.get("verified_hash") != \
+            _sha256(paths["copy_candidate"]):
+        raise RuntimeError("发布文案未验证或验证 hash 已过期")
+    if os.path.exists(paths["approved_copy"]):
+        raise RuntimeError("已存在提升后的发布文案，禁止覆盖")
+    os.makedirs(paths["approved_root"], exist_ok=True)
+    shutil.copy2(paths["copy_candidate"], paths["approved_copy"])
+    state.update(status="promoted", promoted_hash=_sha256(paths["approved_copy"]))
+    _save_publish_child(paths["copy_state"], state)
+    parent["children"]["copy"] = "promoted"
+    _save_publish_parent(paths, parent)
+    print("发布文案已独立提升")
+
+
+def cmd_publish_copy_status(args):
+    _, paths, _, _, _, _ = _publish_v4_context(args)
+    print(json.dumps(read_json(paths["copy_state"]), ensure_ascii=False, indent=2))
+
+
+def cmd_publish_cover_template_options(args):
+    _, paths, _, _, source, _ = _publish_v4_context(args)
+    state = read_json(paths["cover_state"])
+    print(json.dumps({"topic": source["topic"],
+                      "options": cover_template_catalog(),
+                      "selection": state.get("template_selection"),
+                      "requires_user_reply": True,
+                      "next_command_locked": "publish-cover-select-template",
+                      "instruction": ("Sol 只能推荐并展示选项，随后必须停止等待用户回复。"
+                                      "用户笼统要求执行流程不等于选择模板；只有用户明确说出"
+                                      "模板 ID 后，Agent 才能调用选择命令。")},
+                     ensure_ascii=False, indent=2))
+
+
+def cmd_publish_cover_select_template(args):
+    _, paths, parent, _, _, hashes = _publish_v4_context(args)
+    state = read_json(paths["cover_state"])
+    if state.get("template_selection"):
+        raise RuntimeError("封面模板已经锁定，不可变更；如需更换请创建新的 publish ID")
+    if args.recommended not in COVER_TEMPLATE_IDS or args.template_id not in COVER_TEMPLATE_IDS:
+        raise RuntimeError("未知封面模板")
+    selection = {"recommended_template_id": args.recommended,
+                 "recommendation_reason": args.reason.strip(),
+                 "selected_template_id": args.template_id,
+                 "topic_sha256": hashes["topic"],
+                 "selected_at": datetime.datetime.now().isoformat()}
+    if not selection["recommendation_reason"]:
+        raise RuntimeError("必须记录推荐理由")
+    state.update(status="template_selected", template_selection=selection,
+                 template=cover_template_snapshot(args.template_id))
+    _save_publish_child(paths["cover_state"], state)
+    parent["children"]["cover"] = "template_selected"
+    _save_publish_parent(paths, parent)
+    print(json.dumps(selection, ensure_ascii=False, indent=2))
+
+
+def _cover_plan_contract(parent, state, hashes):
+    template_id = state["template"]["id"]
+    candidate = ({"id": "string", "concept": "string",
+                  "abstract_symbol": "string", "subtitle": "0-14 chars"}
+                 if template_id == "book_title_author_v1" else
+                 {"id": "string", "concept": "string", "subject": "string",
+                  "composition": "string", "title_lines": "exactly 2 strings",
+                  "subtitle": "string", "character_ids": ["registered id"]})
+    return {"version": 1, "publish_id": parent["publish_id"],
+            "source_hashes": hashes, "template_id": template_id,
+            "candidates": [candidate, candidate]}
+
+
+def cmd_publish_cover_plan(args):
+    _, paths, parent, _, source, hashes = _publish_v4_context(args)
+    state = read_json(paths["cover_state"])
+    if not state.get("template_selection") or not state.get("template"):
+        raise RuntimeError("必须先由用户人工选择并锁定封面模板")
+    if state.get("status") in ("plan_verified", "generated", "composed", "selected",
+                               "verified", "promoted"):
+        raise RuntimeError("封面方案已冻结或进入后续阶段")
+    spec = state["template"]["spec"]
+    context = {"topic": source["topic"], "brand": source["brand"]}
+    if spec["requires_style_anchor"]:
+        context["style_anchor"] = _cover_style_references(set_project(args.project))[0]
+        chars_path = os.path.join(ROOT, "assets", "characters.json")
+        context["characters"] = read_json(chars_path) if os.path.isfile(chars_path) else {}
+    image_route = _interactive_image_execution_route(
+        parent["providers"]["image"])
+    task = {"stage": "publish-cover", "source": context,
+            "source_hashes": hashes, "template": state["template"],
+            "template_selection": state["template_selection"],
+            "execution_boundary": {
+                "allowed_in_this_task": ["write_cover_plan_json"],
+                "must_stop_after_candidate": True,
+                "forbidden": ["generate_image", "import_image", "compose_cover",
+                              "review_cover", "select_cover", "promote", "finalize"],
+                "next_image_stage": image_route,
+            },
+            "instruction": ("只输出两个不同的语义方案，不得输出 provider、model、"
+                            "最终 prompt、negative prompt、图片路径或 hash。书名与作者"
+                            "由本地合成注入。写入 candidate_path 后必须立即停止；"
+                            f"后续图片只能在 {image_route['required_agent_environment']} "
+                            "环境执行，当前内容 Agent 不得代替。"),
+            "candidate_path": paths["cover_plan"],
+            "output_contract": _cover_plan_contract(parent, state, hashes)}
+    write_json(paths["cover_task"], task)
+    provider = make_llm(parent["providers"]["llm"], ROOT)
+    result = provider.generate("publish-cover", task, paths["cover_plan"])
+    state["status"] = "awaiting_external" if result["mode"] == "interactive" else "plan_generated"
+    _save_publish_child(paths["cover_state"], state)
+    parent["children"]["cover"] = state["status"]
+    _save_publish_parent(paths, parent)
+    print(json.dumps({"task": paths["cover_task"], "candidate": paths["cover_plan"],
+                      "state": state["status"]}, ensure_ascii=False, indent=2))
+
+
+def cmd_publish_cover_verify_plan(args):
+    _, paths, parent, _, source, hashes = _publish_v4_context(args)
+    state = read_json(paths["cover_state"])
+    if not state.get("template"):
+        raise RuntimeError("尚未人工选择封面模板")
+    if state.get("status") not in ("awaiting_external", "plan_generated"):
+        raise RuntimeError("封面方案当前状态不可校验")
+    errors = validate_cover_template_snapshot(state["template"])
+    errors += validate_cover_plan(read_json(paths["cover_plan"]), state["template"],
+                                  source["topic"], parent["publish_id"], hashes)
+    if state["template"]["spec"]["requires_character_ids"]:
+        task = read_json(paths["cover_task"])
+        raw_characters = task.get("source", {}).get("characters", {}).get(
+            "characters", task.get("source", {}).get("characters", {}))
+        if isinstance(raw_characters, list):
+            valid_ids = {item.get("id") for item in raw_characters}
+        elif isinstance(raw_characters, dict):
+            valid_ids = set(raw_characters)
+        else:
+            valid_ids = set()
+        for candidate in read_json(paths["cover_plan"]).get("candidates", []):
+            if not set(candidate.get("character_ids", [])) <= valid_ids:
+                errors.append("观点钩子封面包含未知角色 ID")
+    if errors:
+        raise RuntimeError("；".join(sorted(set(errors))))
+    state.update(status="plan_verified",
+                 verified_plan_hash=_sha256(paths["cover_plan"]))
+    _save_publish_child(paths["cover_state"], state)
+    parent["children"]["cover"] = "plan_verified"
+    _save_publish_parent(paths, parent)
+    print("封面语义方案校验通过")
+
+
+def _cover_image_tasks(project, paths, state, source):
+    plan = read_json(paths["cover_plan"])
+    spec = state["template"]["spec"]
+    palette = source["brand"].get("visual", {}).get("palette", {})
+    palette_text = ", ".join(f"{key} {value}" for key, value in palette.items())
+    anchor = None
+    if spec["requires_style_anchor"]:
+        planning_task = read_json(paths["cover_task"])
+        anchor = planning_task.get("source", {}).get("style_anchor")
+        if not isinstance(anchor, dict) or not anchor.get("path") or not anchor.get("sha256"):
+            raise RuntimeError("观点钩子封面缺少规划阶段冻结的风格锚点")
+        anchor_path = os.path.realpath(os.path.join(project, anchor["path"]))
+        scenes = os.path.realpath(os.path.join(project, "assets", "scenes"))
+        if os.path.commonpath((scenes, anchor_path)) != scenes or \
+                not os.path.isfile(anchor_path) or _sha256(anchor_path) != anchor["sha256"]:
+            raise RuntimeError("观点钩子封面风格锚点路径或 hash 已变化")
+    tasks = []
+    for candidate in plan["candidates"]:
+        if spec["id"] == "book_title_author_v1":
+            description = (f"centered editorial publishing poster background; concept: "
+                           f"{candidate['concept']}; abstract symbol: {candidate['abstract_symbol']}; "
+                           "low contrast center, abstract details around edges and corners")
+            character_ids, char_bits, references = [], [], []
+            style = "refined abstract centered editorial poster, full-frame"
+        else:
+            description = (f"cover background concept: {candidate['concept']}; subject: "
+                           f"{candidate['subject']}; composition: {candidate['composition']}; "
+                           "leave readable left hook area and character emphasis on right")
+            character_ids = candidate["character_ids"]
+            char_bits = character_ids
+            references = [anchor_path]
+            style = "match the supplied official scene style anchor"
+        negative = ("readable text, letters, words, title, captions, logo, watermark, "
+                    "book mockup" + (", person, people, character, complete scene"
+                                      if not spec["allows_people"] else ""))
+        sources = {"style": style, "palette": palette_text,
+                   "description": description, "char_bits": char_bits,
+                   "shot": "wide", "emotion": "neutral",
+                   "text_policy": "no readable text; local compositor adds all typography"}
+        prompt = build_image_prompt(**sources)
+        task = {"key": candidate["id"], "prompt": prompt,
+                "negative_prompt": negative, "size": [1920, 1080],
+                "reference_images": references,
+                "output_path": os.path.join(paths["covers_dir"],
+                                             candidate["id"] + "_base.png"),
+                "character_ids": character_ids,
+                "style_anchor": ({"path": references[0], "sha256": anchor["sha256"]}
+                                 if anchor else None),
+                "rule_manifest": {"prompt_sources": sources,
+                                  "negative_prompt": negative,
+                                  "text_policy": {"mode": "forbidden"},
+                                  "template_sha256": state["template"]["sha256"]}}
+        task["task_sha256"] = _stable_json_hash(task)
+        tasks.append(task)
+    return tasks
+
+
+def _initialize_cover_candidate(paths, state, source, hashes):
+    plan = read_json(paths["cover_plan"])
+    topic = source["topic"]
+    candidates = []
+    for item in plan["candidates"]:
+        candidate = dict(item)
+        title_lines = item.get("title_lines") or [topic["book_title"]]
+        candidate.update({"text": {"title_lines": title_lines,
+                                   "subtitle": item.get("subtitle", ""),
+                                   "book_title": topic["book_title"],
+                                   "author": topic["author"]},
+                          "base_path": None, "base_sha256": None,
+                          "final_path": None, "sha256": None,
+                          "cover_task": None, "visual_review": None})
+        candidates.append(candidate)
+    data = {"version": 1, "publish_id": state["publish_id"],
+            "source_hashes": hashes,
+            "template_selection": state["template_selection"],
+            "template": state["template"], "candidates": candidates,
+            "selected_cover_id": None}
+    write_json(paths["cover_candidate"], data)
+
+
+def cmd_publish_cover_generate(args):
+    project, paths, parent, _, source, hashes = _publish_v4_context(args)
+    state = read_json(paths["cover_state"])
+    if state.get("status") not in ("plan_verified", "awaiting_images", "generated"):
+        raise RuntimeError("封面方案必须先校验，才能生成底图")
+    if state.get("verified_plan_hash") != _sha256(paths["cover_plan"]):
+        raise RuntimeError("封面方案 hash 已变化，必须重新校验")
+    execution_route = _require_native_image_executor(
+        parent["providers"]["image"])
+    tasks = _cover_image_tasks(project, paths, state, source)
+    os.makedirs(paths["covers_dir"], exist_ok=True)
+    if not os.path.exists(paths["cover_candidate"]):
+        _initialize_cover_candidate(paths, state, source, hashes)
+    write_json(paths["cover_image_tasks"], {
+        "version": 2, "execution_route": execution_route, "tasks": tasks})
+    provider = make_image(parent["providers"]["image"], ROOT)
+    if provider.mode != "interactive":
+        provider.generate(tasks)
+        for task in tasks:
+            problem = _image_file_problem(task)
+            if problem:
+                raise RuntimeError(f"封面底图 {task['key']} 无效：{problem}")
+        state.update(status="generated", generation={
+            "mode": "api", "provider": parent["providers"]["image"]["name"],
+            "execution_environment": execution_route["required_agent_environment"],
+            "manifest_sha256": _sha256(paths["cover_image_tasks"]),
+            "completed_keys": [x["key"] for x in tasks]})
+    else:
+        generation = state.get("generation") or {
+            "mode": "serial", "provider": parent["providers"]["image"]["name"],
+            "execution_environment": execution_route["required_agent_environment"],
+            "manifest_sha256": _sha256(paths["cover_image_tasks"]),
+            "active_key": None, "active_request": None,
+            "completed_keys": [], "completed_sha256": {}}
+        if generation["manifest_sha256"] != _sha256(paths["cover_image_tasks"]):
+            raise RuntimeError("封面图片任务清单 hash 已变化")
+        active_key = generation.get("active_key")
+        if active_key:
+            active = next(x for x in tasks if x["key"] == active_key)
+            problem = _image_file_problem(active)
+            if problem:
+                signed = dict(active,
+                              generation_request=generation["active_request"])
+                print(json.dumps({"state": "awaiting_external", "tasks": [signed]},
+                                 ensure_ascii=False, indent=2))
+                return
+            generation["completed_keys"].append(active_key)
+            generation["completed_sha256"][active_key] = _sha256(active["output_path"])
+            generation["active_key"] = None
+            generation["active_request"] = None
+        next_task = next((x for x in tasks
+                          if x["key"] not in generation["completed_keys"]), None)
+        if next_task:
+            request = compile_image_generation_request(next_task)
+            result = provider.generate([next_task])
+            if result.get("mode") != "interactive":
+                raise RuntimeError("交互式封面图片 provider 返回模式异常")
+            generation["active_key"] = next_task["key"]
+            generation["active_request"] = request
+            state.update(status="awaiting_images", generation=generation)
+            _save_publish_child(paths["cover_state"], state)
+            signed = dict(next_task, generation_request=request)
+            print(json.dumps({"state": "awaiting_external", "tasks": [signed],
+                              "serial": {"completed": len(generation["completed_keys"]),
+                                         "active_key": next_task["key"]}},
+                             ensure_ascii=False, indent=2))
+            return
+        state.update(status="generated", generation=generation)
+    data = read_json(paths["cover_candidate"])
+    task_map = {x["key"]: x for x in tasks}
+    for candidate in data["candidates"]:
+        task = task_map[candidate["id"]]
+        candidate["base_path"] = os.path.relpath(task["output_path"], project)
+        candidate["base_sha256"] = _sha256(task["output_path"])
+        candidate["cover_task"] = {
+            "task_sha256": task["task_sha256"],
+            "prompt_sha256": hashlib.sha256(task["prompt"].encode("utf-8")).hexdigest(),
+            "reference_images": task["reference_images"],
+            "character_ids": task["character_ids"]}
+    write_json(paths["cover_candidate"], data)
+    _save_publish_child(paths["cover_state"], state)
+    parent["children"]["cover"] = "generated"
+    _save_publish_parent(paths, parent)
+    print("两个封面底图均已生成并校验")
+
+
+def _cover_font(draw, font_path, text, max_width, start, minimum=36):
+    size = start
+    while size >= minimum:
+        font = ImageFont.truetype(font_path, size)
+        box = draw.textbbox((0, 0), text, font=font)
+        if box[2] - box[0] <= max_width:
+            return font
+        size -= 2
+    raise RuntimeError("封面文字无法在安全区内排版")
+
+
+def _balanced_title_lines(title, count):
+    if count == 1:
+        return [title]
+    length = len(title)
+    cuts = [round(length * index / count) for index in range(1, count)]
+    return [title[a:b] for a, b in zip([0] + cuts, cuts + [length])]
+
+
+def _fit_centered_title(draw, font_path, title):
+    for count in range(1, 4):
+        lines = _balanced_title_lines(title, count)
+        for size in range(154, 59, -2):
+            font = ImageFont.truetype(font_path, size)
+            widths = [draw.textbbox((0, 0), line, font=font)[2] for line in lines]
+            line_height = draw.textbbox((0, 0), "国Ag", font=font)[3] + 22
+            if (max(widths) <= 1480 and line_height * count <= 470 and
+                    (count == 3 or size >= 96)):
+                return lines, font, line_height
+    raise RuntimeError("完整书名无法在1-3行安全区内排版")
+
+
+def _hex_rgb(value, fallback):
+    if isinstance(value, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", value):
+        return tuple(int(value[i:i + 2], 16) for i in (1, 3, 5))
+    return fallback
+
+
+def _cover_font_path():
+    candidates = [
+        os.path.join(ROOT, "assets", "fonts", "SourceHanSansCN-Heavy.otf"),
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                     "assets", "fonts", "SourceHanSansCN-Heavy.otf"),
+        "/System/Library/Fonts/PingFang.ttc",
+    ]
+    return next((path for path in candidates if os.path.exists(path)), None)
+
+
+def _compose_book_poster(base, destination, candidate, palette, font_path):
+    image = base.convert("RGB").resize((1920, 1080), Image.Resampling.LANCZOS)
+    background = _hex_rgb(palette.get("background"), (23, 32, 51))
+    foreground = _hex_rgb(palette.get("foreground"), (237, 244, 255))
+    accent = _hex_rgb(palette.get("accent"), (88, 196, 216))
+    # 品牌色渐变遮罩稳定中央文字对比，同时保留边缘抽象底图。
+    overlay = Image.new("RGBA", image.size, (*background, 0))
+    overlay_draw = ImageDraw.Draw(overlay)
+    for x in range(1920):
+        distance = abs(x - 960) / 960
+        alpha = int(205 - 85 * min(1, distance))
+        overlay_draw.line((x, 0, x, 1080), fill=(*background, alpha))
+    image = Image.alpha_composite(image.convert("RGBA"), overlay).convert("RGB")
+    draw = ImageDraw.Draw(image)
+    title = candidate["text"]["book_title"]
+    lines, title_font, line_height = _fit_centered_title(draw, font_path, title)
+    total = line_height * len(lines)
+    y = 230 + (450 - total) / 2
+    for line in lines:
+        box = draw.textbbox((0, 0), line, font=title_font)
+        width = box[2] - box[0]
+        draw.text(((1920 - width) / 2, y), line, font=title_font,
+                  fill=foreground, stroke_width=2, stroke_fill=background)
+        y += line_height
+    author = candidate["text"]["author"]
+    author_font = _cover_font(draw, font_path, author, 1100, 58)
+    author_width = draw.textbbox((0, 0), author, font=author_font)[2]
+    subtitle = candidate["text"].get("subtitle", "")
+    divider_y = 750 if subtitle else 720
+    author_y = 790 if subtitle else 758
+    draw.line((730, divider_y, 1190, divider_y), fill=accent, width=4)
+    draw.text(((1920 - author_width) / 2, author_y), author,
+              font=author_font, fill=accent)
+    if subtitle:
+        subtitle_font = _cover_font(draw, font_path, subtitle, 1050, 42)
+        width = draw.textbbox((0, 0), subtitle, font=subtitle_font)[2]
+        draw.text(((1920 - width) / 2, 910), subtitle, font=subtitle_font,
+                  fill=foreground)
+    image.save(destination, "PNG")
+    return lines
+
+
+def _compose_reference_cover(base, destination, candidate, font_path):
+    image = base.convert("RGB").resize((1920, 1080), Image.Resampling.LANCZOS)
+    draw = ImageDraw.Draw(image)
+    lines = candidate["text"]["title_lines"]
+    if len(lines) != 2 or not all(lines):
+        raise RuntimeError("观点钩子封面必须严格为两行标题")
+    ink, gold, shadow = (248, 246, 238), (246, 183, 76), (5, 12, 24)
+    for text_value, y, color in ((lines[0], 112, ink), (lines[1], 336, gold)):
+        font = _cover_font(draw, font_path, text_value, 900, 180, 56)
+        draw.text((88, y), text_value, fill=shadow, font=font,
+                  stroke_width=4, stroke_fill=shadow)
+        draw.text((80, y - 8), text_value, fill=color, font=font)
+    subtitle = candidate["text"].get("subtitle", "")
+    if subtitle:
+        font = _cover_font(draw, font_path, subtitle, 900, 46)
+        draw.text((82, 674), subtitle, fill=ink, font=font,
+                  stroke_width=2, stroke_fill=shadow)
+    bookline = f"《{candidate['text']['book_title']}》｜{candidate['text']['author']}"
+    font = _cover_font(draw, font_path, bookline, 900, 50)
+    draw.line((96, 784, 900, 784), fill=gold, width=3)
+    draw.text((82, 822), bookline, fill=gold, font=font,
+              stroke_width=2, stroke_fill=shadow)
+    image.save(destination, "PNG")
+    return lines
+
+
+def cmd_publish_cover_compose(args):
+    project, paths, parent, _, source, _ = _publish_v4_context(args)
+    state = read_json(paths["cover_state"])
+    if state.get("status") not in ("generated", "composed"):
+        raise RuntimeError("两个封面底图必须先完成生成")
+    data = read_json(paths["cover_candidate"])
+    font_path = _cover_font_path()
+    if not font_path:
+        raise RuntimeError("未找到可用中文字体")
+    palette = source["brand"].get("visual", {}).get("palette", {})
+    for candidate in data["candidates"]:
+        base_path = os.path.join(project, candidate["base_path"])
+        if _sha256(base_path) != candidate["base_sha256"]:
+            raise RuntimeError("封面底图 hash 已变化")
+        destination = os.path.join(paths["covers_dir"], candidate["id"] + ".png")
+        with Image.open(base_path) as base:
+            if state["template"]["id"] == "book_title_author_v1":
+                lines = _compose_book_poster(base, destination, candidate,
+                                             palette, font_path)
+                candidate["text"]["title_lines"] = lines
+            else:
+                _compose_reference_cover(base, destination, candidate, font_path)
+        candidate["final_path"] = os.path.relpath(destination, project)
+        candidate["sha256"] = _sha256(destination)
+        candidate["visual_review"] = None
+    write_json(paths["cover_candidate"], data)
+    state.update(status="composed", verified_hash=None)
+    _save_publish_child(paths["cover_state"], state)
+    parent["children"]["cover"] = "composed"
+    _save_publish_parent(paths, parent)
+    print("两个封面候选已完成确定性文字合成")
+
+
+def cmd_publish_cover_review(args):
+    _, paths, parent, _, _, _ = _publish_v4_context(args)
+    state = read_json(paths["cover_state"])
+    if state.get("status") not in ("composed", "reviewed"):
+        raise RuntimeError("封面当前状态不可写入视觉审核")
+    data = read_json(paths["cover_candidate"])
+    candidate = next((x for x in data["candidates"] if x["id"] == args.cover_id), None)
+    if not candidate or not candidate.get("sha256"):
+        raise RuntimeError("封面候选尚未完成合成")
+    dimensions = state["template"]["spec"]["review_dimensions"]
+    failed = set(args.failed_check or [])
+    unknown = failed - set(dimensions)
+    if unknown:
+        raise RuntimeError("不属于当前模板的审核维度：" + "、".join(sorted(unknown)))
+    if args.result == "pass" and failed:
+        raise RuntimeError("审核通过时不得提供 --failed-check")
+    if args.result == "fail" and not failed:
+        raise RuntimeError("审核不通过时至少提供一个 --failed-check")
+    review = {key: key not in failed for key in dimensions}
+    review.update(status=args.result + "ed" if args.result == "pass" else "failed",
+                  asset_sha256=candidate["sha256"],
+                  reviewed_at=datetime.datetime.now().isoformat())
+    candidate["visual_review"] = review
+    write_json(paths["cover_candidate"], data)
+    state.update(status="reviewed", verified_hash=None)
+    _save_publish_child(paths["cover_state"], state)
+    parent["children"]["cover"] = "reviewed"
+    _save_publish_parent(paths, parent)
+    print("封面视觉审核记录已写入")
+
+
+def cmd_publish_cover_select(args):
+    _, paths, parent, _, _, _ = _publish_v4_context(args)
+    state = read_json(paths["cover_state"])
+    if state.get("status") != "reviewed":
+        raise RuntimeError("两个封面候选必须先完成视觉审核")
+    data = read_json(paths["cover_candidate"])
+    if any(not isinstance(x.get("visual_review"), dict) for x in data["candidates"]):
+        raise RuntimeError("两个封面候选都必须先留下视觉审核记录")
+    candidate = next((x for x in data["candidates"] if x["id"] == args.cover_id), None)
+    if not candidate or candidate["visual_review"].get("status") != "passed":
+        raise RuntimeError("只能人工选择审核通过的封面候选")
+    data["selected_cover_id"] = args.cover_id
+    write_json(paths["cover_candidate"], data)
+    state.update(status="selected", verified_hash=None)
+    _save_publish_child(paths["cover_state"], state)
+    parent["children"]["cover"] = "selected"
+    _save_publish_parent(paths, parent)
+    print("最终封面已人工选择")
+
+
+def _cover_image_task_problems(project, paths, parent, state, cover):
+    problems = []
+    if not os.path.isfile(paths["cover_image_tasks"]):
+        return ["缺少封面图片任务清单"]
+    packet = read_json(paths["cover_image_tasks"])
+    tasks = packet.get("tasks", []) if isinstance(packet, dict) else []
+    expected_route = _interactive_image_execution_route(
+        parent["providers"]["image"])
+    if packet.get("version") != 2 or packet.get("execution_route") != expected_route:
+        problems.append("封面图片任务缺少正确的 Agent 执行路由")
+    task_map = {task.get("key"): task for task in tasks if isinstance(task, dict)}
+    if set(task_map) != {candidate.get("id") for candidate in cover["candidates"]}:
+        problems.append("封面图片任务与候选 ID 不一致")
+    generation = state.get("generation") or {}
+    provider_name = parent["providers"]["image"]["name"]
+    if generation.get("provider") != provider_name:
+        problems.append("封面图片生成方式与视频 run 快照不一致")
+    if generation.get("execution_environment") != \
+            expected_route["required_agent_environment"]:
+        problems.append("封面图片缺少匹配 provider 的执行环境证明")
+    if generation.get("manifest_sha256") != _sha256(paths["cover_image_tasks"]):
+        problems.append("封面图片任务清单 hash 已变化")
+    if set(generation.get("completed_keys", [])) != set(task_map):
+        problems.append("封面图片任务尚未全部完成")
+    for candidate in cover["candidates"]:
+        task = task_map.get(candidate.get("id"))
+        if not task:
+            continue
+        unsigned = {key: value for key, value in task.items()
+                    if key != "task_sha256"}
+        if task.get("task_sha256") != _stable_json_hash(unsigned):
+            problems.append("封面 ImageTask hash 无效")
+        try:
+            prompt_errors = validate_image_task_prompt(task)
+        except Exception as exc:
+            prompt_errors = [str(exc)]
+        problems.extend(prompt_errors)
+        summary = candidate.get("cover_task") or {}
+        expected_prompt_hash = hashlib.sha256(
+            task.get("prompt", "").encode("utf-8")).hexdigest()
+        if summary.get("task_sha256") != task.get("task_sha256") or \
+                summary.get("prompt_sha256") != expected_prompt_hash or \
+                summary.get("character_ids") != task.get("character_ids") or \
+                summary.get("reference_images") != task.get("reference_images"):
+            problems.append("封面候选的 ImageTask 追溯信息不匹配")
+        output = os.path.realpath(task.get("output_path") or "")
+        expected_root = os.path.realpath(paths["covers_dir"])
+        if os.path.commonpath((expected_root, output)) != expected_root or \
+                not os.path.isfile(output):
+            problems.append("封面底图不在本次候选目录")
+        elif candidate.get("base_sha256") != _sha256(output):
+            problems.append("封面底图 hash 与 ImageTask 输出不匹配")
+        candidate_base = os.path.realpath(os.path.join(
+            project, candidate.get("base_path") or ""))
+        candidate_final = os.path.realpath(os.path.join(
+            project, candidate.get("final_path") or ""))
+        expected_final = os.path.realpath(os.path.join(
+            paths["covers_dir"], str(candidate.get("id")) + ".png"))
+        if candidate_base != output or candidate_final != expected_final:
+            problems.append("封面候选底图或成品路径不属于本次确定性任务")
+    return problems
+
+
+def cmd_publish_cover_verify(args):
+    project, paths, parent, _, source, hashes = _publish_v4_context(args)
+    state = read_json(paths["cover_state"])
+    if state.get("status") != "selected":
+        raise RuntimeError("必须先人工选择最终封面")
+    errors = validate_cover_template_snapshot(state.get("template"))
+    cover = read_json(paths["cover_candidate"])
+    errors += validate_publish_cover(cover,
+                                     state.get("template") or {}, source["topic"],
+                                     project, hashes, require_selection=True)
+    errors += _cover_image_task_problems(project, paths, parent, state, cover)
+    if errors:
+        raise RuntimeError("；".join(sorted(set(errors))))
+    state.update(status="verified", verified_hash=_sha256(paths["cover_candidate"]))
+    _save_publish_child(paths["cover_state"], state)
+    parent["children"]["cover"] = "verified"
+    _save_publish_parent(paths, parent)
+    print("封面校验通过")
+
+
+def cmd_publish_cover_promote(args):
+    project, paths, parent, _, _, _ = _publish_v4_context(args)
+    state = read_json(paths["cover_state"])
+    if state.get("status") != "verified" or state.get("verified_hash") != \
+            _sha256(paths["cover_candidate"]):
+        raise RuntimeError("封面未验证或验证 hash 已过期")
+    if os.path.exists(paths["approved_cover"]):
+        raise RuntimeError("已存在提升后的封面，禁止覆盖")
+    data = read_json(paths["cover_candidate"])
+    selected = next(x for x in data["candidates"]
+                    if x["id"] == data["selected_cover_id"])
+    os.makedirs(paths["approved_root"], exist_ok=True)
+    shutil.copy2(paths["cover_candidate"], paths["approved_cover"])
+    shutil.copy2(os.path.join(project, selected["final_path"]),
+                 paths["approved_cover_image"])
+    state.update(status="promoted", promoted_hash=_sha256(paths["approved_cover"]),
+                 promoted_image_hash=_sha256(paths["approved_cover_image"]))
+    _save_publish_child(paths["cover_state"], state)
+    parent["children"]["cover"] = "promoted"
+    _save_publish_parent(paths, parent)
+    print("封面已独立提升")
+
+
+def cmd_publish_cover_status(args):
+    _, paths, _, _, _, _ = _publish_v4_context(args)
+    print(json.dumps(read_json(paths["cover_state"]), ensure_ascii=False, indent=2))
+
+
+def cmd_publish_finalize(args):
+    _, paths, parent, _, _, hashes = _publish_v4_context(args)
+    copy_state = read_json(paths["copy_state"])
+    cover_state = read_json(paths["cover_state"])
+    if copy_state.get("status") != "promoted" or cover_state.get("status") != "promoted":
+        raise RuntimeError("发布文案与封面必须分别提升后才能最终汇总")
+    actual_copy = _sha256(paths["approved_copy"])
+    actual_cover = _sha256(paths["approved_cover"])
+    actual_image = _sha256(paths["approved_cover_image"])
+    if actual_copy != copy_state.get("promoted_hash") or \
+            actual_cover != cover_state.get("promoted_hash") or \
+            actual_image != cover_state.get("promoted_image_hash"):
+        raise RuntimeError("已提升子产物 hash 已变化，禁止最终汇总")
+    if os.path.exists(paths["release"]):
+        raise RuntimeError("V4 发布包已经汇总，禁止覆盖")
+    copy_data = read_json(paths["approved_copy"])
+    cover_data = read_json(paths["approved_cover"])
+    selected = next(x for x in cover_data["candidates"]
+                    if x["id"] == cover_data["selected_cover_id"])
+    package = {"version": 4, "publish_id": parent["publish_id"],
+               "source_hashes": hashes,
+               "copy": {"selected_title_id": copy_data["platforms"]["youtube"]["selected_title_id"],
+                        "platforms": copy_data["platforms"],
+                        "fact_core": copy_data["fact_core"]},
+               "cover": {"selected_cover_id": cover_data["selected_cover_id"],
+                         "template_selection": cover_data["template_selection"],
+                         "template": cover_data["template"],
+                         "selected": selected},
+               "artifacts": {"copy_sha256": actual_copy,
+                             "cover_sha256": actual_cover,
+                             "cover_image_sha256": actual_image}}
+    errors = validate_publish_release_v4(package, actual_copy, actual_cover,
+                                         actual_image, parent["publish_id"], hashes)
+    if errors:
+        raise RuntimeError("；".join(errors))
+    os.makedirs(paths["release_root"], exist_ok=True)
+    shutil.copy2(paths["approved_copy"], paths["release_copy"])
+    shutil.copy2(paths["approved_cover"], paths["release_cover"])
+    shutil.copy2(paths["approved_cover_image"], paths["release_cover_image"])
+    write_json(paths["release"], package)
+    youtube = copy_data["platforms"]["youtube"]
+    title = next(x["title"] for x in youtube["titles"]
+                 if x["id"] == youtube["selected_title_id"])
+    description = youtube["description"]
+    with open(paths["upload"], "w", encoding="utf-8") as handle:
+        handle.write("# 上传清单\n\n## YouTube 标题\n" + title +
+                     "\n\n## 简介\n" + description["lead"] + "\n\n" +
+                     "\n".join(description["highlights"]) + "\n\n" +
+                     "\n".join(f"{x['time']} {x.get('title') or x.get('label', '')}"
+                                 for x in description["timestamps"]) +
+                     f"\n\n{description['cta']}\n{description['resources']}\n" +
+                     " ".join(description["hashtags"]) +
+                     "\n\n## 封面\ncover.png\n模板：" +
+                     cover_data["template"]["id"] +
+                     "\n\n## 上传前人工检查\n- 人工上传\n- 检查标题、简介与封面\n")
+    parent.update(status="finalized", release_sha256=_sha256(paths["release"]))
+    _save_publish_parent(paths, parent)
+    print("V4 发布包已汇总；未执行平台上传")
+
+
+def _legacy_publish_mutation(args):
+    raise RuntimeError("历史 V1–V3 发布包只读；请用 publish-init 创建新的 V4 publish ID，"
+                       "再使用 publish-copy-* 与 publish-cover-* 命令")
+
+
+# 保留旧命令名作为明确的只读边界，不再写入历史包。
+cmd_publish_run = _legacy_publish_mutation
+cmd_publish_select = _legacy_publish_mutation
+cmd_publish_import_cover = _legacy_publish_mutation
+cmd_publish_compose_cover = _legacy_publish_mutation
+cmd_publish_review_cover = _legacy_publish_mutation
+cmd_publish_verify = _legacy_publish_mutation
+cmd_publish_promote = _legacy_publish_mutation
+
+
+def cmd_publish_status(args):
+    project = set_project(args.project)
+    paths = _publish_paths(project, args.video_run_id, args.revision, args.publish_id)
+    state = read_json(paths["state"])
+    result = {"parent": state}
+    if state.get("version") == 4:
+        result["copy"] = read_json(paths["copy_state"])
+        result["cover"] = read_json(paths["cover_state"])
+    else:
+        result["read_only"] = True
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
 def parser():
     ap = argparse.ArgumentParser(description="可插拔长视频生产工作流")
     ap.add_argument("--project", default=None, help=argparse.SUPPRESS)
@@ -2238,9 +3202,14 @@ def parser():
         p = sub.add_parser(name); p.add_argument("--run-id", required=True); p.add_argument("--project", required=True); p.add_argument("--channel", default="main")
         if name == "brand-select": p.add_argument("--name-id", required=True); p.add_argument("--visual-id", required=True)
         p.set_defaults(func=func)
-    for name, func in (("publish-init", cmd_publish_init), ("publish-run", cmd_publish_run), ("publish-select", cmd_publish_select), ("publish-review-cover", cmd_publish_review_cover),
-                       ("publish-import-cover", cmd_publish_import_cover), ("publish-compose-cover", cmd_publish_compose_cover),
-                       ("publish-verify", cmd_publish_verify), ("publish-promote", cmd_publish_promote),
+    for name, func in (("publish-init", cmd_publish_init),
+                       ("publish-run", cmd_publish_run),
+                       ("publish-select", cmd_publish_select),
+                       ("publish-review-cover", cmd_publish_review_cover),
+                       ("publish-import-cover", cmd_publish_import_cover),
+                       ("publish-compose-cover", cmd_publish_compose_cover),
+                       ("publish-verify", cmd_publish_verify),
+                       ("publish-promote", cmd_publish_promote),
                        ("publish-status", cmd_publish_status)):
         p = sub.add_parser(name); p.add_argument("video_run_id"); p.add_argument("--project", required=True); p.add_argument("--channel", default="main")
         p.add_argument("--revision", default="v2"); p.add_argument("--publish-id", default=None)
@@ -2254,6 +3223,48 @@ def parser():
             p.add_argument("--cover-id", required=True); p.add_argument("--input", required=True); p.add_argument("--variant")
         if name == "publish-compose-cover":
             p.add_argument("--cover-id", required=True); p.add_argument("--variant")
+        p.set_defaults(func=func)
+    publish_v4 = (
+        ("publish-copy-run", cmd_publish_copy_run),
+        ("publish-copy-select", cmd_publish_copy_select),
+        ("publish-copy-verify", cmd_publish_copy_verify),
+        ("publish-copy-promote", cmd_publish_copy_promote),
+        ("publish-copy-status", cmd_publish_copy_status),
+        ("publish-cover-template-options", cmd_publish_cover_template_options),
+        ("publish-cover-select-template", cmd_publish_cover_select_template),
+        ("publish-cover-plan", cmd_publish_cover_plan),
+        ("publish-cover-verify-plan", cmd_publish_cover_verify_plan),
+        ("publish-cover-generate", cmd_publish_cover_generate),
+        ("publish-cover-compose", cmd_publish_cover_compose),
+        ("publish-cover-review", cmd_publish_cover_review),
+        ("publish-cover-select", cmd_publish_cover_select),
+        ("publish-cover-verify", cmd_publish_cover_verify),
+        ("publish-cover-promote", cmd_publish_cover_promote),
+        ("publish-cover-status", cmd_publish_cover_status),
+        ("publish-finalize", cmd_publish_finalize),
+    )
+    for name, func in publish_v4:
+        p = sub.add_parser(name)
+        p.add_argument("video_run_id")
+        p.add_argument("publish_id")
+        p.add_argument("--project", required=True)
+        p.add_argument("--revision", default="v2", help=argparse.SUPPRESS)
+        if name == "publish-copy-select":
+            p.add_argument("--title-id", required=True)
+        elif name == "publish-cover-select-template":
+            p.add_argument("template_id", choices=COVER_TEMPLATE_IDS)
+            p.add_argument("--recommended", choices=COVER_TEMPLATE_IDS,
+                           required=True)
+            p.add_argument("--reason", required=True)
+        elif name == "publish-cover-review":
+            p.add_argument("--cover-id", required=True)
+            p.add_argument("--result", choices=("pass", "fail"), required=True)
+            p.add_argument("--failed-check", action="append",
+                           choices=sorted({dimension
+                                          for template in cover_template_catalog()
+                                          for dimension in template["spec"]["review_dimensions"]}))
+        elif name == "publish-cover-select":
+            p.add_argument("--cover-id", required=True)
         p.set_defaults(func=func)
     return ap
 

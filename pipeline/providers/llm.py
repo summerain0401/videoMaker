@@ -41,7 +41,8 @@ def _extract_json(text):
 
 class CodexProvider:
     mode = "interactive"
-    stages = {"topic", "copy", "script", "storyboard", "brand", "publish"}
+    stages = {"topic", "copy", "script", "storyboard", "brand", "publish",
+              "publish-copy", "publish-cover"}
 
     def __init__(self, config, root):
         self.config = config
@@ -55,7 +56,8 @@ class AntigravityLLMProvider:
     """由 Antigravity workspace skill 消费任务包的交互式 provider。"""
 
     mode = "interactive"
-    stages = {"topic", "copy", "script", "storyboard", "brand", "publish"}
+    stages = {"topic", "copy", "script", "storyboard", "brand", "publish",
+              "publish-copy", "publish-cover"}
 
     def __init__(self, config, root):
         self.config = config
@@ -67,7 +69,8 @@ class AntigravityLLMProvider:
 
 class DeepSeekProvider:
     mode = "api"
-    stages = {"topic", "copy", "script", "storyboard", "brand", "publish"}
+    stages = {"topic", "copy", "script", "storyboard", "brand", "publish",
+              "publish-copy", "publish-cover"}
     default_model = "deepseek-v4-flash"
 
     def __init__(self, config, root):
@@ -112,7 +115,7 @@ class DeepSeekProvider:
                 f.write(text.rstrip() + "\n")
         elif stage == "storyboard":
             write_json(destination, self._storyboard(task))
-        elif stage in ("brand", "publish"):
+        elif stage in ("brand", "publish", "publish-copy", "publish-cover"):
             write_json(destination, self._generic(stage, task))
         else:
             raise ValueError(f"DeepSeek 不支持阶段：{stage}")
@@ -123,7 +126,7 @@ class DeepSeekProvider:
         system = ("你是中文频道发布编辑。只输出符合任务 output_contract 的 JSON，"
                   "不得添加解释、代码块或额外字段。")
         return _extract_json(self._call(system, json.dumps({
-            "stage": stage, "contract": contract, "source": task.get("source", task)
+            "stage": stage, "contract": contract, "task": task
         }, ensure_ascii=False)))
 
     def _topic(self, task):
