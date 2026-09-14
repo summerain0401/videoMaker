@@ -54,15 +54,21 @@ provider 的唯一事实源，run 只使用 `state.json` 中的完整快照。�
 2. 读取状态输出指向的 `workflow/runs/<run_id>/tasks/<stage>.json`，严格满足其中
    `output_contract`，且只写 `candidate_path`。不得把聊天回复当成候选交付。
 3. topic 输出三个候选且 `selected_id` 初始为 null；用户选择后才执行
-   `select-topic`。script 是 Azure 与字幕唯一文本源，不得把 copy 机械改写为口播。
+   `select-topic`。topic 校验并提升后，如果 run 尚未选择内容模板，执行
+   `template-options`；由 Sol 根据正式选题推荐一个模板、说明理由并展示全部选项。
+   只有用户明确选择后才执行 `select-template`，不得静默采用默认模板。script 是
+   Azure 与字幕唯一文本源，不得把 copy 机械改写为口播。
 4. storyboard 必须逐块逐拍覆盖 script，每句按顺序恰好覆盖一次；不得加入
    provider、model、final prompt、negative prompt 或 API 请求字段。
 5. 写候选后执行 `verify`。修复全部问题并向用户展示摘要；只有用户明确确认后才执行
-   `promote`。一次只推进一个需要人工确认的阶段。
+   `promote`。分镜必须先 `verify storyboard`，再运行并校验 `storyboard-review`；用户
+   确认后只提升 `storyboard`，由该命令同时锁定哈希匹配的审核记录。不得先提升正式
+   分镜再审核。一次只推进一个需要人工确认的阶段。
 
 ## Antigravity 图片任务
 
-1. storyboard 与 storyboard-review 提升后执行 `run <run_id> images`。工作流每次只
+1. storyboard 候选审核通过并由用户执行 `promote storyboard` 后，正式分镜与
+   storyboard-review 会一起提升；此后才能执行 `run <run_id> images`。工作流每次只
    签发 `image_tasks.json` 中 `image_generation.active_key` 对应的一张密封任务。
 2. 只使用签发任务的 `generation_request`：原样采用 `prompt`、`negative_prompt`、
    `size` 和 `reference_images`。`additional_prompt_allowed` 必须为 false；不得追加、

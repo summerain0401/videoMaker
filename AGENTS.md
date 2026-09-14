@@ -57,7 +57,13 @@
   创建结果和交付摘要必须明确说明切换时机。
 - 一个项目只能配置一个 LLM 和一个图片 provider；两者及其模型配置在创建时选定后永久固定，完成后也不切换；需要另一种组合时新建项目。不得增加阶段覆盖参数或修改已有 run 快照。
 - `state.json` 必须保存 `project.json.providers` 的完整快照。
+- 新项目未显式指定内容模板时不得采用默认模板。topic 选择、校验并提升后，由 Sol
+  根据正式选题推荐模板并展示全部选项；只有用户明确选择并执行 `select-template` 后
+  才能解锁 copy。模板注册表新增项必须自动进入候选目录。
 - topic/copy/script/storyboard/images 必须进入 run 候选区，校验后由用户明确提升。
+- storyboard 必须先校验候选，再运行并校验 storyboard-review；用户确认后执行
+  `promote storyboard`，由该操作同时锁定正式分镜与匹配哈希的审核记录。不得先提升
+  storyboard 再审核。
 - Codex、ImageGen 与 Antigravity 只生成交互任务包；DeepSeek/万相直接写相同候选契约；不得自动回退。
 - `script.txt` 是 Azure 与字幕唯一文本源；`storyboard.json` 是图片和渲染唯一分镜源。
 - 正式分镜不得出现 provider/model/final prompt/negative prompt 字段。

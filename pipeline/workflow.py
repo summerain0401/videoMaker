@@ -21,7 +21,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import proj as PJ
-from content_templates import CONTENT_TEMPLATE_IDS, get_template, template_snapshot
+from content_templates import (
+    CONTENT_TEMPLATE_IDS, get_template, template_catalog, template_snapshot,
+)
 from providers import IMAGE_PROVIDERS, LLM_PROVIDERS, make_image, make_llm
 from workflow_contracts import (
     ALL_STAGES, APPROVAL_STAGES, STAGE_STATES, build_image_tasks,
@@ -35,7 +37,7 @@ from publishing_contracts import (PLATFORMS, TITLE_LIMITS, source_hashes,
                                    validate_brand, validate_package, validate_svg_text)
 
 
-STATE_VERSION = 4
+STATE_VERSION = 5
 CONTENT_METHOD_LABELS = {
     "codex": "Codex 当前会话",
     "deepseek": "DeepSeek API",
@@ -83,6 +85,29 @@ def generation_method_summary(providers):
             "label": IMAGE_METHOD_LABELS[image],
         },
         "agent_handoff": handoff,
+    }
+
+
+def _configured_template_id(meta):
+    """读取项目模板；缺少字段的旧项目继续兼容历史默认值。"""
+    if "content_template" not in meta:
+        return get_template()["id"]
+    value = meta.get("content_template")
+    return get_template(value)["id"] if value else None
+
+
+def _template_snapshot_or_none(value):
+    return template_snapshot(value) if value else None
+
+
+def _template_options(topic=None):
+    return {
+        "topic": topic,
+        "options": template_catalog(),
+        "instruction": (
+            "由 Sol 根据已选选题推荐合适模板并说明理由；"
+            "向用户展示全部选项，只有用户明确选择后才能执行 select-template。"
+        ),
     }
 
 
@@ -275,7 +300,7 @@ def _upgrade_state_schema(paths, state):
     changed = False
     if "content_template" not in state:
         state["content_template"] = template_snapshot(
-            project_meta(paths["project"]).get("content_template"))
+            _configured_template_id(project_meta(paths["project"])))
         changed = True
     image_review = stages.get("image-review", {})
     if (image_review.get("status") == "promoted" and
@@ -340,6 +365,9 @@ def _upgrade_state_schema(paths, state):
                     state["image_generation"] = _new_image_generation(packet, state)
         state["version"] = STATE_VERSION
         changed = True
+    if state.get("version", 1) < 5:
+        state["version"] = STATE_VERSION
+        changed = True
     for stage in ALL_STAGES:
         if stage in stages:
             continue
@@ -374,6 +402,10 @@ def require_dependencies(state, stage):
                if state["stages"][dep]["status"] != "promoted"]
     if missing:
         raise RuntimeError(f"阶段 {stage} 被阻断，需先提升：{', '.join(missing)}")
+    if stage == "copy" and not state.get("content_template"):
+        raise RuntimeError(
+            "copy 被阻断：请先根据已提升选题推荐内容模板，"
+            "由用户明确选择后执行 select-template")
 
 
 def _require_reviewed_storyboard(paths, state, source_path):
@@ -530,10 +562,12 @@ def cmd_create(args):
     problems = validate_providers(proposed, LLM_PROVIDERS, IMAGE_PROVIDERS)
     if problems:
         raise ValueError("；".join(problems))
-    template_id = get_template(getattr(args, "content_template", None)
-                               or meta.get("content_template"))["id"]
+    requested_template = getattr(args, "content_template", None)
+    stored_template = _configured_template_id(meta) if existed else None
+    template_id = (get_template(requested_template)["id"]
+                   if requested_template else stored_template)
     changed = (proposed != normalize_providers(meta.get("providers")) or
-               template_id != get_template(meta.get("content_template"))["id"])
+               template_id != stored_template)
     if existed:
         if any(proposed[group] != current[group] for group in ("llm", "image")):
             raise RuntimeError(
@@ -557,6 +591,7 @@ def cmd_create(args):
     print(json.dumps({"project": project, "providers": proposed,
                       "generation_methods": generation_method_summary(proposed),
                       "content_template": template_id,
+                      "template_selection_required": template_id is None,
                       "topic_request": request}, ensure_ascii=False, indent=2))
 
 
@@ -573,7 +608,8 @@ def cmd_init(args):
         raise ValueError("；".join(problems))
     providers = normalize_providers(configured)
     _check_provider_history(project, providers)
-    content_template = template_snapshot(meta.get("content_template"))
+    template_id = _configured_template_id(meta)
+    content_template = _template_snapshot_or_none(template_id)
     run_id = args.run_id or now_run_id()
     paths = state_paths(project, run_id)
     if os.path.exists(paths["state"]):
@@ -588,25 +624,36 @@ def cmd_init(args):
         "created_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "updated_at": "", "providers": providers,
         "content_template": content_template,
+        "template_selection": {
+            "status": "selected" if content_template else "awaiting_topic",
+            "selected_id": content_template["id"] if content_template else None,
+            "source": "create" if content_template else None,
+        },
         "current_stage": "topic", "stages": statuses,
     }
     save_state(paths, state)
     print(json.dumps({"run_id": run_id, "state": paths["state"],
-                      "providers": providers}, ensure_ascii=False, indent=2))
+                      "providers": providers,
+                      "content_template": (content_template["id"]
+                                           if content_template else None),
+                      "template_selection_required": content_template is None},
+                     ensure_ascii=False, indent=2))
 
 
 def build_task(paths, state, stage):
     project = paths["project"]
     formal = formal_paths(project)
-    content_template = template_snapshot(state.get("content_template"))
-    names = [x["name"] for x in content_template["stages"]]
+    content_template = _template_snapshot_or_none(state.get("content_template"))
+    names = ([x["name"] for x in content_template["stages"]]
+             if content_template else [])
     if stage == "topic":
         request = os.path.join(project, "input", "topic_request.md")
         with open(request, encoding="utf-8") as handle:
             request_text = handle.read()
         return {"stage": stage, "topic_request": request_text,
                 "candidate_path": paths[stage],
-                "content_template": content_template, "output_contract": {
+                "content_template": content_template,
+                "output_contract": {
                     "type": "json",
                     "top_level": ["candidates", "selected_id"],
                     "candidate_fields": [
@@ -615,6 +662,9 @@ def build_task(paths, state, stage):
                     ],
                     "requirements": "输出 3 个候选；id 唯一；selected_id 初始为 null",
                 }}
+    if content_template is None:
+        raise RuntimeError(
+            f"{stage} 被阻断：内容模板尚未由用户明确选择")
     if stage == "copy":
         return {"stage": stage, "topic": read_json(formal["topic"]),
                 "candidate_path": paths[stage],
@@ -950,6 +1000,57 @@ def cmd_select_topic(args):
                paths["topic"])
     save_state(paths, state)
     print(f"已选择 topic：{args.candidate_id}")
+
+
+def cmd_template_options(args):
+    """输出已选正式选题与动态模板目录，供 Sol 推荐和用户比较。"""
+    paths, state = locate_run(args.run_id, args.project)
+    ensure_active_run(state, "template-options")
+    if state["stages"]["topic"]["status"] != "promoted":
+        raise RuntimeError("内容模板推荐必须在 topic 选择、校验并提升后进行")
+    topic_path = formal_paths(paths["project"])["topic"]
+    result = _template_options(read_json(topic_path))
+    result["selection"] = state.get("template_selection")
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+def cmd_select_template(args):
+    """记录推荐依据和用户最终选择，并解锁 copy。"""
+    paths, state = locate_run(args.run_id, args.project)
+    ensure_active_run(state, "select-template")
+    if state["stages"]["topic"]["status"] != "promoted":
+        raise RuntimeError("必须先选择、校验并提升 topic，才能选择内容模板")
+    if state.get("content_template"):
+        raise RuntimeError("当前 run 的内容模板已经选定，禁止更改")
+    if state["stages"]["copy"]["status"] not in {"blocked", "pending"}:
+        raise RuntimeError("copy 已开始，禁止更改内容模板")
+    reason = str(args.reason or "").strip()
+    if not reason:
+        raise ValueError("模板推荐理由不能为空")
+    selected = get_template(args.template_id)
+    recommended = get_template(args.recommended)
+    topic_path = formal_paths(paths["project"])["topic"]
+    meta_path = os.path.join(paths["project"], "project.json")
+    meta = read_json(meta_path)
+    project_template = _configured_template_id(meta)
+    if project_template and project_template != selected["id"]:
+        raise RuntimeError(
+            "项目已被另一 run 锁定为不同内容模板，禁止覆盖；请核对活动 run")
+    state["content_template"] = selected
+    state["template_selection"] = {
+        "status": "selected",
+        "recommended_id": recommended["id"],
+        "recommendation_reason": reason,
+        "selected_id": selected["id"],
+        "manual_confirmation": True,
+        "topic_sha256": _sha256(topic_path),
+        "selected_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    meta["content_template"] = selected["id"]
+    write_json(meta_path, meta)
+    unlock(state)
+    save_state(paths, state)
+    print(json.dumps(state["template_selection"], ensure_ascii=False, indent=2))
 
 
 def cmd_select_image_anchor(args):
@@ -1320,6 +1421,10 @@ def unlock(state):
     for stage, deps in DEPENDENCIES.items():
         if state["stages"][stage]["status"] == "blocked" and \
                 all(state["stages"][dep]["status"] == "promoted" for dep in deps):
+            if stage == "copy" and not state.get("content_template"):
+                state["stages"][stage]["note"] = (
+                    "等待 Sol 根据选题推荐内容模板并由用户明确选择")
+                continue
             state["stages"][stage]["status"] = "pending"
 
 
@@ -1387,6 +1492,12 @@ def cmd_promote(args):
             project = target
             PJ._CACHE.clear()
             paths = state_paths(project, args.run_id)
+        if not state.get("content_template"):
+            state["template_selection"] = {
+                "status": "awaiting_user",
+                "selected_id": None,
+                "source": None,
+            }
     elif stage in ("copy", "script"):
         backup_and_copy(paths[stage], formal[stage], args.run_id, args.replace)
     elif stage == "storyboard":
@@ -1439,7 +1550,15 @@ def cmd_promote(args):
     transition(state, stage, "promoted", "已人工确认并提升")
     unlock(state)
     save_state(paths, state)
-    print(f"{stage} 已提升")
+    if stage == "topic" and not state.get("content_template"):
+        print(json.dumps({
+            "stage": "topic",
+            "status": "promoted",
+            "next_action": "运行 template-options，由 Sol 推荐并等待用户选择",
+            "copy_status": state["stages"]["copy"]["status"],
+        }, ensure_ascii=False, indent=2))
+    else:
+        print(f"{stage} 已提升")
 
 
 def _run_voice(paths, state):
@@ -2071,6 +2190,20 @@ def parser():
     select.add_argument("candidate_id")
     select.add_argument("--project")
     select.set_defaults(func=cmd_select_topic)
+    template_options = sub.add_parser(
+        "template-options", help="列出已选题对应的内容模板选项，供 Sol 推荐")
+    template_options.add_argument("run_id")
+    template_options.add_argument("--project")
+    template_options.set_defaults(func=cmd_template_options)
+    select_template = sub.add_parser(
+        "select-template", help="记录推荐并按用户明确选择锁定内容模板")
+    select_template.add_argument("run_id")
+    select_template.add_argument("template_id", choices=CONTENT_TEMPLATE_IDS)
+    select_template.add_argument("--recommended", choices=CONTENT_TEMPLATE_IDS,
+                                 required=True)
+    select_template.add_argument("--reason", required=True)
+    select_template.add_argument("--project")
+    select_template.set_defaults(func=cmd_select_template)
     select_anchor = sub.add_parser("select-image-anchor",
                                    help="确认首张候选为本 run 视觉锚点")
     select_anchor.add_argument("run_id")

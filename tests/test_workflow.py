@@ -5,6 +5,7 @@
 import copy
 import inspect
 import io
+import json
 import os
 import shutil
 import tempfile
@@ -698,7 +699,7 @@ class WorkflowStateTests(unittest.TestCase):
             with self.assertRaises(RuntimeError), redirect_stderr(io.StringIO()):
                 func(args)
 
-    def test_interactive_topic_verify_promote_and_safe_rename(self):
+    def test_topic_promote_requires_manual_template_selection_before_copy(self):
         create = SimpleNamespace(project="005", llm="codex", llm_model=None,
                                  image="imagegen", image_model=None,
                                  azure_voice="voice-A")
@@ -708,6 +709,11 @@ class WorkflowStateTests(unittest.TestCase):
             workflow.cmd_run(SimpleNamespace(run_id="run_topic", stage="topic",
                                               project="005", beats=None))
         paths, state = workflow.locate_run("run_topic", "005")
+        self.assertIsNone(state["content_template"])
+        self.assertEqual(state["template_selection"]["status"],
+                         "awaiting_topic")
+        topic_task = read_json(os.path.join(paths["tasks"], "topic.json"))
+        self.assertIsNone(topic_task["content_template"])
         self.assertEqual(state["stages"]["topic"]["status"], "awaiting_external")
         write_json(paths["topic"], {
             "candidates": [{
@@ -729,7 +735,41 @@ class WorkflowStateTests(unittest.TestCase):
         self.assertTrue(renamed.endswith("005_测试书"))
         _, state = workflow.locate_run("run_topic", "005")
         self.assertEqual(state["stages"]["topic"]["status"], "promoted")
+        self.assertEqual(state["stages"]["copy"]["status"], "blocked")
+        self.assertEqual(state["template_selection"]["status"],
+                         "awaiting_user")
+        with self.assertRaisesRegex(RuntimeError, "select-template"):
+            workflow.cmd_run(SimpleNamespace(
+                run_id="run_topic", project="005", stage="copy"))
+        output = io.StringIO()
+        with redirect_stdout(output):
+            workflow.cmd_template_options(SimpleNamespace(
+                run_id="run_topic", project="005"))
+        options = json.loads(output.getvalue())
+        self.assertEqual({item["id"] for item in options["options"]},
+                         set(CONTENT_TEMPLATE_IDS))
+        with redirect_stdout(io.StringIO()):
+            workflow.cmd_select_template(SimpleNamespace(
+                run_id="run_topic", project="005",
+                template_id="practical_workshop_v1",
+                recommended="story_journey_v1",
+                reason="选题以人物案例切入，但用户最终选择问题解法结构"))
+        renamed = workflow.project_for_id("005")
+        paths, state = workflow.locate_run("run_topic", "005")
+        self.assertEqual(state["content_template"]["id"],
+                         "practical_workshop_v1")
+        self.assertEqual(state["template_selection"]["recommended_id"],
+                         "story_journey_v1")
+        self.assertTrue(state["template_selection"]["manual_confirmation"])
         self.assertEqual(state["stages"]["copy"]["status"], "pending")
+        self.assertEqual(
+            read_json(os.path.join(renamed, "project.json"))["content_template"],
+            "practical_workshop_v1")
+        with self.assertRaisesRegex(RuntimeError, "已经选定"):
+            workflow.cmd_select_template(SimpleNamespace(
+                run_id="run_topic", project="005",
+                template_id="classic_insight_v1",
+                recommended="classic_insight_v1", reason="重复选择"))
 
     def test_review_is_isolated_and_revision_preserves_previous_render(self):
         create = SimpleNamespace(

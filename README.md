@@ -32,17 +32,22 @@ Agent 是执行工作流、读写文件和调用工具的环境；项目中的 `
 ```bash
 PY=/Users/spring/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3
 
-$PY pipeline/workflow.py create --project 003 --llm codex --image imagegen \
-  --content-template story_journey_v1
+$PY pipeline/workflow.py create --project 003 --llm codex --image imagegen
 # 编辑 projects/003_新项目/input/topic_request.md
 $PY pipeline/workflow.py init --project 003
 $PY pipeline/workflow.py run <run_id> topic
 $PY pipeline/workflow.py select-topic <run_id> <candidate_id>
 $PY pipeline/workflow.py verify <run_id> topic
 $PY pipeline/workflow.py promote <run_id> topic
+$PY pipeline/workflow.py template-options <run_id>
+# Sol 根据已提升选题推荐模板并展示全部选项；用户明确选择后：
+$PY pipeline/workflow.py select-template <run_id> practical_workshop_v1 \
+  --recommended story_journey_v1 --reason "推荐理由"
 ```
 
-随后依次处理 `copy`、`script`、`storyboard`、`images`。每个阶段都必须先 `verify`，再由人明确执行 `promote`。`script` 提升后 `voice` 可运行，`storyboard` 提升后 `images` 可运行，两条分支可以并行；图片与语音都完成后运行 `render` 和 `qa`：
+随后依次处理 `copy`、`script` 和 `storyboard`。内容模板未由用户明确选择前，`copy` 保持阻断；不再静默采用默认模板。`storyboard` 的顺序固定为：生成候选 → `verify storyboard` → `run storyboard-review` → `verify storyboard-review` → 人工确认后 `promote storyboard`。最后一步会把匹配哈希的审核记录与正式分镜一起锁定，禁止先提升分镜再审核。
+
+`script` 提升后 `voice` 可运行；分镜与审核记录一起提升后 `images` 才可运行，两条分支可以并行。图片与语音都完成后运行 `render` 和 `qa`：
 
 ```bash
 $PY pipeline/workflow.py run <run_id> voice
@@ -108,9 +113,13 @@ Antigravity provider 不调用 `agy`、Gemini API 或 Antigravity SDK。它读�
 
 ## 内容模板
 
-项目创建时可通过 `--content-template` 选择讲述结构；该选择会写入
-`project.json`，并在 `init` 时连同版本与哈希快照进每个 run。已有项目未配置时
-默认采用 `classic_insight_v1`。当前内置模板为：
+新项目未显式传入 `--content-template` 时不会选择默认模板。选题经人工选择、校验并
+提升后，执行 `template-options` 获取当前动态模板目录；Sol 根据正式选题推荐一个模板、
+解释理由并展示全部选项，用户明确决定后执行 `select-template`。选择会写入
+`project.json`，并以版本与哈希快照锁定在当前 run，随后才解锁 `copy`。
+
+若用户在创建项目时已经明确指定 `--content-template`，仍可直接采用；缺少
+`content_template` 字段的历史项目继续按原行为兼容 `classic_insight_v1`。当前内置模板为：
 
 - `classic_insight_v1`：共情、病灶、模型、工具、升华。
 - `story_journey_v1`：人物处境、冲突升级、关键发现、转折、落地启示。

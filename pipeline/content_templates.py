@@ -81,3 +81,8 @@ def template_snapshot(value=None):
 
 def template_names(template=None):
     return [x["name"] for x in template_snapshot(template)["stages"]]
+
+
+def template_catalog():
+    """返回供人工选择的完整模板目录；新增模板会自动出现在目录中。"""
+    return [get_template(name) for name in CONTENT_TEMPLATE_IDS]
