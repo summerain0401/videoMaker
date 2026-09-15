@@ -350,24 +350,40 @@ def validate_cover_plan(data, template_snapshot, topic, publish_id,
         errors.append("封面方案候选 id 必须非空且唯一")
     concepts = []
     symbols = []
+    hooks = []
     for candidate in candidates:
         if not isinstance(candidate, dict):
             errors.append("封面方案候选必须是对象")
             continue
         concepts.append(candidate.get("concept"))
         if spec.get("id") == "book_title_author_v2":
-            required_candidate = {"id", "concept", "narrative_motif",
-                                  "environment", "subtitle"}
+            required_candidate = {"id", "concept", "hook", "hook_type",
+                                  "visual_metaphor", "environment", "subtitle",
+                                  "character_ids"}
             if set(candidate) != required_candidate:
-                errors.append("书名作者叙事海报候选字段不符合契约")
-            symbols.append(candidate.get("narrative_motif"))
+                errors.append("书名观点叙事封面候选字段不符合契约")
+            symbols.append(candidate.get("visual_metaphor"))
+            hooks.append(candidate.get("hook"))
             if not candidate.get("concept") or \
-                    not candidate.get("narrative_motif") or \
+                    not candidate.get("visual_metaphor") or \
                     not candidate.get("environment"):
-                errors.append("书名作者叙事海报必须提供概念、叙事物件与环境层次")
-            subtitle = candidate.get("subtitle", "")
-            if not isinstance(subtitle, str) or len(subtitle) > 14:
-                errors.append("书名作者叙事海报副标题不得超过14个字符")
+                errors.append("书名观点叙事封面必须提供概念、视觉冲突与环境")
+            hook = candidate.get("hook")
+            subtitle = candidate.get("subtitle")
+            if not isinstance(subtitle, str) or len(subtitle) > \
+                    spec.get("subtitle_max_chars", 14) or \
+                    any(char in subtitle for char in "\n\r\t"):
+                errors.append("封面解释副标题必须为0-14字单行文字")
+            hook_range = spec.get("hook_char_range", [4, 16])
+            if not isinstance(hook, str) or not hook_range[0] <= len(hook) <= \
+                    hook_range[1]:
+                errors.append("封面点击钩子必须为4-16个字符")
+            if candidate.get("hook_type") not in (
+                    "pain_point", "counter_intuitive", "warning"):
+                errors.append("封面点击钩子类型无效")
+            character_ids = candidate.get("character_ids")
+            if not isinstance(character_ids, list) or len(character_ids) > 1:
+                errors.append("书名观点叙事封面最多使用一个正式角色")
         else:
             required_candidate = {"id", "concept", "subject", "composition",
                                   "title_lines", "subtitle", "character_ids"}
@@ -382,7 +398,10 @@ def validate_cover_plan(data, template_snapshot, topic, publish_id,
         errors.append("两个封面候选必须使用不同视觉概念")
     if spec.get("id") == "book_title_author_v2" and \
             len(set(symbols)) != len(candidates):
-        errors.append("两个书名作者海报候选必须使用不同视觉母题")
+        errors.append("两个书名观点封面候选必须使用不同视觉冲突")
+    if spec.get("id") == "book_title_author_v2" and \
+            len(set(hooks)) != len(candidates):
+        errors.append("两个书名观点封面候选必须使用不同点击钩子")
     errors.extend(scan_compliance(data))
     return sorted(set(errors))
 
@@ -415,21 +434,29 @@ def validate_publish_cover(data, template_snapshot, topic, project_root,
             errors.append("封面候选必须是对象")
             continue
         text = candidate.get("text", {})
-        if text.get("book_title") != topic.get("book_title") or \
-                text.get("author") != topic.get("author"):
-            errors.append("封面书名和作者必须与正式 topic 完全一致")
-        lines = text.get("title_lines", [])
+        if text.get("book_title") != topic.get("book_title"):
+            errors.append("封面书名必须与正式 topic 完全一致")
         if spec.get("id") == "book_title_author_v2":
-            if not 1 <= len(lines) <= 3 or "".join(lines) != topic.get("book_title"):
-                errors.append("书名必须完整排成1-3行且不可改写")
-            if len(text.get("subtitle", "")) > 14:
-                errors.append("书名作者海报副标题不得超过14个字符")
-            if candidate.get("cover_task", {}).get("character_ids"):
-                errors.append("书名作者海报不得要求角色 ID")
+            if set(text) != {"book_title", "hook", "hook_lines", "subtitle"}:
+                errors.append("书名观点封面文字必须包含书名、点击钩子及解释副标题")
+            subtitle = text.get("subtitle")
+            if not isinstance(subtitle, str) or len(subtitle) > \
+                    spec.get("subtitle_max_chars", 14) or \
+                    any(char in subtitle for char in "\n\r\t") or \
+                    subtitle != candidate.get("subtitle"):
+                errors.append("封面解释副标题必须与已校验方案一致且为0-14字单行")
+            hook = text.get("hook")
+            hook_lines = text.get("hook_lines", [])
+            if hook != candidate.get("hook") or not isinstance(hook_lines, list) or \
+                    not 1 <= len(hook_lines) <= 2 or "".join(hook_lines) != hook:
+                errors.append("点击钩子必须完整排成1-2行且不可改写")
             if not candidate.get("cover_task", {}).get("reference_images"):
-                errors.append("书名作者叙事海报必须绑定正式场景参考图")
-        elif len(lines) != 2:
-            errors.append("观点钩子封面必须严格使用两行标题")
+                errors.append("书名观点叙事封面必须绑定正式场景参考图")
+        else:
+            if text.get("author") != topic.get("author"):
+                errors.append("观点钩子封面作者必须与正式 topic 完全一致")
+            if len(text.get("title_lines", [])) != 2:
+                errors.append("观点钩子封面必须严格使用两行标题")
         for path_key, hash_key in (("base_path", "base_sha256"),
                                    ("final_path", "sha256")):
             rel = candidate.get(path_key)

@@ -123,12 +123,19 @@ class PublishingV4Tests(unittest.TestCase):
             "template_id": "book_title_author_v2",
             "candidates": [
                 {"id": "cover_a", "concept": "双轨财富系统",
-                 "narrative_motif": "两条交汇轨道与守护锁扣",
-                 "environment": "暖光书房延伸至城市橱窗", "subtitle": ""},
+                 "hook": "会赚钱却守不住",
+                 "subtitle": "理解财富的两种能力",
+                 "hook_type": "pain_point",
+                 "visual_metaphor": "金币从破裂的保险箱中流失",
+                 "environment": "暖光书房延伸至城市橱窗",
+                 "character_ids": []},
                 {"id": "cover_b", "concept": "创造与守护",
-                 "narrative_motif": "火花、账本与环形护盾",
+                 "hook": "财富靠两种能力",
+                 "subtitle": "",
+                 "hook_type": "counter_intuitive",
+                 "visual_metaphor": "创造火花撞上环形护盾",
                  "environment": "夕阳桌面形成前中后三层空间",
-                 "subtitle": "创造之后学会守住"},
+                 "character_ids": []},
             ]})
         workflow.cmd_publish_cover_verify_plan(self.args)
 
@@ -138,7 +145,7 @@ class PublishingV4Tests(unittest.TestCase):
         first, second = packet["tasks"]
         self.assertEqual(len(first["reference_images"]), 3)
         self.assertEqual(first["character_ids"], [])
-        self.assertIn("person", first["negative_prompt"])
+        self.assertNotIn(", person", first["negative_prompt"])
         Image.new("RGB", (1920, 1080), "#C8C8C8").save(first["output_path"])
         workflow.cmd_publish_cover_generate(self.args)
         Image.new("RGB", (1920, 1080), "#D8D8D8").save(second["output_path"])
@@ -150,9 +157,11 @@ class PublishingV4Tests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(first["spec"]["version"], 2)
         self.assertEqual(first["spec"]["layout"],
-                         "centered_illustrated_editorial_poster")
+                         "cinematic_stacked_hook_poster")
         self.assertTrue(first["spec"]["requires_style_anchor"])
         self.assertFalse(first["spec"]["requires_character_ids"])
+        self.assertTrue(first["spec"]["allows_people"])
+        self.assertFalse(first["spec"]["shows_author"])
         with self.assertRaisesRegex(ValueError, "未知封面模板"):
             cover_templates.cover_template_snapshot("retired_template_v1")
         original = dict(cover_templates._TEMPLATES)
@@ -214,8 +223,11 @@ class PublishingV4Tests(unittest.TestCase):
         self.assertTrue(all(task["character_ids"] == ["young_pro"]
                             for task in tasks))
 
-    def test_narrative_poster_uses_video_style_without_characters(self):
+    def test_narrative_poster_uses_video_style_and_optional_character(self):
         self._write_style_references()
+        workflow.write_json(os.path.join(workflow.ROOT, "assets", "characters.json"),
+                            {"young_pro": {"prompt": "chibi worker",
+                                           "anchor": "same round glasses"}})
         selection = SimpleNamespace(
             **vars(self.args), template_id="book_title_author_v2",
             recommended="book_title_author_v2",
@@ -231,13 +243,19 @@ class PublishingV4Tests(unittest.TestCase):
             "template_id": "book_title_author_v2",
             "candidates": [
                 {"id": "cover_a", "concept": "从众漩涡",
-                 "narrative_motif": "散落价签、沙漏与向中心汇聚的脚印",
+                 "hook": "越抢越亏？",
+                 "subtitle": "失控消费心理学解析",
+                 "hook_type": "pain_point",
+                 "visual_metaphor": "巨大折扣漩涡吸走钱包",
                  "environment": "暖光书房桌面延伸到夜色商店橱窗",
-                 "subtitle": "看穿从众与稀缺"},
+                 "character_ids": ["young_pro"]},
                 {"id": "cover_b", "concept": "稀缺牢笼",
-                 "narrative_motif": "空展示柜、倒计时钟面与破裂的泡沫",
+                 "hook": "聪明人也会追高",
+                 "subtitle": "理性如何失守",
+                 "hook_type": "counter_intuitive",
+                 "visual_metaphor": "倒计时钟面合拢成牢笼",
                  "environment": "夕阳城市橱窗形成前中后三层空间",
-                 "subtitle": "守住理性判断"},
+                 "character_ids": []},
             ]})
         workflow.cmd_publish_cover_verify_plan(self.args)
         state = workflow.read_json(self.paths["cover_state"])
@@ -246,9 +264,12 @@ class PublishingV4Tests(unittest.TestCase):
                                             state, source)
         self.assertTrue(all(len(task["reference_images"]) == 3
                             for task in tasks))
-        self.assertTrue(all(not task["character_ids"] for task in tasks))
-        self.assertTrue(all("warm cinematic hand-drawn animation" in task["prompt"]
+        self.assertEqual(tasks[0]["character_ids"], ["young_pro"])
+        self.assertEqual(tasks[1]["character_ids"], [])
+        self.assertIn("same round glasses", tasks[0]["prompt"])
+        self.assertTrue(all("polished colorful 2D chibi animation" in task["prompt"]
                             for task in tasks))
+        self.assertTrue(all("duration badge" in task["prompt"] for task in tasks))
         self.assertTrue(all("complete scene" not in task["negative_prompt"]
                             for task in tasks))
 
@@ -273,9 +294,9 @@ class PublishingV4Tests(unittest.TestCase):
         workflow._compose_reference_cover(base, second, reference, font)
         self.assertEqual(workflow._sha256(first), workflow._sha256(second))
 
-        poster = {"text": {"title_lines": [self.topic["book_title"]],
-                           "subtitle": "", "book_title": self.topic["book_title"],
-                           "author": self.topic["author"]}}
+        poster = {"text": {"book_title": self.topic["book_title"],
+                           "hook": "会赚钱却守不住",
+                           "hook_lines": ["会赚钱却守不住"]}}
         third = os.path.join(self.temp.name, "story_poster_1.png")
         fourth = os.path.join(self.temp.name, "story_poster_2.png")
         palette = {"background": "#172033", "foreground": "#EDF4FF",
@@ -285,12 +306,63 @@ class PublishingV4Tests(unittest.TestCase):
         workflow._compose_book_story_poster(
             base, fourth, poster, palette, font)
         self.assertEqual(workflow._sha256(third), workflow._sha256(fourth))
-        self.assertEqual("".join(lines), self.topic["book_title"])
-        self.assertLessEqual(len(lines), 3)
+        self.assertEqual("".join(lines), poster["text"]["hook"])
+        self.assertLessEqual(len(lines), 2)
         with Image.open(third) as image:
             self.assertEqual(image.size, (1920, 1080))
             thumbnail = image.resize((320, 180))
             self.assertGreater(len(thumbnail.getcolors(maxcolors=320 * 180)), 2)
+
+    def test_poster_preserves_subject_area_and_fits_long_text(self):
+        spec = cover_templates.get_cover_template("book_title_author_v2")
+        typography = spec["typography"]
+        base = Image.new("RGB", (1920, 1080), "#8899AA")
+        draw = workflow.ImageDraw.Draw(base)
+        font_path = workflow._cover_font_path()
+        for hook in ("越抢越亏？", "聪明人为什么也总是掉进消费的陷阱"):
+            box = typography["hook_box"]
+            lines, font, bounds, height, gap = workflow._poster_text_layout(
+                draw, hook, font_path, box, 196, 56,
+                padding=(7, 9), stroke=6)
+            self.assertEqual("".join(lines), hook)
+            self.assertLessEqual(max(b[2] - b[0] for b in bounds) + 26,
+                                 box[2] - box[0])
+            self.assertLessEqual(height + 30, box[3] - box[1])
+        destination = os.path.join(self.temp.name, "preserve_subject.png")
+        workflow._compose_book_story_poster(
+            base, destination, {"text": {"book_title": self.topic["book_title"],
+                                        "hook": "越抢越亏？"}}, {}, font_path)
+        with Image.open(destination) as rendered:
+            self.assertEqual(rendered.crop((0, 530, 1920, 1080)).tobytes(),
+                             base.crop((0, 530, 1920, 1080)).tobytes())
+
+    def test_centered_subtitle_boundaries_and_plan_validation(self):
+        self._select_and_verify_plan()
+        plan = workflow.read_json(self.paths["cover_plan"])
+        snapshot = cover_templates.cover_template_snapshot("book_title_author_v2")
+        base = Image.new("RGB", (1920, 1080), "#8899AA")
+        output_hashes = []
+        for index, subtitle in enumerate(("", "解" * 14)):
+            plan["candidates"][0]["subtitle"] = subtitle
+            self.assertEqual(workflow.validate_cover_plan(
+                plan, snapshot, self.topic, "pub_v4", plan["source_hashes"]), [])
+            destination = os.path.join(self.temp.name, f"subtitle_{index}.png")
+            workflow._compose_book_story_poster(
+                base, destination, {"text": {"book_title": "影响力",
+                                            "hook": "越抢越亏？",
+                                            "subtitle": subtitle}}, {},
+                workflow._cover_font_path())
+            output_hashes.append(workflow._sha256(destination))
+            with Image.open(destination) as rendered:
+                self.assertEqual(rendered.crop((0, 530, 1920, 1080)).tobytes(),
+                                 base.crop((0, 530, 1920, 1080)).tobytes())
+        self.assertNotEqual(*output_hashes)
+        for subtitle in ("解" * 15, "分析\n消费"):
+            plan["candidates"][0]["subtitle"] = subtitle
+            self.assertIn("封面解释副标题必须为0-14字单行文字",
+                          workflow.validate_cover_plan(
+                              plan, snapshot, self.topic, "pub_v4",
+                              plan["source_hashes"]))
 
     def test_finalize_rejects_promoted_child_hash_drift(self):
         os.makedirs(self.paths["approved_root"], exist_ok=True)
@@ -331,9 +403,11 @@ class PublishingV4Tests(unittest.TestCase):
         cover = workflow.read_json(self.paths["cover_candidate"])
         self.assertEqual(len(cover["candidates"]), 2)
         for candidate in cover["candidates"]:
-            self.assertEqual("".join(candidate["text"]["title_lines"]),
+            self.assertEqual(candidate["text"]["book_title"],
                              self.topic["book_title"])
-            self.assertLessEqual(len(candidate["text"]["title_lines"]), 3)
+            self.assertEqual("".join(candidate["text"]["hook_lines"]),
+                             candidate["hook"])
+            self.assertNotIn("author", candidate["text"])
             with Image.open(os.path.join(self.project, candidate["final_path"])) as image:
                 self.assertEqual(image.size, (1920, 1080))
         dimensions = cover["template"]["spec"]["review_dimensions"]

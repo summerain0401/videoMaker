@@ -91,9 +91,14 @@ provider 的唯一事实源，run 只使用 `state.json` 中的完整快照。�
   对应模板 ID、标题 ID、封面 ID 或确认提升时，才能执行相应 select/promote。Agent
   不得替用户选择、把自身审核当作用户确认，或一次性越过多个门禁并 finalize。
 - `reference_006_v1` 使用正式场景锚点与必要角色；`book_title_author_v2` 使用正式场景
-  参考锁定正片手绘质感，并以丰富的主题环境和具象叙事物件构图，不要求人物或角色。所有模板
+  参考锁定正片画风，以完整书名标签和一个痛点或反常识观点作为文字层级；本地排版
+  采用居中书名铭牌、金色观点大字与0–14字白色解释副标题，主体位于文字下方；不展示作者，
+  可选用至多一个正式角色，并采用全画幅电影海报式构图而非左右分栏。所有模板
   都沿用视频 run 固定的图片 provider，交互式 provider 逐张消费密封任务，不增加阶段
   provider 覆盖。
+- 需要在正式流程外迭代模板视觉时，可在项目 `experiments/cover_templates/` 下进行隔离
+  测试；不得创建 publish ID、修改发布状态、写入候选/approved/release 或把实验图视为
+  已验证资产。实验可复用正式场景作风格参考，并应记录提示、迭代目的和产物路径。
 - 当图片 provider 为 `imagegen` 时，Antigravity 在写完 copy 或 cover plan 候选后必须
   立即停止并交还用户切换到 Codex；不得执行 `publish-cover-generate`、调用任何生图
   工具、伪造 PNG 或继续 compose/review/select/promote/finalize。该命令会检查 Codex

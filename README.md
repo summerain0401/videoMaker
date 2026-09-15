@@ -156,7 +156,7 @@ python3 pipeline/workflow.py publish-copy-promote <video_run_id> <publish_id> --
 
 # 封面：先查看推荐依据并人工锁定模板，再规划、生成、合成和审核
 python3 pipeline/workflow.py publish-cover-template-options <video_run_id> <publish_id> --project 001
-python3 pipeline/workflow.py publish-cover-select-template <video_run_id> <publish_id> book_title_author_v2 --project 001 --recommended book_title_author_v2 --reason "突出书名作者并延续正片手绘叙事风格"
+python3 pipeline/workflow.py publish-cover-select-template <video_run_id> <publish_id> book_title_author_v2 --project 001 --recommended book_title_author_v2 --reason "突出书名和单一观点，并延续正片视觉风格"
 python3 pipeline/workflow.py publish-cover-plan <video_run_id> <publish_id> --project 001
 python3 pipeline/workflow.py publish-cover-verify-plan <video_run_id> <publish_id> --project 001
 python3 pipeline/workflow.py publish-cover-generate <video_run_id> <publish_id> --project 001
@@ -169,7 +169,7 @@ python3 pipeline/workflow.py publish-cover-promote <video_run_id> <publish_id> -
 python3 pipeline/workflow.py publish-finalize <video_run_id> <publish_id> --project 001
 ```
 
-封面模板来自版本化注册表，没有默认选择。`reference_006_v1` 沿用正式场景锚点、主题人物和左右钩子结构；`book_title_author_v2` 保持居中书名作者层级，使用正式场景参考锁定正片画风，以暖色手绘环境和具象叙事物件形成前中后景，不要求人物或角色。所有模板都生成两个无模型文字底图，再由本地确定性合成文字。
+封面模板来自版本化注册表，没有默认选择。`reference_006_v1` 沿用正式场景锚点、主题人物和左右钩子结构；`book_title_author_v2` 使用正式场景参考锁定正片画风，以全画幅电影海报式场景承载完整书名和一个痛点或反常识观点，不展示作者，可选用至多一个正式角色，也不使用左右分栏。该模板采用居中书名铭牌、金色观点大字、白色解释副标题三层排版，结合下方完整主体与单一道具；详见 [设计规范](docs/book_title_author_v2.md)。所有模板都生成两个无模型文字底图，再由本地确定性合成文字。
 
 任务包会记录下一图片阶段所需的 Agent 环境。项目图片生成方式为 `imagegen` 时，Antigravity 只能写入发布文案或封面语义方案，随后必须停止；`publish-cover-generate` 只允许在带 Codex 会话标记的环境签发和确认 ImageGen 图片，避免其他工具生成的 PNG 被误记为 ImageGen 产物。
 

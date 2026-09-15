@@ -15,7 +15,7 @@ import subprocess
 import sys
 from collections import Counter
 
-from PIL import Image, ImageStat, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageStat, ImageDraw, ImageFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -2452,9 +2452,12 @@ def _cover_plan_contract(parent, state, hashes):
     template_id = state["template"]["id"]
     if template_id == "book_title_author_v2":
         candidate = {"id": "string", "concept": "string",
-                     "narrative_motif": "concrete thematic objects",
-                     "environment": "rich foreground/midground/background scene",
-                     "subtitle": "0-14 chars"}
+                     "hook": "4-16 chars, prefer 4-8; one topic-grounded pain point or insight",
+                     "hook_type": "pain_point|counter_intuitive|warning",
+                     "subtitle": "0-14 chars; explain hook using topic, no new claim",
+                     "visual_metaphor": "single high-tension visual device",
+                     "environment": "cinematic full-frame scene",
+                     "character_ids": ["0-1 registered id"]}
     else:
         candidate = {"id": "string", "concept": "string", "subject": "string",
                      "composition": "string", "title_lines": "exactly 2 strings",
@@ -2479,7 +2482,7 @@ def cmd_publish_cover_plan(args):
         count = spec.get("style_reference_count", 1)
         context["style_anchor"] = style_references[0]
         context["style_references"] = style_references[:count]
-        if spec["requires_character_ids"]:
+        if spec["requires_character_ids"] or spec["allows_people"]:
             chars_path = os.path.join(ROOT, "assets", "characters.json")
             context["characters"] = (read_json(chars_path)
                                      if os.path.isfile(chars_path) else {})
@@ -2496,8 +2499,10 @@ def cmd_publish_cover_plan(args):
                 "next_image_stage": image_route,
             },
             "instruction": ("只输出两个不同的语义方案，不得输出 provider、model、"
-                            "最终 prompt、negative prompt、图片路径或 hash。书名与作者"
-                            "由本地合成注入。写入 candidate_path 后必须立即停止；"
+                            "最终 prompt、negative prompt、图片路径或 hash。书名和点击"
+                            "钩子和解释副标题由本地合成注入。副标题为0-14字单行，"
+                            "解释同一观点，不增加第二卖点；作者不进入封面。写入 candidate_path "
+                            "后必须立即停止；"
                             f"后续图片只能在 {image_route['required_agent_environment']} "
                             "环境执行，当前内容 Agent 不得代替。"),
             "candidate_path": paths["cover_plan"],
@@ -2523,7 +2528,8 @@ def cmd_publish_cover_verify_plan(args):
     errors = validate_cover_template_snapshot(state["template"])
     errors += validate_cover_plan(read_json(paths["cover_plan"]), state["template"],
                                   source["topic"], parent["publish_id"], hashes)
-    if state["template"]["spec"]["requires_character_ids"]:
+    if state["template"]["spec"]["requires_character_ids"] or \
+            state["template"]["spec"]["allows_people"]:
         task = read_json(paths["cover_task"])
         raw_characters = task.get("source", {}).get("characters", {}).get(
             "characters", task.get("source", {}).get("characters", {}))
@@ -2535,7 +2541,7 @@ def cmd_publish_cover_verify_plan(args):
             valid_ids = set()
         for candidate in read_json(paths["cover_plan"]).get("candidates", []):
             if not set(candidate.get("character_ids", [])) <= valid_ids:
-                errors.append("观点钩子封面包含未知角色 ID")
+                errors.append("封面方案包含未知角色 ID")
     if errors:
         raise RuntimeError("；".join(sorted(set(errors))))
     state.update(status="plan_verified",
@@ -2552,6 +2558,7 @@ def _cover_image_tasks(project, paths, state, source):
     palette = source["brand"].get("visual", {}).get("palette", {})
     palette_text = ", ".join(f"{key} {value}" for key, value in palette.items())
     anchors = []
+    source_context = {}
     if spec["requires_style_anchor"]:
         planning_task = read_json(paths["cover_task"])
         source_context = planning_task.get("source", {})
@@ -2575,20 +2582,36 @@ def _cover_image_tasks(project, paths, state, source):
     for candidate in plan["candidates"]:
         if spec["id"] == "book_title_author_v2":
             description = (
-                "full-frame richly layered illustrated editorial scene; "
-                f"concept: {candidate['concept']}; concrete narrative motif: "
-                f"{candidate['narrative_motif']}; environment: "
-                f"{candidate['environment']}; use foreground, midground and "
-                "background storytelling details; reserve a naturally quiet "
-                "central title field without drawing a flat panel"
+                "high-click cinematic YouTube cover scene; "
+                f"concept: {candidate['concept']}; visual metaphor: "
+                f"{candidate['visual_metaphor']}; environment: "
+                f"{candidate['environment']}; create one immediately readable "
+                "conflict with strong expression, scale contrast and foreground "
+                "depth; place the character or primary subject in the lower "
+                "center-left and the single critical narrative object near "
+                "center-right; keep the bottom-right corner free of indispensable "
+                "details for a platform duration badge; "
+                "keep the upper central area naturally calm for locally composed "
+                "book title and one large hook, without drawing a text panel; "
+                + spec["scene_policy"]
             )
-            character_ids, char_bits = [], []
+            character_ids = candidate["character_ids"]
+            raw_characters = source_context.get("characters", {})
+            raw_characters = raw_characters.get("characters", raw_characters)
+            char_map = ({item.get("id"): item for item in raw_characters}
+                        if isinstance(raw_characters, list) else raw_characters)
+            char_bits = []
+            for character_id in character_ids:
+                character = char_map.get(character_id, {})
+                char_bits.append(", ".join(x for x in (
+                    character.get("prompt"), character.get("anchor")) if x))
             references = [os.path.realpath(os.path.join(project, item["path"]))
                           for item in anchors]
             style = (
-                "match supplied official video frames: warm cinematic hand-drawn "
-                "animation, tactile materials, expressive lighting and rich depth; "
-                "use brand navy and cyan only as secondary accents"
+                "match supplied official video frames exactly: polished colorful "
+                "2D chibi animation, bold clean outlines, cinematic lighting, "
+                "expressive perspective and high visual energy; use brand navy "
+                "and cyan only as secondary accents"
             )
         else:
             description = (f"cover background concept: {candidate['concept']}; subject: "
@@ -2630,11 +2653,17 @@ def _initialize_cover_candidate(paths, state, source, hashes):
     candidates = []
     for item in plan["candidates"]:
         candidate = dict(item)
-        title_lines = item.get("title_lines") or [topic["book_title"]]
-        candidate.update({"text": {"title_lines": title_lines,
-                                   "subtitle": item.get("subtitle", ""),
-                                   "book_title": topic["book_title"],
-                                   "author": topic["author"]},
+        if state["template"]["id"] == "book_title_author_v2":
+            text = {"book_title": topic["book_title"],
+                    "hook": item["hook"], "hook_lines": [item["hook"]],
+                    "subtitle": item["subtitle"]}
+        else:
+            text = {"title_lines": item.get("title_lines") or
+                    [topic["book_title"]],
+                    "subtitle": item.get("subtitle", ""),
+                    "book_title": topic["book_title"],
+                    "author": topic["author"]}
+        candidate.update({"text": text,
                           "base_path": None, "base_sha256": None,
                           "final_path": None, "sha256": None,
                           "cover_task": None, "visual_review": None})
@@ -2781,61 +2810,133 @@ def _cover_font_path():
     return next((path for path in candidates if os.path.exists(path)), None)
 
 
-def _compose_book_story_poster(base, destination, candidate, palette, font_path):
-    """Compose centered typography while preserving a rich illustrated scene."""
-    image = base.convert("RGB").resize((1920, 1080), Image.Resampling.LANCZOS)
+def _poster_text_layout(draw, text, font_path, box, start, minimum,
+                        padding=(0, 0), stroke=0):
+    """Fit exact text into a bounded region using measured glyph bounds."""
+    x0, y0, x1, y1 = box
+    width = x1 - x0 - 2 * (padding[0] + stroke)
+    height = y1 - y0 - 2 * (padding[1] + stroke)
+    for count in (1, 2):
+        lines = _balanced_title_lines(text, count)
+        for size in range(start, minimum - 1, -2):
+            font = ImageFont.truetype(font_path, size)
+            boxes = [draw.textbbox((0, 0), line, font=font) for line in lines]
+            gap = max(6, size // 10)
+            total = sum(b[3] - b[1] for b in boxes) + gap * (count - 1)
+            if max(b[2] - b[0] for b in boxes) <= width and total <= height:
+                return lines, font, boxes, total, gap
+    raise RuntimeError("完整封面文字无法放入模板安全区，请调整钩子长度")
+
+
+def _compose_book_story_poster(base, destination, candidate, palette, font_path,
+                               spec=None):
+    """Compose a centered book plaque, gold headline and white explainer."""
+    spec = spec or cover_template_snapshot("book_title_author_v2")["spec"]
+    typography = spec["typography"]
+    image = base.convert("RGB").resize(tuple(spec["canvas"]),
+                                        Image.Resampling.LANCZOS)
     background = _hex_rgb(palette.get("background"), (23, 32, 51))
     foreground = _hex_rgb(palette.get("foreground"), (237, 244, 255))
-    accent = _hex_rgb(palette.get("accent"), (88, 196, 216))
+    shadow = (7, 16, 35)
 
-    # 柔化的中央书封光场只负责可读性，保留四周叙事物件和正片色彩。
-    mask = Image.new("L", image.size, 0)
-    mask_draw = ImageDraw.Draw(mask)
-    mask_draw.rounded_rectangle((260, 105, 1660, 970), radius=170, fill=158)
-    mask = mask.filter(ImageFilter.GaussianBlur(95))
-    veil = Image.new("RGBA", image.size, (*background, 0))
-    veil.putalpha(mask)
+    # 轻量文字区遮罩稳定对比度；完整保留主体、道具与原生景深。
+    veil = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    veil_draw = ImageDraw.Draw(veil)
+    subject_top = typography["subject_top"]
+    for y in range(subject_top):
+        alpha = round(50 * max(0, 1 - y / subject_top))
+        veil_draw.line((0, y, 1920, y), fill=(*background, alpha))
     image = Image.alpha_composite(image.convert("RGBA"), veil).convert("RGB")
-
-    # 轻量品牌框线提供出版物秩序，但避免形成企业科技面板。
     draw = ImageDraw.Draw(image)
-    draw.line((440, 144, 1480, 144), fill=(*accent,), width=3)
-    draw.ellipse((948, 132, 972, 156), fill=accent,
-                 outline=background, width=3)
-    draw.line((570, 920, 1350, 920), fill=(*accent,), width=3)
 
-    title = candidate["text"]["book_title"]
-    lines, title_font, line_height = _fit_centered_title(
-        draw, font_path, title, start=228)
-    total = line_height * len(lines)
-    y = 225 + (430 - total) / 2
-    for line in lines:
-        box = draw.textbbox((0, 0), line, font=title_font)
-        width = box[2] - box[0]
-        draw.text(((1920 - width) / 2 + 7, y + 9), line,
-                  font=title_font, fill=background,
-                  stroke_width=7, stroke_fill=background)
-        draw.text(((1920 - width) / 2, y), line, font=title_font,
-                  fill=foreground, stroke_width=2, stroke_fill=background)
-        y += line_height
+    label = f"《{candidate['text']['book_title']}》"
+    tag_box = typography["book_tag_box"]
+    padding = typography["book_padding"]
+    lines, font, boxes, height, gap = _poster_text_layout(
+        draw, label, font_path, tag_box, typography["book_font_size"], 28,
+        padding=padding)
+    tag_width = max(500, max(b[2] - b[0] for b in boxes) + 2 * padding[0])
+    tag_height = height + 2 * padding[1]
+    x0 = (1920 - tag_width) / 2
+    y0 = tag_box[1]
+    # 克制的翻开书页和双层金属铭牌，所有装饰随书名宽度居中。
+    for index in range(5):
+        rise = 40 - index * 6
+        inset = 46 + index * 14
+        for direction in (-1, 1):
+            draw.polygon(((960, y0 + 10),
+                          (960 + direction * (tag_width / 2 - inset), y0 - rise),
+                          (960 + direction * (tag_width / 2 - 25), y0 + 14)),
+                         fill=(168 + index * 10, 155 + index * 10,
+                               131 + index * 10), outline=(86, 74, 61))
+    plate = (x0, y0, x0 + tag_width, y0 + tag_height)
+    draw.rounded_rectangle((x0 - 6, y0 + 5, plate[2] + 6, plate[3] + 9),
+                           radius=13, fill=shadow)
+    draw.rounded_rectangle(plate, radius=12, fill=(114, 100, 86),
+                           outline=(216, 207, 184), width=5)
+    draw.rounded_rectangle((x0 + 10, y0 + 10, plate[2] - 10, plate[3] - 10),
+                           radius=7, outline=(175, 160, 140), width=2)
+    for bolt_x in (x0 + 20, plate[2] - 20):
+        for bolt_y in (y0 + 20, plate[3] - 20):
+            draw.ellipse((bolt_x - 3, bolt_y - 3, bolt_x + 3, bolt_y + 3),
+                         fill=(235, 225, 204), outline=(54, 48, 44))
+    y = y0 + padding[1]
+    for line, bounds in zip(lines, boxes):
+        x = x0 + (tag_width - (bounds[2] - bounds[0])) / 2
+        draw.text((x - bounds[0], y - bounds[1]), line, font=font,
+                  fill=(255, 240, 207), stroke_width=2,
+                  stroke_fill=(56, 43, 33))
+        y += bounds[3] - bounds[1] + gap
 
-    author = candidate["text"]["author"]
-    author_font = _cover_font(draw, font_path, author, 1050, 60)
-    author_width = draw.textbbox((0, 0), author, font=author_font)[2]
+    hook_box = typography["hook_box"]
+    stroke = typography["stroke_width"]
+    offset_x, offset_y = typography["shadow_offset"]
+    lines, font, boxes, height, gap = _poster_text_layout(
+        draw, candidate["text"]["hook"], font_path, hook_box,
+        typography["hook_font_size"], typography["hook_min_font_size"],
+        padding=(offset_x, offset_y), stroke=stroke)
+    y = hook_box[1] + (hook_box[3] - hook_box[1] - height) / 2
+    for line, bounds in zip(lines, boxes):
+        x = (hook_box[0] + hook_box[2] - (bounds[2] - bounds[0])) / 2
+        position = (x - bounds[0], y - bounds[1])
+        draw.text((position[0] + offset_x, position[1] + offset_y),
+                  line, font=font, fill=shadow,
+                  stroke_width=stroke, stroke_fill=shadow)
+        draw.text(position, line, font=font, fill=(228, 174, 67),
+                  stroke_width=stroke, stroke_fill=shadow)
+        # 仅在字形内填充金色渐变，轮廓和短投影保持清晰。
+        mask = Image.new("L", image.size, 0)
+        ImageDraw.Draw(mask).text(position, line, font=font, fill=255)
+        gradient = Image.new("RGB", image.size)
+        gradient_draw = ImageDraw.Draw(gradient)
+        colors = [_hex_rgb(color, (231, 182, 80))
+                  for color in typography["hook_gradient"]]
+        glyph_height = bounds[3] - bounds[1]
+        for row in range(int(y), int(y + glyph_height) + 2):
+            fraction = min(1, max(0, (row - y) / max(1, glyph_height)))
+            index = min(1, int(fraction * 2))
+            blend = fraction * 2 - index
+            color = tuple(round(a + (b - a) * blend)
+                          for a, b in zip(colors[index], colors[index + 1]))
+            gradient_draw.line((0, row, 1920, row), fill=color)
+        image = Image.composite(gradient, image, mask)
+        draw = ImageDraw.Draw(image)
+        y += bounds[3] - bounds[1] + gap
     subtitle = candidate["text"].get("subtitle", "")
-    divider_y = 733 if subtitle else 755
-    draw.line((770, divider_y, 1150, divider_y), fill=accent, width=5)
-    author_y = divider_y + 36
-    draw.text(((1920 - author_width) / 2, author_y), author,
-              font=author_font, fill=accent,
-              stroke_width=2, stroke_fill=background)
     if subtitle:
-        subtitle_font = _cover_font(draw, font_path, subtitle, 1000, 42)
-        subtitle_width = draw.textbbox((0, 0), subtitle,
-                                       font=subtitle_font)[2]
-        draw.text(((1920 - subtitle_width) / 2, 875), subtitle,
-                  font=subtitle_font, fill=foreground,
-                  stroke_width=2, stroke_fill=background)
+        sx0, sy0, sx1, sy1 = typography["subtitle_box"]
+        font = _cover_font(draw, font_path, subtitle, sx1 - sx0 - 180,
+                           typography["subtitle_font_size"], 38)
+        bounds = draw.textbbox((0, 0), subtitle, font=font)
+        width, height = bounds[2] - bounds[0], bounds[3] - bounds[1]
+        x = (1920 - width) / 2
+        y = (sy0 + sy1 - height) / 2
+        draw.text((x - bounds[0], y - bounds[1]), subtitle, font=font,
+                  fill=foreground, stroke_width=4, stroke_fill=shadow)
+        middle = (sy0 + sy1) / 2
+        for start, end in ((x - 90, x - 28), (x + width + 28, x + width + 90)):
+            draw.line((start, middle + 3, end, middle + 3), fill=shadow, width=8)
+            draw.line((start, middle, end, middle), fill=foreground, width=4)
     image.save(destination, "PNG")
     return lines
 
@@ -2884,8 +2985,9 @@ def cmd_publish_cover_compose(args):
         with Image.open(base_path) as base:
             if state["template"]["id"] == "book_title_author_v2":
                 lines = _compose_book_story_poster(base, destination, candidate,
-                                                   palette, font_path)
-                candidate["text"]["title_lines"] = lines
+                                                   palette, font_path,
+                                                   state["template"]["spec"])
+                candidate["text"]["hook_lines"] = lines
             else:
                 _compose_reference_cover(base, destination, candidate, font_path)
         candidate["final_path"] = os.path.relpath(destination, project)
