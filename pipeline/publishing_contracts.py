@@ -328,7 +328,7 @@ def validate_publish_copy(data, sources=None, script_text=None, copy_data=None,
 
 
 def validate_cover_plan(data, template_snapshot, topic, publish_id,
-                        expected_source_hashes):
+                        expected_source_hashes, frozen_candidates=None):
     """Validate semantic cover concepts before any provider prompt is built."""
     errors = []
     required = {"version", "publish_id", "source_hashes", "template_id",
@@ -360,7 +360,8 @@ def validate_cover_plan(data, template_snapshot, topic, publish_id,
             required_candidate = {"id", "concept", "hook", "hook_type",
                                   "visual_metaphor", "environment", "subtitle",
                                   "character_ids"}
-            if set(candidate) != required_candidate:
+            allowed_candidate = required_candidate | {"variant_controls"}
+            if set(candidate) not in (required_candidate, allowed_candidate):
                 errors.append("书名观点叙事封面候选字段不符合契约")
             symbols.append(candidate.get("visual_metaphor"))
             hooks.append(candidate.get("hook"))
@@ -384,6 +385,14 @@ def validate_cover_plan(data, template_snapshot, topic, publish_id,
             character_ids = candidate.get("character_ids")
             if not isinstance(character_ids, list) or len(character_ids) > 1:
                 errors.append("书名观点叙事封面最多使用一个正式角色")
+            controls = candidate.get("variant_controls")
+            if controls is not None:
+                control_keys = {"shot_scale", "composition", "subject_pose",
+                                "lighting"}
+                if not isinstance(controls, dict) or set(controls) != control_keys or \
+                        any(not isinstance(controls.get(key), str) or
+                            not controls[key].strip() for key in control_keys):
+                    errors.append("封面受控变体参数不完整")
         else:
             required_candidate = {"id", "concept", "subject", "composition",
                                   "title_lines", "subtitle", "character_ids"}
@@ -394,12 +403,14 @@ def validate_cover_plan(data, template_snapshot, topic, publish_id,
                 errors.append("观点钩子封面必须提供两行标题")
             if not candidate.get("character_ids"):
                 errors.append("观点钩子封面必须提供角色 ID")
-    if len(set(concepts)) != len(candidates):
+    if frozen_candidates is not None and candidates != frozen_candidates:
+        errors.append("正式封面方案与冻结的 Cover Lab 设计不一致")
+    if frozen_candidates is None and len(set(concepts)) != len(candidates):
         errors.append("两个封面候选必须使用不同视觉概念")
-    if spec.get("id") == "book_title_author_v2" and \
+    if frozen_candidates is None and spec.get("id") == "book_title_author_v2" and \
             len(set(symbols)) != len(candidates):
         errors.append("两个书名观点封面候选必须使用不同视觉冲突")
-    if spec.get("id") == "book_title_author_v2" and \
+    if frozen_candidates is None and spec.get("id") == "book_title_author_v2" and \
             len(set(hooks)) != len(candidates):
         errors.append("两个书名观点封面候选必须使用不同点击钩子")
     errors.extend(scan_compliance(data))

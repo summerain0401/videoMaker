@@ -96,9 +96,15 @@ provider 的唯一事实源，run 只使用 `state.json` 中的完整快照。�
   可选用至多一个正式角色，并采用全画幅电影海报式构图而非左右分栏。所有模板
   都沿用视频 run 固定的图片 provider，交互式 provider 逐张消费密封任务，不增加阶段
   provider 覆盖。
-- 需要在正式流程外迭代模板视觉时，可在项目 `experiments/cover_templates/` 下进行隔离
-  测试；不得创建 publish ID、修改发布状态、写入候选/approved/release 或把实验图视为
-  已验证资产。实验可复用正式场景作风格参考，并应记录提示、迭代目的和产物路径。
+- 封面方向尚未稳定或用户需要多轮视觉打磨时，先使用 `cover-design-lab` skill，在项目
+  `experiments/cover_templates/{lab_id}/` 下隔离探索。Cover Lab 不限迭代轮次，必须累计
+  记录喜欢、否决和下一轮约束；不得创建 publish ID、修改发布状态或把实验图视为正式资产。
+  Cover Lab V1 仅支持 `book_title_author_v2`；其他模板继续走原正式路径。
+  用户明确确认后才可冻结设计包。正式发布锁定同一模板后，可用
+  `publish-cover-import-design --lab-id ...` 原样导入冻结方向；此后只允许景别、构图、主体姿态
+  和光线的受控变体，不得重新发明钩子、视觉隐喻或核心概念。
+  用户选定正式发布标题后，还须执行 `publish-cover-title-check`，记录标题与封面钩子如何
+  形成互补悬念并绑定 copy/cover plan hash；缺失或过期时不得提升导入的 Cover Lab 封面。
 - 当图片 provider 为 `imagegen` 时，Antigravity 在写完 copy 或 cover plan 候选后必须
   立即停止并交还用户切换到 Codex；不得执行 `publish-cover-generate`、调用任何生图
   工具、伪造 PNG 或继续 compose/review/select/promote/finalize。该命令会检查 Codex

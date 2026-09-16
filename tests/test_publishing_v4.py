@@ -189,6 +189,102 @@ class PublishingV4Tests(unittest.TestCase):
                 **vars(self.args), template_id="reference_006_v1",
                 recommended="reference_006_v1", reason="change"))
 
+    def test_cover_lab_freeze_and_import_preserve_one_direction(self):
+        self._write_style_references()
+        selection = SimpleNamespace(
+            **vars(self.args), template_id="book_title_author_v2",
+            recommended="book_title_author_v2",
+            reason="先在实验区打磨同一叙事方向")
+        workflow.cmd_publish_cover_select_template(selection)
+        lab_id = "wealth_systems"
+        lab_paths = workflow.cover_lab_paths(self.project, lab_id)
+        parent = workflow.read_json(self.paths["state"])
+        direction = {
+            "concept": "财富双系统",
+            "hook": "会赚钱却守不住",
+            "hook_type": "pain_point",
+            "subtitle": "理解两种财富能力",
+            "visual_metaphor": "同一只手创造金币却从破裂保险箱流失",
+            "environment": "暖光书房连接夜色城市橱窗",
+            "character_ids": [],
+            "preserve": ["单一人物与单一道具形成清晰因果"],
+            "avoid": ["左右分栏与装饰性发光圆环"],
+        }
+        variants = []
+        for suffix, scale, composition, pose, lighting in (
+                ("a", "medium close shot", "低位中心三角构图",
+                 "伸手试图接住流失金币", "暖色主光与冷色背景"),
+                ("b", "wide shot", "斜向因果轨迹构图",
+                 "双手分别创造与守护", "冷色主光与金色边缘光")):
+            variants.append({
+                "id": f"cover_{suffix}",
+                **{key: direction[key] for key in (
+                    "concept", "hook", "hook_type", "subtitle",
+                    "visual_metaphor", "environment", "character_ids")},
+                "variant_controls": {
+                    "shot_scale": scale, "composition": composition,
+                    "subject_pose": pose, "lighting": lighting,
+                },
+            })
+        draft = {
+            "version": 1, "lab_id": lab_id, "project_id": "001",
+            "video_run_id": "run_video",
+            "topic_sha256": parent["source_hashes"]["topic"],
+            "template_id": "book_title_author_v2", "status": "draft",
+            "direction": direction, "variants": variants,
+            "title_context": {
+                "working_title": "为什么会赚钱的人最后还是留不住财富",
+                "relationship": "标题提出原因，封面用损失反差制造追问",
+                "status": "provisional", "checked_at": None,
+            },
+            "feedback_history": [{
+                "round": 1, "liked": ["人物动作清晰"],
+                "rejected": ["道具过多"],
+                "next_iteration": ["只保留保险箱一个核心道具"],
+            }],
+            "references": [], "frozen_at": None, "draft_sha256": None,
+        }
+        workflow.write_json(lab_paths["draft"], draft)
+        workflow.cmd_cover_lab_freeze(SimpleNamespace(
+            project="001", video_run_id="run_video", lab_id=lab_id,
+            confirm_freeze=True))
+        frozen = workflow.read_json(lab_paths["frozen"])
+        self.assertEqual(frozen["status"], "frozen")
+        workflow.cmd_publish_cover_import_design(SimpleNamespace(
+            **vars(self.args), lab_id=lab_id))
+        plan = workflow.read_json(self.paths["cover_plan"])
+        self.assertEqual(plan["candidates"], frozen["variants"])
+        self.assertEqual(len({item["hook"] for item in plan["candidates"]}), 1)
+        imported_state = workflow.read_json(self.paths["cover_state"])
+        self.assertIn("标题协同复检",
+                      workflow._cover_title_synergy_errors(
+                          self.paths, imported_state)[0])
+        original_hook = plan["candidates"][0]["hook"]
+        plan["candidates"][0]["hook"] = "擅自改写的钩子"
+        workflow.write_json(self.paths["cover_plan"], plan)
+        with self.assertRaisesRegex(RuntimeError, "冻结的 Cover Lab"):
+            workflow.cmd_publish_cover_verify_plan(self.args)
+        plan["candidates"][0]["hook"] = original_hook
+        workflow.write_json(self.paths["cover_plan"], plan)
+        workflow.cmd_publish_cover_verify_plan(self.args)
+        state = workflow.read_json(self.paths["cover_state"])
+        self.assertEqual(state["status"], "plan_verified")
+        _, source, _ = workflow._publish_sources(self.project, "main")
+        tasks = workflow._cover_image_tasks(self.project, self.paths,
+                                            state, source)
+        self.assertIn("controlled variant execution", tasks[0]["prompt"])
+        self.assertNotEqual(tasks[0]["prompt"], tasks[1]["prompt"])
+        workflow.cmd_publish_copy_run(self.args)
+        workflow.write_json(self.paths["copy_candidate"], self._copy_candidate())
+        workflow.cmd_publish_copy_select(SimpleNamespace(
+            **vars(self.args), title_id="title_0"))
+        workflow.cmd_publish_cover_title_check(SimpleNamespace(
+            **vars(self.args), title_id="title_0",
+            reason="正式标题解释两套能力，封面钩子突出守不住的损失反差"))
+        state = workflow.read_json(self.paths["cover_state"])
+        self.assertEqual(workflow._cover_title_synergy_errors(
+            self.paths, state), [])
+
     def test_reference_template_keeps_scene_anchor_and_character(self):
         scenes = os.path.join(self.project, "assets", "scenes")
         os.makedirs(scenes, exist_ok=True)

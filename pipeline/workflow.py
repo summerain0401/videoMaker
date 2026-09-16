@@ -28,6 +28,8 @@ from cover_templates import (
     COVER_TEMPLATE_IDS, cover_template_catalog, cover_template_snapshot,
     validate_cover_template_snapshot,
 )
+from cover_lab import (cover_lab_paths, cover_plan_from_frozen,
+                       validate_cover_lab_design)
 from providers import IMAGE_PROVIDERS, LLM_PROVIDERS, make_image, make_llm
 from workflow_contracts import (
     ALL_STAGES, APPROVAL_STAGES, STAGE_STATES, build_image_tasks,
@@ -2280,7 +2282,9 @@ def cmd_publish_init(args):
                    "status": "awaiting_template", "template_selection": None,
                    "template": None, "verified_plan_hash": None,
                    "verified_hash": None, "promoted_hash": None,
-                   "generation": None, "updated_at": ""}
+                   "generation": None, "frozen_design": None,
+                   "title_synergy": None,
+                   "updated_at": ""}
     for path in (paths["state"], paths["copy_state"], paths["cover_state"]):
         os.makedirs(os.path.dirname(path), exist_ok=True)
     _save_publish_parent(paths, parent)
@@ -2448,6 +2452,59 @@ def cmd_publish_cover_select_template(args):
     print(json.dumps(selection, ensure_ascii=False, indent=2))
 
 
+def cmd_cover_lab_freeze(args):
+    """Freeze an explicitly approved exploratory cover design package."""
+    if not args.confirm_freeze:
+        raise RuntimeError("冻结 Cover Lab 设计必须显式传入 --confirm-freeze")
+    project = set_project(args.project)
+    _load_video_run(project, args.video_run_id)
+    paths = cover_lab_paths(project, args.lab_id)
+    if not os.path.isfile(paths["draft"]):
+        raise FileNotFoundError(paths["draft"])
+    if os.path.exists(paths["frozen"]):
+        raise FileExistsError("Cover Lab 已存在冻结设计；如需新方向请创建新的 lab ID")
+    data = read_json(paths["draft"])
+    if data.get("status") != "draft":
+        raise RuntimeError("只能冻结 status=draft 的 Cover Lab 设计包")
+    template = cover_template_snapshot(data.get("template_id"))
+    topic_path = _formal_source_paths(project)["topic"]
+    errors = validate_cover_lab_design(
+        data, args.project, args.video_run_id, _sha256(topic_path), template,
+        project, require_frozen=False)
+    if errors:
+        raise RuntimeError("；".join(errors))
+    frozen = dict(data)
+    frozen.update(status="frozen",
+                  frozen_at=datetime.datetime.now().isoformat(),
+                  draft_sha256=_sha256(paths["draft"]))
+    errors = validate_cover_lab_design(
+        frozen, args.project, args.video_run_id, _sha256(topic_path), template,
+        project, require_frozen=True)
+    if errors:
+        raise RuntimeError("；".join(errors))
+    write_json(paths["frozen"], frozen)
+    print(json.dumps({"lab_id": args.lab_id, "status": "frozen",
+                      "artifact": paths["frozen"],
+                      "sha256": _sha256(paths["frozen"])},
+                     ensure_ascii=False, indent=2))
+
+
+def _cover_planning_source(project, state, source):
+    """Build the source snapshot shared by generated and imported plans."""
+    spec = state["template"]["spec"]
+    context = {"topic": source["topic"], "brand": source["brand"]}
+    if spec["requires_style_anchor"]:
+        style_references = _cover_style_references(project)
+        count = spec.get("style_reference_count", 1)
+        context["style_anchor"] = style_references[0]
+        context["style_references"] = style_references[:count]
+        if spec["requires_character_ids"] or spec["allows_people"]:
+            chars_path = os.path.join(ROOT, "assets", "characters.json")
+            context["characters"] = (read_json(chars_path)
+                                     if os.path.isfile(chars_path) else {})
+    return context
+
+
 def _cover_plan_contract(parent, state, hashes):
     template_id = state["template"]["id"]
     if template_id == "book_title_author_v2":
@@ -2468,24 +2525,14 @@ def _cover_plan_contract(parent, state, hashes):
 
 
 def cmd_publish_cover_plan(args):
-    _, paths, parent, _, source, hashes = _publish_v4_context(args)
+    project, paths, parent, _, source, hashes = _publish_v4_context(args)
     state = read_json(paths["cover_state"])
     if not state.get("template_selection") or not state.get("template"):
         raise RuntimeError("必须先由用户人工选择并锁定封面模板")
     if state.get("status") in ("plan_verified", "generated", "composed", "selected",
                                "verified", "promoted"):
         raise RuntimeError("封面方案已冻结或进入后续阶段")
-    spec = state["template"]["spec"]
-    context = {"topic": source["topic"], "brand": source["brand"]}
-    if spec["requires_style_anchor"]:
-        style_references = _cover_style_references(set_project(args.project))
-        count = spec.get("style_reference_count", 1)
-        context["style_anchor"] = style_references[0]
-        context["style_references"] = style_references[:count]
-        if spec["requires_character_ids"] or spec["allows_people"]:
-            chars_path = os.path.join(ROOT, "assets", "characters.json")
-            context["characters"] = (read_json(chars_path)
-                                     if os.path.isfile(chars_path) else {})
+    context = _cover_planning_source(project, state, source)
     image_route = _interactive_image_execution_route(
         parent["providers"]["image"])
     task = {"stage": "publish-cover", "source": context,
@@ -2518,16 +2565,157 @@ def cmd_publish_cover_plan(args):
                       "state": state["status"]}, ensure_ascii=False, indent=2))
 
 
+def cmd_publish_cover_import_design(args):
+    """Import one frozen Cover Lab package without creative rewriting."""
+    project, paths, parent, _, source, hashes = _publish_v4_context(args)
+    state = read_json(paths["cover_state"])
+    if not state.get("template_selection") or not state.get("template"):
+        raise RuntimeError("必须先由用户人工选择并锁定封面模板")
+    if state.get("status") != "template_selected":
+        raise RuntimeError("只有尚未规划的封面流程可以导入 Cover Lab 设计")
+    lab_paths = cover_lab_paths(project, args.lab_id)
+    if not os.path.isfile(lab_paths["frozen"]):
+        raise FileNotFoundError(lab_paths["frozen"])
+    frozen = read_json(lab_paths["frozen"])
+    errors = validate_cover_lab_design(
+        frozen, parent["project_id"], parent["video_run_id"], hashes["topic"],
+        state["template"], project, require_frozen=True)
+    if errors:
+        raise RuntimeError("；".join(errors))
+    context = _cover_planning_source(project, state, source)
+    plan = cover_plan_from_frozen(frozen, parent["publish_id"], hashes)
+    task = {
+        "stage": "publish-cover", "source": context,
+        "source_hashes": hashes, "template": state["template"],
+        "template_selection": state["template_selection"],
+        "frozen_design": {
+            "lab_id": args.lab_id,
+            "path": os.path.relpath(lab_paths["frozen"], project),
+            "sha256": _sha256(lab_paths["frozen"]),
+        },
+        "execution_boundary": {
+            "allowed_in_this_task": ["verify_imported_cover_plan"],
+            "must_stop_after_candidate": True,
+            "forbidden": ["rewrite_concept", "rewrite_hook", "rewrite_metaphor",
+                          "generate_image", "compose_cover", "select_cover",
+                          "promote", "finalize"],
+            "next_image_stage": _interactive_image_execution_route(
+                parent["providers"]["image"]),
+        },
+        "instruction": ("此方案来自用户确认的 Cover Lab 冻结设计；正式流程不得重新"
+                        "创作或改写，只能验证后生成两个受控变体。"),
+        "candidate_path": paths["cover_plan"],
+        "output_contract": _cover_plan_contract(parent, state, hashes),
+    }
+    write_json(paths["cover_task"], task)
+    write_json(paths["cover_plan"], plan)
+    state.update(status="plan_generated", frozen_design=task["frozen_design"])
+    _save_publish_child(paths["cover_state"], state)
+    parent["children"]["cover"] = "plan_generated"
+    _save_publish_parent(paths, parent)
+    print(json.dumps({"lab_id": args.lab_id, "candidate": paths["cover_plan"],
+                      "state": "plan_generated", "creative_rewrite": False},
+                     ensure_ascii=False, indent=2))
+
+
+def _normalized_cover_text(value):
+    return re.sub(r"[^0-9a-zA-Z\u4e00-\u9fff]+", "", value or "").lower()
+
+
+def _cover_title_synergy_errors(paths, cover_state):
+    """Check the hash-bound title/cover review for imported lab designs."""
+    if not cover_state.get("frozen_design"):
+        return []
+    record = cover_state.get("title_synergy")
+    if not isinstance(record, dict):
+        return ["Cover Lab 封面必须在正式标题选定后完成标题协同复检"]
+    errors = []
+    if not os.path.isfile(paths["copy_candidate"]) or \
+            record.get("copy_candidate_sha256") != _sha256(paths["copy_candidate"]):
+        errors.append("标题协同复检绑定的发布文案 hash 已变化")
+    if not os.path.isfile(paths["cover_plan"]) or \
+            record.get("cover_plan_sha256") != _sha256(paths["cover_plan"]):
+        errors.append("标题协同复检绑定的封面方案 hash 已变化")
+    if os.path.isfile(paths["copy_candidate"]):
+        youtube = read_json(paths["copy_candidate"]).get("platforms", {}).get(
+            "youtube", {})
+        if youtube.get("selected_title_id") != record.get("title_id"):
+            errors.append("标题协同复检与当前正式标题选择不一致")
+    if not record.get("relationship_reason"):
+        errors.append("标题协同复检缺少互补关系说明")
+    return errors
+
+
+def cmd_publish_cover_title_check(args):
+    """Bind a human-reviewed final title to an imported Cover Lab direction."""
+    _, paths, parent, _, _, _ = _publish_v4_context(args)
+    cover_state = read_json(paths["cover_state"])
+    if not cover_state.get("frozen_design"):
+        raise RuntimeError("标题协同复检仅适用于导入的 Cover Lab 设计")
+    if not os.path.isfile(paths["cover_plan"]):
+        raise RuntimeError("必须先导入并生成正式封面方案")
+    copy_state = read_json(paths["copy_state"])
+    if copy_state.get("status") not in ("selected", "verified", "promoted"):
+        raise RuntimeError("必须先由用户人工选择正式发布标题")
+    copy_data = read_json(paths["copy_candidate"])
+    youtube = copy_data.get("platforms", {}).get("youtube", {})
+    if youtube.get("selected_title_id") != args.title_id:
+        raise RuntimeError("title ID 与当前人工选择的正式标题不一致")
+    title = next((item.get("title") for item in youtube.get("titles", [])
+                  if item.get("id") == args.title_id), None)
+    if not title:
+        raise RuntimeError("正式标题候选不存在")
+    plan = read_json(paths["cover_plan"])
+    hooks = [item.get("hook") or "".join(item.get("title_lines", []))
+             for item in plan.get("candidates", [])]
+    normalized_title = _normalized_cover_text(title)
+    if any(_normalized_cover_text(hook) == normalized_title for hook in hooks):
+        raise RuntimeError("封面钩子不得机械复述正式视频标题")
+    reason = args.reason.strip()
+    if not reason:
+        raise RuntimeError("必须说明标题与封面钩子如何形成互补悬念")
+    record = {
+        "title_id": args.title_id, "title": title, "cover_hooks": hooks,
+        "relationship_reason": reason,
+        "copy_candidate_sha256": _sha256(paths["copy_candidate"]),
+        "cover_plan_sha256": _sha256(paths["cover_plan"]),
+        "checked_at": datetime.datetime.now().isoformat(),
+        "checked_by": "user_confirmed",
+    }
+    cover_state["title_synergy"] = record
+    _save_publish_child(paths["cover_state"], cover_state)
+    print(json.dumps(record, ensure_ascii=False, indent=2))
+
+
 def cmd_publish_cover_verify_plan(args):
-    _, paths, parent, _, source, hashes = _publish_v4_context(args)
+    project, paths, parent, _, source, hashes = _publish_v4_context(args)
     state = read_json(paths["cover_state"])
     if not state.get("template"):
         raise RuntimeError("尚未人工选择封面模板")
     if state.get("status") not in ("awaiting_external", "plan_generated"):
         raise RuntimeError("封面方案当前状态不可校验")
     errors = validate_cover_template_snapshot(state["template"])
+    frozen_candidates = None
+    frozen_record = state.get("frozen_design")
+    if frozen_record:
+        frozen_path = os.path.realpath(os.path.join(project,
+                                                   frozen_record.get("path", "")))
+        expected_root = os.path.realpath(os.path.join(
+            project, "experiments", "cover_templates"))
+        if os.path.commonpath((expected_root, frozen_path)) != expected_root or \
+                not os.path.isfile(frozen_path) or \
+                _sha256(frozen_path) != frozen_record.get("sha256"):
+            errors.append("Cover Lab 冻结设计路径或 hash 已变化")
+        else:
+            frozen = read_json(frozen_path)
+            errors += validate_cover_lab_design(
+                frozen, parent["project_id"], parent["video_run_id"],
+                hashes["topic"], state["template"], project,
+                require_frozen=True)
+            frozen_candidates = frozen.get("variants")
     errors += validate_cover_plan(read_json(paths["cover_plan"]), state["template"],
-                                  source["topic"], parent["publish_id"], hashes)
+                                  source["topic"], parent["publish_id"], hashes,
+                                  frozen_candidates=frozen_candidates)
     if state["template"]["spec"]["requires_character_ids"] or \
             state["template"]["spec"]["allows_people"]:
         task = read_json(paths["cover_task"])
@@ -2581,6 +2769,9 @@ def _cover_image_tasks(project, paths, state, source):
     tasks = []
     for candidate in plan["candidates"]:
         if spec["id"] == "book_title_author_v2":
+            controls = candidate.get("variant_controls") or {}
+            control_text = "; ".join(
+                f"{key}: {value}" for key, value in controls.items())
             description = (
                 "high-click cinematic YouTube cover scene; "
                 f"concept: {candidate['concept']}; visual metaphor: "
@@ -2593,6 +2784,8 @@ def _cover_image_tasks(project, paths, state, source):
                 "details for a platform duration badge; "
                 "keep the upper central area naturally calm for locally composed "
                 "book title and one large hook, without drawing a text panel; "
+                + (f"controlled variant execution: {control_text}; "
+                   if control_text else "")
                 + spec["scene_policy"]
             )
             character_ids = candidate["character_ids"]
@@ -2628,7 +2821,9 @@ def _cover_image_tasks(project, paths, state, source):
                      if not spec["allows_people"] else ""))
         sources = {"style": style, "palette": palette_text,
                    "description": description, "char_bits": char_bits,
-                   "shot": "wide", "emotion": "neutral",
+                   "shot": (candidate.get("variant_controls") or {}).get(
+                       "shot_scale", "wide"),
+                   "emotion": "neutral",
                    "text_policy": "no readable text; local compositor adds all typography"}
         prompt = build_image_prompt(**sources)
         task = {"key": candidate["id"], "prompt": prompt,
@@ -3143,6 +3338,9 @@ def cmd_publish_cover_promote(args):
         raise RuntimeError("封面未验证或验证 hash 已过期")
     if os.path.exists(paths["approved_cover"]):
         raise RuntimeError("已存在提升后的封面，禁止覆盖")
+    synergy_errors = _cover_title_synergy_errors(paths, state)
+    if synergy_errors:
+        raise RuntimeError("；".join(synergy_errors))
     data = read_json(paths["cover_candidate"])
     selected = next(x for x in data["candidates"]
                     if x["id"] == data["selected_cover_id"])
@@ -3344,6 +3542,13 @@ def parser():
     status.add_argument("run_id")
     status.add_argument("--project")
     status.set_defaults(func=cmd_status)
+    cover_lab_freeze = sub.add_parser(
+        "cover-lab-freeze", help="在用户明确确认后冻结 Cover Lab 设计包")
+    cover_lab_freeze.add_argument("video_run_id")
+    cover_lab_freeze.add_argument("lab_id")
+    cover_lab_freeze.add_argument("--project", required=True)
+    cover_lab_freeze.add_argument("--confirm-freeze", action="store_true")
+    cover_lab_freeze.set_defaults(func=cmd_cover_lab_freeze)
     for name, func in (("brand-init", cmd_brand_init), ("brand-run", cmd_brand_run),
                        ("brand-select", cmd_brand_select), ("brand-verify", cmd_brand_verify),
                        ("brand-promote", cmd_brand_promote), ("brand-status", cmd_brand_status)):
@@ -3381,6 +3586,8 @@ def parser():
         ("publish-cover-template-options", cmd_publish_cover_template_options),
         ("publish-cover-select-template", cmd_publish_cover_select_template),
         ("publish-cover-plan", cmd_publish_cover_plan),
+        ("publish-cover-import-design", cmd_publish_cover_import_design),
+        ("publish-cover-title-check", cmd_publish_cover_title_check),
         ("publish-cover-verify-plan", cmd_publish_cover_verify_plan),
         ("publish-cover-generate", cmd_publish_cover_generate),
         ("publish-cover-compose", cmd_publish_cover_compose),
@@ -3403,6 +3610,11 @@ def parser():
             p.add_argument("template_id", choices=COVER_TEMPLATE_IDS)
             p.add_argument("--recommended", choices=COVER_TEMPLATE_IDS,
                            required=True)
+            p.add_argument("--reason", required=True)
+        elif name == "publish-cover-import-design":
+            p.add_argument("--lab-id", required=True)
+        elif name == "publish-cover-title-check":
+            p.add_argument("--title-id", required=True)
             p.add_argument("--reason", required=True)
         elif name == "publish-cover-review":
             p.add_argument("--cover-id", required=True)
