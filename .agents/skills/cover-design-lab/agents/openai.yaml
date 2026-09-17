@@ -1,4 +1,0 @@
-interface:
-  display_name: "封面设计实验室"
-  short_description: "多轮探索、记录反馈并冻结满意的封面方向"
-  default_prompt: "使用 Cover Design Lab 为当前视频迭代封面；先读取已有实验和反馈，不要进入正式提升流程。"

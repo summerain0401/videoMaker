@@ -156,17 +156,7 @@ python3 pipeline/workflow.py publish-copy-promote <video_run_id> <publish_id> --
 
 # 封面：先查看推荐依据并人工锁定模板，再规划、生成、合成和审核
 python3 pipeline/workflow.py publish-cover-template-options <video_run_id> <publish_id> --project 001
-python3 pipeline/workflow.py publish-cover-select-template <video_run_id> <publish_id> book_title_author_v2 --project 001 --recommended book_title_author_v2 --reason "突出书名和单一观点，并延续正片视觉风格"
-
-# 方向需要多轮打磨时，先由 cover-design-lab skill 在 experiments 中迭代；
-# 用户明确确认后冻结，再导入正式流程（导入后不重新创作核心方向）
-python3 pipeline/workflow.py cover-lab-freeze <video_run_id> <lab_id> --project 001 --confirm-freeze
-python3 pipeline/workflow.py publish-cover-import-design <video_run_id> <publish_id> --project 001 --lab-id <lab_id>
-
-# 正式标题选择后，确认标题与冻结封面钩子形成互补悬念
-python3 pipeline/workflow.py publish-cover-title-check <video_run_id> <publish_id> --project 001 --title-id title_0 --reason "标题解释原因，封面突出反常损失"
-
-# 未使用 Cover Lab 时，仍可直接生成两个正式语义方案
+python3 pipeline/workflow.py publish-cover-select-template <video_run_id> <publish_id> reference_006_v1 --project 001 --recommended reference_006_v1 --reason "沿用频道既有观点钩子版式"
 python3 pipeline/workflow.py publish-cover-plan <video_run_id> <publish_id> --project 001
 python3 pipeline/workflow.py publish-cover-verify-plan <video_run_id> <publish_id> --project 001
 python3 pipeline/workflow.py publish-cover-generate <video_run_id> <publish_id> --project 001
@@ -179,9 +169,7 @@ python3 pipeline/workflow.py publish-cover-promote <video_run_id> <publish_id> -
 python3 pipeline/workflow.py publish-finalize <video_run_id> <publish_id> --project 001
 ```
 
-封面模板来自版本化注册表，没有默认选择。`reference_006_v1` 沿用正式场景锚点、主题人物和左右钩子结构；`book_title_author_v2` 使用正式场景参考锁定正片画风，以全画幅电影海报式场景承载完整书名和一个痛点或反常识观点，不展示作者，可选用至多一个正式角色，也不使用左右分栏。该模板采用居中书名铭牌、金色观点大字、白色解释副标题三层排版，结合下方完整主体与单一道具；详见 [设计规范](docs/book_title_author_v2.md)。所有模板都生成两个无模型文字底图，再由本地确定性合成文字。
-
-封面创意需要反复探索时，`cover-design-lab` skill 负责在正式发布之外记录多轮反馈、保留项、禁止项和实验图，并使用情绪、反直觉冲突、极简隐喻作为可选的早期探索视角。V1 先支持 `book_title_author_v2`；冻结包只保留一个已确认方向及两个受控变体，正式流程校验其 topic、模板和 hash 后原样消费。正式标题选定后必须记录标题与封面钩子的互补关系；该记录绑定发布文案和封面方案 hash。正式状态、图片 provider、文字合成、视觉审核、选择和提升门禁不移入 skill。
+封面模板注册表仅保留 `reference_006_v1`，没有默认选择。用户明确选择后，正式流程生成两个不同的语义方案，以正式场景为风格锚点、必要角色为主体，采用左侧两行观点钩子与右侧人物的既有版式。两个无字底图由项目固定的图片生成方式生成，书名、作者和观点文字由本地确定性合成。已发布的旧模板封面仅作为历史记录保留。
 
 任务包会记录下一图片阶段所需的 Agent 环境。项目图片生成方式为 `imagegen` 时，Antigravity 只能写入发布文案或封面语义方案，随后必须停止；`publish-cover-generate` 只允许在带 Codex 会话标记的环境签发和确认 ImageGen 图片，避免其他工具生成的 PNG 被误记为 ImageGen 产物。
 

@@ -28,8 +28,6 @@ from cover_templates import (
     COVER_TEMPLATE_IDS, cover_template_catalog, cover_template_snapshot,
     validate_cover_template_snapshot,
 )
-from cover_lab import (cover_lab_paths, cover_plan_from_frozen,
-                       validate_cover_lab_design)
 from providers import IMAGE_PROVIDERS, LLM_PROVIDERS, make_image, make_llm
 from workflow_contracts import (
     ALL_STAGES, APPROVAL_STAGES, STAGE_STATES, build_image_tasks,
@@ -2282,8 +2280,7 @@ def cmd_publish_init(args):
                    "status": "awaiting_template", "template_selection": None,
                    "template": None, "verified_plan_hash": None,
                    "verified_hash": None, "promoted_hash": None,
-                   "generation": None, "frozen_design": None,
-                   "title_synergy": None,
+                   "generation": None,
                    "updated_at": ""}
     for path in (paths["state"], paths["copy_state"], paths["cover_state"]):
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -2452,45 +2449,14 @@ def cmd_publish_cover_select_template(args):
     print(json.dumps(selection, ensure_ascii=False, indent=2))
 
 
-def cmd_cover_lab_freeze(args):
-    """Freeze an explicitly approved exploratory cover design package."""
-    if not args.confirm_freeze:
-        raise RuntimeError("冻结 Cover Lab 设计必须显式传入 --confirm-freeze")
-    project = set_project(args.project)
-    _load_video_run(project, args.video_run_id)
-    paths = cover_lab_paths(project, args.lab_id)
-    if not os.path.isfile(paths["draft"]):
-        raise FileNotFoundError(paths["draft"])
-    if os.path.exists(paths["frozen"]):
-        raise FileExistsError("Cover Lab 已存在冻结设计；如需新方向请创建新的 lab ID")
-    data = read_json(paths["draft"])
-    if data.get("status") != "draft":
-        raise RuntimeError("只能冻结 status=draft 的 Cover Lab 设计包")
-    template = cover_template_snapshot(data.get("template_id"))
-    topic_path = _formal_source_paths(project)["topic"]
-    errors = validate_cover_lab_design(
-        data, args.project, args.video_run_id, _sha256(topic_path), template,
-        project, require_frozen=False)
+def _require_active_cover_template(state):
+    errors = validate_cover_template_snapshot(state.get("template"))
     if errors:
-        raise RuntimeError("；".join(errors))
-    frozen = dict(data)
-    frozen.update(status="frozen",
-                  frozen_at=datetime.datetime.now().isoformat(),
-                  draft_sha256=_sha256(paths["draft"]))
-    errors = validate_cover_lab_design(
-        frozen, args.project, args.video_run_id, _sha256(topic_path), template,
-        project, require_frozen=True)
-    if errors:
-        raise RuntimeError("；".join(errors))
-    write_json(paths["frozen"], frozen)
-    print(json.dumps({"lab_id": args.lab_id, "status": "frozen",
-                      "artifact": paths["frozen"],
-                      "sha256": _sha256(paths["frozen"])},
-                     ensure_ascii=False, indent=2))
+        raise RuntimeError("封面模板已停用或快照无效：" + "；".join(errors))
 
 
 def _cover_planning_source(project, state, source):
-    """Build the source snapshot shared by generated and imported plans."""
+    """Build the source snapshot for a cover plan."""
     spec = state["template"]["spec"]
     context = {"topic": source["topic"], "brand": source["brand"]}
     if spec["requires_style_anchor"]:
@@ -2507,18 +2473,9 @@ def _cover_planning_source(project, state, source):
 
 def _cover_plan_contract(parent, state, hashes):
     template_id = state["template"]["id"]
-    if template_id == "book_title_author_v2":
-        candidate = {"id": "string", "concept": "string",
-                     "hook": "4-16 chars, prefer 4-8; one topic-grounded pain point or insight",
-                     "hook_type": "pain_point|counter_intuitive|warning",
-                     "subtitle": "0-14 chars; explain hook using topic, no new claim",
-                     "visual_metaphor": "single high-tension visual device",
-                     "environment": "cinematic full-frame scene",
-                     "character_ids": ["0-1 registered id"]}
-    else:
-        candidate = {"id": "string", "concept": "string", "subject": "string",
-                     "composition": "string", "title_lines": "exactly 2 strings",
-                     "subtitle": "string", "character_ids": ["registered id"]}
+    candidate = {"id": "string", "concept": "string", "subject": "string",
+                 "composition": "string", "title_lines": "exactly 2 strings",
+                 "subtitle": "string", "character_ids": ["registered id"]}
     return {"version": 1, "publish_id": parent["publish_id"],
             "source_hashes": hashes, "template_id": template_id,
             "candidates": [candidate, candidate]}
@@ -2529,6 +2486,7 @@ def cmd_publish_cover_plan(args):
     state = read_json(paths["cover_state"])
     if not state.get("template_selection") or not state.get("template"):
         raise RuntimeError("必须先由用户人工选择并锁定封面模板")
+    _require_active_cover_template(state)
     if state.get("status") in ("plan_verified", "generated", "composed", "selected",
                                "verified", "promoted"):
         raise RuntimeError("封面方案已冻结或进入后续阶段")
@@ -2546,9 +2504,9 @@ def cmd_publish_cover_plan(args):
                 "next_image_stage": image_route,
             },
             "instruction": ("只输出两个不同的语义方案，不得输出 provider、model、"
-                            "最终 prompt、negative prompt、图片路径或 hash。书名和点击"
-                            "钩子和解释副标题由本地合成注入。副标题为0-14字单行，"
-                            "解释同一观点，不增加第二卖点；作者不进入封面。写入 candidate_path "
+                            "最终 prompt、negative prompt、图片路径或 hash。"
+                            "每个方案提供两行观点标题、解释副标题及正式角色 ID；"
+                            "书名和作者由本地合成注入。写入 candidate_path "
                             "后必须立即停止；"
                             f"后续图片只能在 {image_route['required_agent_environment']} "
                             "环境执行，当前内容 Agent 不得代替。"),
@@ -2565,128 +2523,6 @@ def cmd_publish_cover_plan(args):
                       "state": state["status"]}, ensure_ascii=False, indent=2))
 
 
-def cmd_publish_cover_import_design(args):
-    """Import one frozen Cover Lab package without creative rewriting."""
-    project, paths, parent, _, source, hashes = _publish_v4_context(args)
-    state = read_json(paths["cover_state"])
-    if not state.get("template_selection") or not state.get("template"):
-        raise RuntimeError("必须先由用户人工选择并锁定封面模板")
-    if state.get("status") != "template_selected":
-        raise RuntimeError("只有尚未规划的封面流程可以导入 Cover Lab 设计")
-    lab_paths = cover_lab_paths(project, args.lab_id)
-    if not os.path.isfile(lab_paths["frozen"]):
-        raise FileNotFoundError(lab_paths["frozen"])
-    frozen = read_json(lab_paths["frozen"])
-    errors = validate_cover_lab_design(
-        frozen, parent["project_id"], parent["video_run_id"], hashes["topic"],
-        state["template"], project, require_frozen=True)
-    if errors:
-        raise RuntimeError("；".join(errors))
-    context = _cover_planning_source(project, state, source)
-    plan = cover_plan_from_frozen(frozen, parent["publish_id"], hashes)
-    task = {
-        "stage": "publish-cover", "source": context,
-        "source_hashes": hashes, "template": state["template"],
-        "template_selection": state["template_selection"],
-        "frozen_design": {
-            "lab_id": args.lab_id,
-            "path": os.path.relpath(lab_paths["frozen"], project),
-            "sha256": _sha256(lab_paths["frozen"]),
-        },
-        "execution_boundary": {
-            "allowed_in_this_task": ["verify_imported_cover_plan"],
-            "must_stop_after_candidate": True,
-            "forbidden": ["rewrite_concept", "rewrite_hook", "rewrite_metaphor",
-                          "generate_image", "compose_cover", "select_cover",
-                          "promote", "finalize"],
-            "next_image_stage": _interactive_image_execution_route(
-                parent["providers"]["image"]),
-        },
-        "instruction": ("此方案来自用户确认的 Cover Lab 冻结设计；正式流程不得重新"
-                        "创作或改写，只能验证后生成两个受控变体。"),
-        "candidate_path": paths["cover_plan"],
-        "output_contract": _cover_plan_contract(parent, state, hashes),
-    }
-    write_json(paths["cover_task"], task)
-    write_json(paths["cover_plan"], plan)
-    state.update(status="plan_generated", frozen_design=task["frozen_design"])
-    _save_publish_child(paths["cover_state"], state)
-    parent["children"]["cover"] = "plan_generated"
-    _save_publish_parent(paths, parent)
-    print(json.dumps({"lab_id": args.lab_id, "candidate": paths["cover_plan"],
-                      "state": "plan_generated", "creative_rewrite": False},
-                     ensure_ascii=False, indent=2))
-
-
-def _normalized_cover_text(value):
-    return re.sub(r"[^0-9a-zA-Z\u4e00-\u9fff]+", "", value or "").lower()
-
-
-def _cover_title_synergy_errors(paths, cover_state):
-    """Check the hash-bound title/cover review for imported lab designs."""
-    if not cover_state.get("frozen_design"):
-        return []
-    record = cover_state.get("title_synergy")
-    if not isinstance(record, dict):
-        return ["Cover Lab 封面必须在正式标题选定后完成标题协同复检"]
-    errors = []
-    if not os.path.isfile(paths["copy_candidate"]) or \
-            record.get("copy_candidate_sha256") != _sha256(paths["copy_candidate"]):
-        errors.append("标题协同复检绑定的发布文案 hash 已变化")
-    if not os.path.isfile(paths["cover_plan"]) or \
-            record.get("cover_plan_sha256") != _sha256(paths["cover_plan"]):
-        errors.append("标题协同复检绑定的封面方案 hash 已变化")
-    if os.path.isfile(paths["copy_candidate"]):
-        youtube = read_json(paths["copy_candidate"]).get("platforms", {}).get(
-            "youtube", {})
-        if youtube.get("selected_title_id") != record.get("title_id"):
-            errors.append("标题协同复检与当前正式标题选择不一致")
-    if not record.get("relationship_reason"):
-        errors.append("标题协同复检缺少互补关系说明")
-    return errors
-
-
-def cmd_publish_cover_title_check(args):
-    """Bind a human-reviewed final title to an imported Cover Lab direction."""
-    _, paths, parent, _, _, _ = _publish_v4_context(args)
-    cover_state = read_json(paths["cover_state"])
-    if not cover_state.get("frozen_design"):
-        raise RuntimeError("标题协同复检仅适用于导入的 Cover Lab 设计")
-    if not os.path.isfile(paths["cover_plan"]):
-        raise RuntimeError("必须先导入并生成正式封面方案")
-    copy_state = read_json(paths["copy_state"])
-    if copy_state.get("status") not in ("selected", "verified", "promoted"):
-        raise RuntimeError("必须先由用户人工选择正式发布标题")
-    copy_data = read_json(paths["copy_candidate"])
-    youtube = copy_data.get("platforms", {}).get("youtube", {})
-    if youtube.get("selected_title_id") != args.title_id:
-        raise RuntimeError("title ID 与当前人工选择的正式标题不一致")
-    title = next((item.get("title") for item in youtube.get("titles", [])
-                  if item.get("id") == args.title_id), None)
-    if not title:
-        raise RuntimeError("正式标题候选不存在")
-    plan = read_json(paths["cover_plan"])
-    hooks = [item.get("hook") or "".join(item.get("title_lines", []))
-             for item in plan.get("candidates", [])]
-    normalized_title = _normalized_cover_text(title)
-    if any(_normalized_cover_text(hook) == normalized_title for hook in hooks):
-        raise RuntimeError("封面钩子不得机械复述正式视频标题")
-    reason = args.reason.strip()
-    if not reason:
-        raise RuntimeError("必须说明标题与封面钩子如何形成互补悬念")
-    record = {
-        "title_id": args.title_id, "title": title, "cover_hooks": hooks,
-        "relationship_reason": reason,
-        "copy_candidate_sha256": _sha256(paths["copy_candidate"]),
-        "cover_plan_sha256": _sha256(paths["cover_plan"]),
-        "checked_at": datetime.datetime.now().isoformat(),
-        "checked_by": "user_confirmed",
-    }
-    cover_state["title_synergy"] = record
-    _save_publish_child(paths["cover_state"], cover_state)
-    print(json.dumps(record, ensure_ascii=False, indent=2))
-
-
 def cmd_publish_cover_verify_plan(args):
     project, paths, parent, _, source, hashes = _publish_v4_context(args)
     state = read_json(paths["cover_state"])
@@ -2695,27 +2531,8 @@ def cmd_publish_cover_verify_plan(args):
     if state.get("status") not in ("awaiting_external", "plan_generated"):
         raise RuntimeError("封面方案当前状态不可校验")
     errors = validate_cover_template_snapshot(state["template"])
-    frozen_candidates = None
-    frozen_record = state.get("frozen_design")
-    if frozen_record:
-        frozen_path = os.path.realpath(os.path.join(project,
-                                                   frozen_record.get("path", "")))
-        expected_root = os.path.realpath(os.path.join(
-            project, "experiments", "cover_templates"))
-        if os.path.commonpath((expected_root, frozen_path)) != expected_root or \
-                not os.path.isfile(frozen_path) or \
-                _sha256(frozen_path) != frozen_record.get("sha256"):
-            errors.append("Cover Lab 冻结设计路径或 hash 已变化")
-        else:
-            frozen = read_json(frozen_path)
-            errors += validate_cover_lab_design(
-                frozen, parent["project_id"], parent["video_run_id"],
-                hashes["topic"], state["template"], project,
-                require_frozen=True)
-            frozen_candidates = frozen.get("variants")
     errors += validate_cover_plan(read_json(paths["cover_plan"]), state["template"],
-                                  source["topic"], parent["publish_id"], hashes,
-                                  frozen_candidates=frozen_candidates)
+                                  source["topic"], parent["publish_id"], hashes)
     if state["template"]["spec"]["requires_character_ids"] or \
             state["template"]["spec"]["allows_people"]:
         task = read_json(paths["cover_task"])
@@ -2768,52 +2585,13 @@ def _cover_image_tasks(project, paths, state, source):
         anchors = anchors[:expected_count]
     tasks = []
     for candidate in plan["candidates"]:
-        if spec["id"] == "book_title_author_v2":
-            controls = candidate.get("variant_controls") or {}
-            control_text = "; ".join(
-                f"{key}: {value}" for key, value in controls.items())
-            description = (
-                "high-click cinematic YouTube cover scene; "
-                f"concept: {candidate['concept']}; visual metaphor: "
-                f"{candidate['visual_metaphor']}; environment: "
-                f"{candidate['environment']}; create one immediately readable "
-                "conflict with strong expression, scale contrast and foreground "
-                "depth; place the character or primary subject in the lower "
-                "center-left and the single critical narrative object near "
-                "center-right; keep the bottom-right corner free of indispensable "
-                "details for a platform duration badge; "
-                "keep the upper central area naturally calm for locally composed "
-                "book title and one large hook, without drawing a text panel; "
-                + (f"controlled variant execution: {control_text}; "
-                   if control_text else "")
-                + spec["scene_policy"]
-            )
-            character_ids = candidate["character_ids"]
-            raw_characters = source_context.get("characters", {})
-            raw_characters = raw_characters.get("characters", raw_characters)
-            char_map = ({item.get("id"): item for item in raw_characters}
-                        if isinstance(raw_characters, list) else raw_characters)
-            char_bits = []
-            for character_id in character_ids:
-                character = char_map.get(character_id, {})
-                char_bits.append(", ".join(x for x in (
-                    character.get("prompt"), character.get("anchor")) if x))
-            references = [os.path.realpath(os.path.join(project, item["path"]))
-                          for item in anchors]
-            style = (
-                "match supplied official video frames exactly: polished colorful "
-                "2D chibi animation, bold clean outlines, cinematic lighting, "
-                "expressive perspective and high visual energy; use brand navy "
-                "and cyan only as secondary accents"
-            )
-        else:
-            description = (f"cover background concept: {candidate['concept']}; subject: "
-                           f"{candidate['subject']}; composition: {candidate['composition']}; "
-                           "leave readable left hook area and character emphasis on right")
-            character_ids = candidate["character_ids"]
-            char_bits = character_ids
-            references = [os.path.realpath(os.path.join(project, anchors[0]["path"]))]
-            style = "match the supplied official scene style anchor"
+        description = (f"cover background concept: {candidate['concept']}; subject: "
+                       f"{candidate['subject']}; composition: {candidate['composition']}; "
+                       "leave readable left hook area and character emphasis on right")
+        character_ids = candidate["character_ids"]
+        char_bits = character_ids
+        references = [os.path.realpath(os.path.join(project, anchors[0]["path"]))]
+        style = "match the supplied official scene style anchor"
         negative = ("readable text, letters, words, title, captions, logo, watermark, "
                     "book mockup, photorealistic corporate stock art, flat vector "
                     "technology wallpaper" +
@@ -2821,8 +2599,7 @@ def _cover_image_tasks(project, paths, state, source):
                      if not spec["allows_people"] else ""))
         sources = {"style": style, "palette": palette_text,
                    "description": description, "char_bits": char_bits,
-                   "shot": (candidate.get("variant_controls") or {}).get(
-                       "shot_scale", "wide"),
+                   "shot": "wide",
                    "emotion": "neutral",
                    "text_policy": "no readable text; local compositor adds all typography"}
         prompt = build_image_prompt(**sources)
@@ -2848,16 +2625,10 @@ def _initialize_cover_candidate(paths, state, source, hashes):
     candidates = []
     for item in plan["candidates"]:
         candidate = dict(item)
-        if state["template"]["id"] == "book_title_author_v2":
-            text = {"book_title": topic["book_title"],
-                    "hook": item["hook"], "hook_lines": [item["hook"]],
-                    "subtitle": item["subtitle"]}
-        else:
-            text = {"title_lines": item.get("title_lines") or
-                    [topic["book_title"]],
-                    "subtitle": item.get("subtitle", ""),
-                    "book_title": topic["book_title"],
-                    "author": topic["author"]}
+        text = {"title_lines": item["title_lines"],
+                "subtitle": item["subtitle"],
+                "book_title": topic["book_title"],
+                "author": topic["author"]}
         candidate.update({"text": text,
                           "base_path": None, "base_sha256": None,
                           "final_path": None, "sha256": None,
@@ -2874,6 +2645,7 @@ def _initialize_cover_candidate(paths, state, source, hashes):
 def cmd_publish_cover_generate(args):
     project, paths, parent, _, source, hashes = _publish_v4_context(args)
     state = read_json(paths["cover_state"])
+    _require_active_cover_template(state)
     if state.get("status") not in ("plan_verified", "awaiting_images", "generated"):
         raise RuntimeError("封面方案必须先校验，才能生成底图")
     if state.get("verified_plan_hash") != _sha256(paths["cover_plan"]):
@@ -2968,33 +2740,6 @@ def _cover_font(draw, font_path, text, max_width, start, minimum=36):
     raise RuntimeError("封面文字无法在安全区内排版")
 
 
-def _balanced_title_lines(title, count):
-    if count == 1:
-        return [title]
-    length = len(title)
-    cuts = [round(length * index / count) for index in range(1, count)]
-    return [title[a:b] for a, b in zip([0] + cuts, cuts + [length])]
-
-
-def _fit_centered_title(draw, font_path, title, start=154):
-    for count in range(1, 4):
-        lines = _balanced_title_lines(title, count)
-        for size in range(start, 59, -2):
-            font = ImageFont.truetype(font_path, size)
-            widths = [draw.textbbox((0, 0), line, font=font)[2] for line in lines]
-            line_height = draw.textbbox((0, 0), "国Ag", font=font)[3] + 22
-            if (max(widths) <= 1480 and line_height * count <= 470 and
-                    (count == 3 or size >= 96)):
-                return lines, font, line_height
-    raise RuntimeError("完整书名无法在1-3行安全区内排版")
-
-
-def _hex_rgb(value, fallback):
-    if isinstance(value, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", value):
-        return tuple(int(value[i:i + 2], 16) for i in (1, 3, 5))
-    return fallback
-
-
 def _cover_font_path():
     candidates = [
         os.path.join(ROOT, "assets", "fonts", "SourceHanSansCN-Heavy.otf"),
@@ -3003,137 +2748,6 @@ def _cover_font_path():
         "/System/Library/Fonts/PingFang.ttc",
     ]
     return next((path for path in candidates if os.path.exists(path)), None)
-
-
-def _poster_text_layout(draw, text, font_path, box, start, minimum,
-                        padding=(0, 0), stroke=0):
-    """Fit exact text into a bounded region using measured glyph bounds."""
-    x0, y0, x1, y1 = box
-    width = x1 - x0 - 2 * (padding[0] + stroke)
-    height = y1 - y0 - 2 * (padding[1] + stroke)
-    for count in (1, 2):
-        lines = _balanced_title_lines(text, count)
-        for size in range(start, minimum - 1, -2):
-            font = ImageFont.truetype(font_path, size)
-            boxes = [draw.textbbox((0, 0), line, font=font) for line in lines]
-            gap = max(6, size // 10)
-            total = sum(b[3] - b[1] for b in boxes) + gap * (count - 1)
-            if max(b[2] - b[0] for b in boxes) <= width and total <= height:
-                return lines, font, boxes, total, gap
-    raise RuntimeError("完整封面文字无法放入模板安全区，请调整钩子长度")
-
-
-def _compose_book_story_poster(base, destination, candidate, palette, font_path,
-                               spec=None):
-    """Compose a centered book plaque, gold headline and white explainer."""
-    spec = spec or cover_template_snapshot("book_title_author_v2")["spec"]
-    typography = spec["typography"]
-    image = base.convert("RGB").resize(tuple(spec["canvas"]),
-                                        Image.Resampling.LANCZOS)
-    background = _hex_rgb(palette.get("background"), (23, 32, 51))
-    foreground = _hex_rgb(palette.get("foreground"), (237, 244, 255))
-    shadow = (7, 16, 35)
-
-    # 轻量文字区遮罩稳定对比度；完整保留主体、道具与原生景深。
-    veil = Image.new("RGBA", image.size, (0, 0, 0, 0))
-    veil_draw = ImageDraw.Draw(veil)
-    subject_top = typography["subject_top"]
-    for y in range(subject_top):
-        alpha = round(50 * max(0, 1 - y / subject_top))
-        veil_draw.line((0, y, 1920, y), fill=(*background, alpha))
-    image = Image.alpha_composite(image.convert("RGBA"), veil).convert("RGB")
-    draw = ImageDraw.Draw(image)
-
-    label = f"《{candidate['text']['book_title']}》"
-    tag_box = typography["book_tag_box"]
-    padding = typography["book_padding"]
-    lines, font, boxes, height, gap = _poster_text_layout(
-        draw, label, font_path, tag_box, typography["book_font_size"], 28,
-        padding=padding)
-    tag_width = max(500, max(b[2] - b[0] for b in boxes) + 2 * padding[0])
-    tag_height = height + 2 * padding[1]
-    x0 = (1920 - tag_width) / 2
-    y0 = tag_box[1]
-    # 克制的翻开书页和双层金属铭牌，所有装饰随书名宽度居中。
-    for index in range(5):
-        rise = 40 - index * 6
-        inset = 46 + index * 14
-        for direction in (-1, 1):
-            draw.polygon(((960, y0 + 10),
-                          (960 + direction * (tag_width / 2 - inset), y0 - rise),
-                          (960 + direction * (tag_width / 2 - 25), y0 + 14)),
-                         fill=(168 + index * 10, 155 + index * 10,
-                               131 + index * 10), outline=(86, 74, 61))
-    plate = (x0, y0, x0 + tag_width, y0 + tag_height)
-    draw.rounded_rectangle((x0 - 6, y0 + 5, plate[2] + 6, plate[3] + 9),
-                           radius=13, fill=shadow)
-    draw.rounded_rectangle(plate, radius=12, fill=(114, 100, 86),
-                           outline=(216, 207, 184), width=5)
-    draw.rounded_rectangle((x0 + 10, y0 + 10, plate[2] - 10, plate[3] - 10),
-                           radius=7, outline=(175, 160, 140), width=2)
-    for bolt_x in (x0 + 20, plate[2] - 20):
-        for bolt_y in (y0 + 20, plate[3] - 20):
-            draw.ellipse((bolt_x - 3, bolt_y - 3, bolt_x + 3, bolt_y + 3),
-                         fill=(235, 225, 204), outline=(54, 48, 44))
-    y = y0 + padding[1]
-    for line, bounds in zip(lines, boxes):
-        x = x0 + (tag_width - (bounds[2] - bounds[0])) / 2
-        draw.text((x - bounds[0], y - bounds[1]), line, font=font,
-                  fill=(255, 240, 207), stroke_width=2,
-                  stroke_fill=(56, 43, 33))
-        y += bounds[3] - bounds[1] + gap
-
-    hook_box = typography["hook_box"]
-    stroke = typography["stroke_width"]
-    offset_x, offset_y = typography["shadow_offset"]
-    lines, font, boxes, height, gap = _poster_text_layout(
-        draw, candidate["text"]["hook"], font_path, hook_box,
-        typography["hook_font_size"], typography["hook_min_font_size"],
-        padding=(offset_x, offset_y), stroke=stroke)
-    y = hook_box[1] + (hook_box[3] - hook_box[1] - height) / 2
-    for line, bounds in zip(lines, boxes):
-        x = (hook_box[0] + hook_box[2] - (bounds[2] - bounds[0])) / 2
-        position = (x - bounds[0], y - bounds[1])
-        draw.text((position[0] + offset_x, position[1] + offset_y),
-                  line, font=font, fill=shadow,
-                  stroke_width=stroke, stroke_fill=shadow)
-        draw.text(position, line, font=font, fill=(228, 174, 67),
-                  stroke_width=stroke, stroke_fill=shadow)
-        # 仅在字形内填充金色渐变，轮廓和短投影保持清晰。
-        mask = Image.new("L", image.size, 0)
-        ImageDraw.Draw(mask).text(position, line, font=font, fill=255)
-        gradient = Image.new("RGB", image.size)
-        gradient_draw = ImageDraw.Draw(gradient)
-        colors = [_hex_rgb(color, (231, 182, 80))
-                  for color in typography["hook_gradient"]]
-        glyph_height = bounds[3] - bounds[1]
-        for row in range(int(y), int(y + glyph_height) + 2):
-            fraction = min(1, max(0, (row - y) / max(1, glyph_height)))
-            index = min(1, int(fraction * 2))
-            blend = fraction * 2 - index
-            color = tuple(round(a + (b - a) * blend)
-                          for a, b in zip(colors[index], colors[index + 1]))
-            gradient_draw.line((0, row, 1920, row), fill=color)
-        image = Image.composite(gradient, image, mask)
-        draw = ImageDraw.Draw(image)
-        y += bounds[3] - bounds[1] + gap
-    subtitle = candidate["text"].get("subtitle", "")
-    if subtitle:
-        sx0, sy0, sx1, sy1 = typography["subtitle_box"]
-        font = _cover_font(draw, font_path, subtitle, sx1 - sx0 - 180,
-                           typography["subtitle_font_size"], 38)
-        bounds = draw.textbbox((0, 0), subtitle, font=font)
-        width, height = bounds[2] - bounds[0], bounds[3] - bounds[1]
-        x = (1920 - width) / 2
-        y = (sy0 + sy1 - height) / 2
-        draw.text((x - bounds[0], y - bounds[1]), subtitle, font=font,
-                  fill=foreground, stroke_width=4, stroke_fill=shadow)
-        middle = (sy0 + sy1) / 2
-        for start, end in ((x - 90, x - 28), (x + width + 28, x + width + 90)):
-            draw.line((start, middle + 3, end, middle + 3), fill=shadow, width=8)
-            draw.line((start, middle, end, middle), fill=foreground, width=4)
-    image.save(destination, "PNG")
-    return lines
 
 
 def _compose_reference_cover(base, destination, candidate, font_path):
@@ -3154,7 +2768,7 @@ def _compose_reference_cover(base, destination, candidate, font_path):
         draw.text((82, 674), subtitle, fill=ink, font=font,
                   stroke_width=2, stroke_fill=shadow)
     bookline = f"《{candidate['text']['book_title']}》｜{candidate['text']['author']}"
-    font = _cover_font(draw, font_path, bookline, 900, 50)
+    font = _cover_font(draw, font_path, bookline, 900, 50, minimum=22)
     draw.line((96, 784, 900, 784), fill=gold, width=3)
     draw.text((82, 822), bookline, fill=gold, font=font,
               stroke_width=2, stroke_fill=shadow)
@@ -3163,28 +2777,22 @@ def _compose_reference_cover(base, destination, candidate, font_path):
 
 
 def cmd_publish_cover_compose(args):
-    project, paths, parent, _, source, _ = _publish_v4_context(args)
+    project, paths, parent, _, _, _ = _publish_v4_context(args)
     state = read_json(paths["cover_state"])
+    _require_active_cover_template(state)
     if state.get("status") not in ("generated", "composed"):
         raise RuntimeError("两个封面底图必须先完成生成")
     data = read_json(paths["cover_candidate"])
     font_path = _cover_font_path()
     if not font_path:
         raise RuntimeError("未找到可用中文字体")
-    palette = source["brand"].get("visual", {}).get("palette", {})
     for candidate in data["candidates"]:
         base_path = os.path.join(project, candidate["base_path"])
         if _sha256(base_path) != candidate["base_sha256"]:
             raise RuntimeError("封面底图 hash 已变化")
         destination = os.path.join(paths["covers_dir"], candidate["id"] + ".png")
         with Image.open(base_path) as base:
-            if state["template"]["id"] == "book_title_author_v2":
-                lines = _compose_book_story_poster(base, destination, candidate,
-                                                   palette, font_path,
-                                                   state["template"]["spec"])
-                candidate["text"]["hook_lines"] = lines
-            else:
-                _compose_reference_cover(base, destination, candidate, font_path)
+            _compose_reference_cover(base, destination, candidate, font_path)
         candidate["final_path"] = os.path.relpath(destination, project)
         candidate["sha256"] = _sha256(destination)
         candidate["visual_review"] = None
@@ -3199,6 +2807,7 @@ def cmd_publish_cover_compose(args):
 def cmd_publish_cover_review(args):
     _, paths, parent, _, _, _ = _publish_v4_context(args)
     state = read_json(paths["cover_state"])
+    _require_active_cover_template(state)
     if state.get("status") not in ("composed", "reviewed"):
         raise RuntimeError("封面当前状态不可写入视觉审核")
     data = read_json(paths["cover_candidate"])
@@ -3230,6 +2839,7 @@ def cmd_publish_cover_review(args):
 def cmd_publish_cover_select(args):
     _, paths, parent, _, _, _ = _publish_v4_context(args)
     state = read_json(paths["cover_state"])
+    _require_active_cover_template(state)
     if state.get("status") != "reviewed":
         raise RuntimeError("两个封面候选必须先完成视觉审核")
     data = read_json(paths["cover_candidate"])
@@ -3333,14 +2943,12 @@ def cmd_publish_cover_verify(args):
 def cmd_publish_cover_promote(args):
     project, paths, parent, _, _, _ = _publish_v4_context(args)
     state = read_json(paths["cover_state"])
+    _require_active_cover_template(state)
     if state.get("status") != "verified" or state.get("verified_hash") != \
             _sha256(paths["cover_candidate"]):
         raise RuntimeError("封面未验证或验证 hash 已过期")
     if os.path.exists(paths["approved_cover"]):
         raise RuntimeError("已存在提升后的封面，禁止覆盖")
-    synergy_errors = _cover_title_synergy_errors(paths, state)
-    if synergy_errors:
-        raise RuntimeError("；".join(synergy_errors))
     data = read_json(paths["cover_candidate"])
     selected = next(x for x in data["candidates"]
                     if x["id"] == data["selected_cover_id"])
@@ -3367,6 +2975,7 @@ def cmd_publish_finalize(args):
     cover_state = read_json(paths["cover_state"])
     if copy_state.get("status") != "promoted" or cover_state.get("status") != "promoted":
         raise RuntimeError("发布文案与封面必须分别提升后才能最终汇总")
+    _require_active_cover_template(cover_state)
     actual_copy = _sha256(paths["approved_copy"])
     actual_cover = _sha256(paths["approved_cover"])
     actual_image = _sha256(paths["approved_cover_image"])
@@ -3542,13 +3151,6 @@ def parser():
     status.add_argument("run_id")
     status.add_argument("--project")
     status.set_defaults(func=cmd_status)
-    cover_lab_freeze = sub.add_parser(
-        "cover-lab-freeze", help="在用户明确确认后冻结 Cover Lab 设计包")
-    cover_lab_freeze.add_argument("video_run_id")
-    cover_lab_freeze.add_argument("lab_id")
-    cover_lab_freeze.add_argument("--project", required=True)
-    cover_lab_freeze.add_argument("--confirm-freeze", action="store_true")
-    cover_lab_freeze.set_defaults(func=cmd_cover_lab_freeze)
     for name, func in (("brand-init", cmd_brand_init), ("brand-run", cmd_brand_run),
                        ("brand-select", cmd_brand_select), ("brand-verify", cmd_brand_verify),
                        ("brand-promote", cmd_brand_promote), ("brand-status", cmd_brand_status)):
@@ -3586,8 +3188,6 @@ def parser():
         ("publish-cover-template-options", cmd_publish_cover_template_options),
         ("publish-cover-select-template", cmd_publish_cover_select_template),
         ("publish-cover-plan", cmd_publish_cover_plan),
-        ("publish-cover-import-design", cmd_publish_cover_import_design),
-        ("publish-cover-title-check", cmd_publish_cover_title_check),
         ("publish-cover-verify-plan", cmd_publish_cover_verify_plan),
         ("publish-cover-generate", cmd_publish_cover_generate),
         ("publish-cover-compose", cmd_publish_cover_compose),
@@ -3610,11 +3210,6 @@ def parser():
             p.add_argument("template_id", choices=COVER_TEMPLATE_IDS)
             p.add_argument("--recommended", choices=COVER_TEMPLATE_IDS,
                            required=True)
-            p.add_argument("--reason", required=True)
-        elif name == "publish-cover-import-design":
-            p.add_argument("--lab-id", required=True)
-        elif name == "publish-cover-title-check":
-            p.add_argument("--title-id", required=True)
             p.add_argument("--reason", required=True)
         elif name == "publish-cover-review":
             p.add_argument("--cover-id", required=True)

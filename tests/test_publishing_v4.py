@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""V4 split publishing workflow and cover-template regression tests."""
+"""V4 split publishing and reference cover regression tests."""
 
 import os
 import tempfile
@@ -104,198 +104,17 @@ class PublishingV4Tests(unittest.TestCase):
     def _write_style_references(self):
         scenes = os.path.join(self.project, "assets", "scenes")
         os.makedirs(scenes, exist_ok=True)
-        for index, color in enumerate(("#B66A3C", "#D39A51", "#355B6D")):
-            Image.new("RGB", (1920, 1080), color).save(
-                os.path.join(scenes, f"00_{index}.png"))
+        Image.new("RGB", (1920, 1080), "#355B6D").save(
+            os.path.join(scenes, "00_0.png"))
+        workflow.write_json(
+            os.path.join(workflow.ROOT, "assets", "characters.json"),
+            {"young_pro": {"prompt": "chibi worker"}})
 
     def _select_and_verify_plan(self):
         self._write_style_references()
-        select = SimpleNamespace(**vars(self.args),
-                                 template_id="book_title_author_v2",
-                                 recommended="reference_006_v1",
-                                 reason="用户选择与正片一致的叙事出版海报")
-        workflow.cmd_publish_cover_select_template(select)
-        workflow.cmd_publish_cover_plan(self.args)
-        state = workflow.read_json(self.paths["state"])
-        workflow.write_json(self.paths["cover_plan"], {
-            "version": 1, "publish_id": "pub_v4",
-            "source_hashes": state["source_hashes"],
-            "template_id": "book_title_author_v2",
-            "candidates": [
-                {"id": "cover_a", "concept": "双轨财富系统",
-                 "hook": "会赚钱却守不住",
-                 "subtitle": "理解财富的两种能力",
-                 "hook_type": "pain_point",
-                 "visual_metaphor": "金币从破裂的保险箱中流失",
-                 "environment": "暖光书房延伸至城市橱窗",
-                 "character_ids": []},
-                {"id": "cover_b", "concept": "创造与守护",
-                 "hook": "财富靠两种能力",
-                 "subtitle": "",
-                 "hook_type": "counter_intuitive",
-                 "visual_metaphor": "创造火花撞上环形护盾",
-                 "environment": "夕阳桌面形成前中后三层空间",
-                 "character_ids": []},
-            ]})
-        workflow.cmd_publish_cover_verify_plan(self.args)
-
-    def _finish_generated_bases(self):
-        workflow.cmd_publish_cover_generate(self.args)
-        packet = workflow.read_json(self.paths["cover_image_tasks"])
-        first, second = packet["tasks"]
-        self.assertEqual(len(first["reference_images"]), 3)
-        self.assertEqual(first["character_ids"], [])
-        self.assertNotIn(", person", first["negative_prompt"])
-        Image.new("RGB", (1920, 1080), "#C8C8C8").save(first["output_path"])
-        workflow.cmd_publish_cover_generate(self.args)
-        Image.new("RGB", (1920, 1080), "#D8D8D8").save(second["output_path"])
-        workflow.cmd_publish_cover_generate(self.args)
-
-    def test_registry_is_versioned_hashed_and_auto_enumerated(self):
-        first = cover_templates.cover_template_snapshot("book_title_author_v2")
-        second = cover_templates.cover_template_snapshot("book_title_author_v2")
-        self.assertEqual(first, second)
-        self.assertEqual(first["spec"]["version"], 2)
-        self.assertEqual(first["spec"]["layout"],
-                         "cinematic_stacked_hook_poster")
-        self.assertTrue(first["spec"]["requires_style_anchor"])
-        self.assertFalse(first["spec"]["requires_character_ids"])
-        self.assertTrue(first["spec"]["allows_people"])
-        self.assertFalse(first["spec"]["shows_author"])
-        with self.assertRaisesRegex(ValueError, "未知封面模板"):
-            cover_templates.cover_template_snapshot("retired_template_v1")
-        original = dict(cover_templates._TEMPLATES)
-        try:
-            cover_templates._TEMPLATES["future_v1"] = dict(
-                first["spec"], id="future_v1", display_name="未来模板")
-            self.assertIn("future_v1", {x["id"] for x in
-                                        cover_templates.cover_template_catalog()})
-        finally:
-            cover_templates._TEMPLATES.clear()
-            cover_templates._TEMPLATES.update(original)
-
-    def test_template_must_be_selected_and_recommendation_may_differ(self):
-        with self.assertRaisesRegex(RuntimeError, "人工选择"):
-            workflow.cmd_publish_cover_plan(self.args)
-        self._select_and_verify_plan()
-        state = workflow.read_json(self.paths["cover_state"])
-        selection = state["template_selection"]
-        self.assertEqual(selection["recommended_template_id"],
-                         "reference_006_v1")
-        self.assertEqual(selection["selected_template_id"],
-                         "book_title_author_v2")
-        with self.assertRaisesRegex(RuntimeError, "不可变更"):
-            workflow.cmd_publish_cover_select_template(SimpleNamespace(
-                **vars(self.args), template_id="reference_006_v1",
-                recommended="reference_006_v1", reason="change"))
-
-    def test_cover_lab_freeze_and_import_preserve_one_direction(self):
-        self._write_style_references()
-        selection = SimpleNamespace(
-            **vars(self.args), template_id="book_title_author_v2",
-            recommended="book_title_author_v2",
-            reason="先在实验区打磨同一叙事方向")
-        workflow.cmd_publish_cover_select_template(selection)
-        lab_id = "wealth_systems"
-        lab_paths = workflow.cover_lab_paths(self.project, lab_id)
-        parent = workflow.read_json(self.paths["state"])
-        direction = {
-            "concept": "财富双系统",
-            "hook": "会赚钱却守不住",
-            "hook_type": "pain_point",
-            "subtitle": "理解两种财富能力",
-            "visual_metaphor": "同一只手创造金币却从破裂保险箱流失",
-            "environment": "暖光书房连接夜色城市橱窗",
-            "character_ids": [],
-            "preserve": ["单一人物与单一道具形成清晰因果"],
-            "avoid": ["左右分栏与装饰性发光圆环"],
-        }
-        variants = []
-        for suffix, scale, composition, pose, lighting in (
-                ("a", "medium close shot", "低位中心三角构图",
-                 "伸手试图接住流失金币", "暖色主光与冷色背景"),
-                ("b", "wide shot", "斜向因果轨迹构图",
-                 "双手分别创造与守护", "冷色主光与金色边缘光")):
-            variants.append({
-                "id": f"cover_{suffix}",
-                **{key: direction[key] for key in (
-                    "concept", "hook", "hook_type", "subtitle",
-                    "visual_metaphor", "environment", "character_ids")},
-                "variant_controls": {
-                    "shot_scale": scale, "composition": composition,
-                    "subject_pose": pose, "lighting": lighting,
-                },
-            })
-        draft = {
-            "version": 1, "lab_id": lab_id, "project_id": "001",
-            "video_run_id": "run_video",
-            "topic_sha256": parent["source_hashes"]["topic"],
-            "template_id": "book_title_author_v2", "status": "draft",
-            "direction": direction, "variants": variants,
-            "title_context": {
-                "working_title": "为什么会赚钱的人最后还是留不住财富",
-                "relationship": "标题提出原因，封面用损失反差制造追问",
-                "status": "provisional", "checked_at": None,
-            },
-            "feedback_history": [{
-                "round": 1, "liked": ["人物动作清晰"],
-                "rejected": ["道具过多"],
-                "next_iteration": ["只保留保险箱一个核心道具"],
-            }],
-            "references": [], "frozen_at": None, "draft_sha256": None,
-        }
-        workflow.write_json(lab_paths["draft"], draft)
-        workflow.cmd_cover_lab_freeze(SimpleNamespace(
-            project="001", video_run_id="run_video", lab_id=lab_id,
-            confirm_freeze=True))
-        frozen = workflow.read_json(lab_paths["frozen"])
-        self.assertEqual(frozen["status"], "frozen")
-        workflow.cmd_publish_cover_import_design(SimpleNamespace(
-            **vars(self.args), lab_id=lab_id))
-        plan = workflow.read_json(self.paths["cover_plan"])
-        self.assertEqual(plan["candidates"], frozen["variants"])
-        self.assertEqual(len({item["hook"] for item in plan["candidates"]}), 1)
-        imported_state = workflow.read_json(self.paths["cover_state"])
-        self.assertIn("标题协同复检",
-                      workflow._cover_title_synergy_errors(
-                          self.paths, imported_state)[0])
-        original_hook = plan["candidates"][0]["hook"]
-        plan["candidates"][0]["hook"] = "擅自改写的钩子"
-        workflow.write_json(self.paths["cover_plan"], plan)
-        with self.assertRaisesRegex(RuntimeError, "冻结的 Cover Lab"):
-            workflow.cmd_publish_cover_verify_plan(self.args)
-        plan["candidates"][0]["hook"] = original_hook
-        workflow.write_json(self.paths["cover_plan"], plan)
-        workflow.cmd_publish_cover_verify_plan(self.args)
-        state = workflow.read_json(self.paths["cover_state"])
-        self.assertEqual(state["status"], "plan_verified")
-        _, source, _ = workflow._publish_sources(self.project, "main")
-        tasks = workflow._cover_image_tasks(self.project, self.paths,
-                                            state, source)
-        self.assertIn("controlled variant execution", tasks[0]["prompt"])
-        self.assertNotEqual(tasks[0]["prompt"], tasks[1]["prompt"])
-        workflow.cmd_publish_copy_run(self.args)
-        workflow.write_json(self.paths["copy_candidate"], self._copy_candidate())
-        workflow.cmd_publish_copy_select(SimpleNamespace(
-            **vars(self.args), title_id="title_0"))
-        workflow.cmd_publish_cover_title_check(SimpleNamespace(
-            **vars(self.args), title_id="title_0",
-            reason="正式标题解释两套能力，封面钩子突出守不住的损失反差"))
-        state = workflow.read_json(self.paths["cover_state"])
-        self.assertEqual(workflow._cover_title_synergy_errors(
-            self.paths, state), [])
-
-    def test_reference_template_keeps_scene_anchor_and_character(self):
-        scenes = os.path.join(self.project, "assets", "scenes")
-        os.makedirs(scenes, exist_ok=True)
-        Image.new("RGB", (1920, 1080), "navy").save(
-            os.path.join(scenes, "00_0.png"))
-        workflow.write_json(os.path.join(workflow.ROOT, "assets", "characters.json"),
-                            {"young_pro": {"prompt": "chibi worker"}})
-        selection = SimpleNamespace(
+        workflow.cmd_publish_cover_select_template(SimpleNamespace(
             **vars(self.args), template_id="reference_006_v1",
-            recommended="reference_006_v1", reason="观点冲突更适合钩子")
-        workflow.cmd_publish_cover_select_template(selection)
+            recommended="reference_006_v1", reason="沿用频道观点钩子结构"))
         workflow.cmd_publish_cover_plan(self.args)
         parent = workflow.read_json(self.paths["state"])
         workflow.write_json(self.paths["cover_plan"], {
@@ -312,64 +131,61 @@ class PublishingV4Tests(unittest.TestCase):
                  "title_lines": ["创造财富", "保有财富"], "subtitle": "别用错方法",
                  "character_ids": ["young_pro"]}]})
         workflow.cmd_publish_cover_verify_plan(self.args)
+
+    def _finish_generated_bases(self):
+        with mock.patch.dict(os.environ, {"CODEX_SESSION_ID": "unit-test"}):
+            workflow.cmd_publish_cover_generate(self.args)
+            tasks = workflow.read_json(self.paths["cover_image_tasks"])["tasks"]
+            self.assertEqual(len(tasks), 2)
+            for index, task in enumerate(tasks):
+                self.assertEqual(len(task["reference_images"]), 1)
+                self.assertEqual(task["character_ids"], ["young_pro"])
+                Image.new("RGB", (1920, 1080),
+                          (120 + index * 20, 140, 160)).save(task["output_path"])
+                workflow.cmd_publish_cover_generate(self.args)
+
+    def test_registry_has_only_reference_template(self):
+        first = cover_templates.cover_template_snapshot("reference_006_v1")
+        self.assertEqual(first,
+                         cover_templates.cover_template_snapshot("reference_006_v1"))
+        self.assertEqual([item["id"] for item in
+                          cover_templates.cover_template_catalog()],
+                         ["reference_006_v1"])
+        self.assertEqual(first["spec"]["layout"], "hook_left_character_right")
+        with self.assertRaisesRegex(ValueError, "未知封面模板"):
+            cover_templates.cover_template_snapshot("book_title_author_v2")
+        self.assertIn("publish-cover-select-template", workflow.parser().format_help())
+        self.assertNotIn("cover-lab-freeze", workflow.parser().format_help())
+
+    def test_template_selection_remains_explicit_and_locked(self):
+        with self.assertRaisesRegex(RuntimeError, "人工选择"):
+            workflow.cmd_publish_cover_plan(self.args)
+        with self.assertRaisesRegex(RuntimeError, "未知封面模板"):
+            workflow.cmd_publish_cover_select_template(SimpleNamespace(
+                **vars(self.args), template_id="book_title_author_v2",
+                recommended="reference_006_v1", reason="removed"))
+        self._select_and_verify_plan()
+        state = workflow.read_json(self.paths["cover_state"])
+        self.assertEqual(state["template_selection"]["selected_template_id"],
+                         "reference_006_v1")
+        self.assertNotIn("frozen_design", state)
+        with self.assertRaisesRegex(RuntimeError, "不可变更"):
+            workflow.cmd_publish_cover_select_template(SimpleNamespace(
+                **vars(self.args), template_id="reference_006_v1",
+                recommended="reference_006_v1", reason="change"))
+
+    def test_reference_plan_uses_scene_and_character(self):
+        self._select_and_verify_plan()
         state = workflow.read_json(self.paths["cover_state"])
         _, source, _ = workflow._publish_sources(self.project, "main")
         tasks = workflow._cover_image_tasks(self.project, self.paths, state, source)
-        self.assertTrue(all(task["reference_images"] for task in tasks))
+        self.assertEqual(len(tasks), 2)
+        self.assertTrue(all(len(task["reference_images"]) == 1 for task in tasks))
         self.assertTrue(all(task["character_ids"] == ["young_pro"]
                             for task in tasks))
+        self.assertTrue(all("left hook area" in task["prompt"] for task in tasks))
 
-    def test_narrative_poster_uses_video_style_and_optional_character(self):
-        self._write_style_references()
-        workflow.write_json(os.path.join(workflow.ROOT, "assets", "characters.json"),
-                            {"young_pro": {"prompt": "chibi worker",
-                                           "anchor": "same round glasses"}})
-        selection = SimpleNamespace(
-            **vars(self.args), template_id="book_title_author_v2",
-            recommended="book_title_author_v2",
-            reason="正片是暖色手绘叙事风格，需要具象环境延续视觉语言")
-        workflow.cmd_publish_cover_select_template(selection)
-        workflow.cmd_publish_cover_plan(self.args)
-        planning_task = workflow.read_json(self.paths["cover_task"])
-        self.assertEqual(len(planning_task["source"]["style_references"]), 3)
-        parent = workflow.read_json(self.paths["state"])
-        workflow.write_json(self.paths["cover_plan"], {
-            "version": 1, "publish_id": "pub_v4",
-            "source_hashes": parent["source_hashes"],
-            "template_id": "book_title_author_v2",
-            "candidates": [
-                {"id": "cover_a", "concept": "从众漩涡",
-                 "hook": "越抢越亏？",
-                 "subtitle": "失控消费心理学解析",
-                 "hook_type": "pain_point",
-                 "visual_metaphor": "巨大折扣漩涡吸走钱包",
-                 "environment": "暖光书房桌面延伸到夜色商店橱窗",
-                 "character_ids": ["young_pro"]},
-                {"id": "cover_b", "concept": "稀缺牢笼",
-                 "hook": "聪明人也会追高",
-                 "subtitle": "理性如何失守",
-                 "hook_type": "counter_intuitive",
-                 "visual_metaphor": "倒计时钟面合拢成牢笼",
-                 "environment": "夕阳城市橱窗形成前中后三层空间",
-                 "character_ids": []},
-            ]})
-        workflow.cmd_publish_cover_verify_plan(self.args)
-        state = workflow.read_json(self.paths["cover_state"])
-        _, source, _ = workflow._publish_sources(self.project, "main")
-        tasks = workflow._cover_image_tasks(self.project, self.paths,
-                                            state, source)
-        self.assertTrue(all(len(task["reference_images"]) == 3
-                            for task in tasks))
-        self.assertEqual(tasks[0]["character_ids"], ["young_pro"])
-        self.assertEqual(tasks[1]["character_ids"], [])
-        self.assertIn("same round glasses", tasks[0]["prompt"])
-        self.assertTrue(all("polished colorful 2D chibi animation" in task["prompt"]
-                            for task in tasks))
-        self.assertTrue(all("duration badge" in task["prompt"] for task in tasks))
-        self.assertTrue(all("complete scene" not in task["negative_prompt"]
-                            for task in tasks))
-
-    def test_imagegen_tasks_cannot_be_claimed_outside_codex(self):
+    def test_imagegen_requires_codex_session(self):
         self._select_and_verify_plan()
         with mock.patch.dict(os.environ, {"CODEX_SESSION_ID": ""}):
             with self.assertRaisesRegex(RuntimeError, "不是 Codex 会话"):
@@ -378,89 +194,24 @@ class PublishingV4Tests(unittest.TestCase):
         self.assertEqual(state["status"], "plan_verified")
         self.assertIsNone(state["generation"])
 
-    def test_both_template_compositors_are_deterministic(self):
+    def test_reference_compositor_is_deterministic(self):
         font = workflow._cover_font_path()
         base = Image.new("RGB", (1920, 1080), "#8899AA")
-        reference = {"text": {"title_lines": ["看懂财富", "守住财富"],
+        candidate = {"text": {"title_lines": ["看懂财富", "守住财富"],
                               "subtitle": "两套不同能力",
                               "book_title": "富人的逻辑", "author": "作者"}}
-        first = os.path.join(self.temp.name, "reference_1.png")
-        second = os.path.join(self.temp.name, "reference_2.png")
-        workflow._compose_reference_cover(base, first, reference, font)
-        workflow._compose_reference_cover(base, second, reference, font)
+        first = os.path.join(self.temp.name, "cover_1.png")
+        second = os.path.join(self.temp.name, "cover_2.png")
+        workflow._compose_reference_cover(base, first, candidate, font)
+        workflow._compose_reference_cover(base, second, candidate, font)
         self.assertEqual(workflow._sha256(first), workflow._sha256(second))
-
-        poster = {"text": {"book_title": self.topic["book_title"],
-                           "hook": "会赚钱却守不住",
-                           "hook_lines": ["会赚钱却守不住"]}}
-        third = os.path.join(self.temp.name, "story_poster_1.png")
-        fourth = os.path.join(self.temp.name, "story_poster_2.png")
-        palette = {"background": "#172033", "foreground": "#EDF4FF",
-                   "accent": "#58C4D8"}
-        lines = workflow._compose_book_story_poster(
-            base, third, poster, palette, font)
-        workflow._compose_book_story_poster(
-            base, fourth, poster, palette, font)
-        self.assertEqual(workflow._sha256(third), workflow._sha256(fourth))
-        self.assertEqual("".join(lines), poster["text"]["hook"])
-        self.assertLessEqual(len(lines), 2)
-        with Image.open(third) as image:
+        with Image.open(first) as image:
             self.assertEqual(image.size, (1920, 1080))
-            thumbnail = image.resize((320, 180))
-            self.assertGreater(len(thumbnail.getcolors(maxcolors=320 * 180)), 2)
-
-    def test_poster_preserves_subject_area_and_fits_long_text(self):
-        spec = cover_templates.get_cover_template("book_title_author_v2")
-        typography = spec["typography"]
-        base = Image.new("RGB", (1920, 1080), "#8899AA")
-        draw = workflow.ImageDraw.Draw(base)
-        font_path = workflow._cover_font_path()
-        for hook in ("越抢越亏？", "聪明人为什么也总是掉进消费的陷阱"):
-            box = typography["hook_box"]
-            lines, font, bounds, height, gap = workflow._poster_text_layout(
-                draw, hook, font_path, box, 196, 56,
-                padding=(7, 9), stroke=6)
-            self.assertEqual("".join(lines), hook)
-            self.assertLessEqual(max(b[2] - b[0] for b in bounds) + 26,
-                                 box[2] - box[0])
-            self.assertLessEqual(height + 30, box[3] - box[1])
-        destination = os.path.join(self.temp.name, "preserve_subject.png")
-        workflow._compose_book_story_poster(
-            base, destination, {"text": {"book_title": self.topic["book_title"],
-                                        "hook": "越抢越亏？"}}, {}, font_path)
-        with Image.open(destination) as rendered:
-            self.assertEqual(rendered.crop((0, 530, 1920, 1080)).tobytes(),
-                             base.crop((0, 530, 1920, 1080)).tobytes())
-
-    def test_centered_subtitle_boundaries_and_plan_validation(self):
-        self._select_and_verify_plan()
-        plan = workflow.read_json(self.paths["cover_plan"])
-        snapshot = cover_templates.cover_template_snapshot("book_title_author_v2")
-        base = Image.new("RGB", (1920, 1080), "#8899AA")
-        output_hashes = []
-        for index, subtitle in enumerate(("", "解" * 14)):
-            plan["candidates"][0]["subtitle"] = subtitle
-            self.assertEqual(workflow.validate_cover_plan(
-                plan, snapshot, self.topic, "pub_v4", plan["source_hashes"]), [])
-            destination = os.path.join(self.temp.name, f"subtitle_{index}.png")
-            workflow._compose_book_story_poster(
-                base, destination, {"text": {"book_title": "影响力",
-                                            "hook": "越抢越亏？",
-                                            "subtitle": subtitle}}, {},
-                workflow._cover_font_path())
-            output_hashes.append(workflow._sha256(destination))
-            with Image.open(destination) as rendered:
-                self.assertEqual(rendered.crop((0, 530, 1920, 1080)).tobytes(),
-                                 base.crop((0, 530, 1920, 1080)).tobytes())
-        self.assertNotEqual(*output_hashes)
-        for subtitle in ("解" * 15, "分析\n消费"):
-            plan["candidates"][0]["subtitle"] = subtitle
-            self.assertIn("封面解释副标题必须为0-14字单行文字",
-                          workflow.validate_cover_plan(
-                              plan, snapshot, self.topic, "pub_v4",
-                              plan["source_hashes"]))
 
     def test_finalize_rejects_promoted_child_hash_drift(self):
+        workflow.cmd_publish_cover_select_template(SimpleNamespace(
+            **vars(self.args), template_id="reference_006_v1",
+            recommended="reference_006_v1", reason="频道既有版式"))
         os.makedirs(self.paths["approved_root"], exist_ok=True)
         workflow.write_json(self.paths["approved_copy"], {"before": True})
         workflow.write_json(self.paths["approved_cover"], {"before": True})
@@ -480,16 +231,13 @@ class PublishingV4Tests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "hash 已变化"):
             workflow.cmd_publish_finalize(self.args)
 
-    def test_centered_poster_render_and_split_finalize(self):
-        # 文案可以在封面尚未完成时独立提升。
+    def test_reference_cover_and_split_finalize(self):
         workflow.cmd_publish_copy_run(self.args)
         workflow.write_json(self.paths["copy_candidate"], self._copy_candidate())
         workflow.cmd_publish_copy_select(SimpleNamespace(
             **vars(self.args), title_id="title_0"))
         workflow.cmd_publish_copy_verify(self.args)
         workflow.cmd_publish_copy_promote(self.args)
-        self.assertEqual(workflow.read_json(self.paths["copy_state"])["status"],
-                         "promoted")
         with self.assertRaisesRegex(RuntimeError, "分别提升"):
             workflow.cmd_publish_finalize(self.args)
 
@@ -501,9 +249,7 @@ class PublishingV4Tests(unittest.TestCase):
         for candidate in cover["candidates"]:
             self.assertEqual(candidate["text"]["book_title"],
                              self.topic["book_title"])
-            self.assertEqual("".join(candidate["text"]["hook_lines"]),
-                             candidate["hook"])
-            self.assertNotIn("author", candidate["text"])
+            self.assertEqual(candidate["text"]["author"], self.topic["author"])
             with Image.open(os.path.join(self.project, candidate["final_path"])) as image:
                 self.assertEqual(image.size, (1920, 1080))
         dimensions = cover["template"]["spec"]["review_dimensions"]
@@ -521,10 +267,24 @@ class PublishingV4Tests(unittest.TestCase):
         package = workflow.read_json(self.paths["release"])
         self.assertEqual(package["version"], 4)
         self.assertEqual(package["cover"]["template"]["id"],
-                         "book_title_author_v2")
-        for path in (self.paths["release_copy"], self.paths["release_cover"],
-                     self.paths["release_cover_image"], self.paths["upload"]):
-            self.assertTrue(os.path.isfile(path))
+                         "reference_006_v1")
+        for artifact in (self.paths["release_copy"], self.paths["release_cover"],
+                         self.paths["release_cover_image"], self.paths["upload"]):
+            self.assertTrue(os.path.isfile(artifact))
+
+    def test_historical_cover_state_is_readable(self):
+        state = workflow.read_json(self.paths["cover_state"])
+        state["status"] = "template_selected"
+        state["template_selection"] = {"selected_template_id":
+                                       "book_title_author_v2"}
+        state["template"] = {"id": "book_title_author_v2", "version": 2,
+                             "sha256": "historical", "spec": {}}
+        workflow.write_json(self.paths["cover_state"], state)
+        with mock.patch("sys.stdout") as output:
+            workflow.cmd_publish_status(self.args)
+        self.assertTrue(output.write.called)
+        with self.assertRaisesRegex(RuntimeError, "已停用"):
+            workflow.cmd_publish_cover_plan(self.args)
 
 
 if __name__ == "__main__":
