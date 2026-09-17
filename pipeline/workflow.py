@@ -1852,6 +1852,7 @@ def _publish_paths(project, video_run, revision, publish_id):
     approved = os.path.join(root, "approved", publish_id)
     run = os.path.join(project, "workflow", "runs", video_run, "publish", publish_id)
     return {"candidate": candidate, "release": os.path.join(release, "package.json"),
+            "release_draft": os.path.join(release, "draft.json"),
             "upload": os.path.join(release, "upload.md"), "run": run,
             "state": os.path.join(run, "state.json"),
             "task": os.path.join(run, "task.json"),
@@ -2249,6 +2250,43 @@ def _save_publish_child(path, state):
     write_json(path, state)
 
 
+def _sync_publish_release_draft(paths, parent):
+    """将已提升的子产物分别汇入发布目录，保留最终包的独立门禁。"""
+    if os.path.exists(paths["release"]):
+        raise RuntimeError("V4 发布包已经汇总，禁止覆盖")
+    copy_state = read_json(paths["copy_state"])
+    cover_state = read_json(paths["cover_state"])
+    parts = {}
+    for name, state, files in (
+        ("copy", copy_state, (("approved_copy", "release_copy", "promoted_hash"),)),
+        ("cover", cover_state, (("approved_cover", "release_cover", "promoted_hash"),
+                                ("approved_cover_image", "release_cover_image",
+                                 "promoted_image_hash"))),
+    ):
+        if state.get("status") != "promoted":
+            continue
+        label = "发布文案" if name == "copy" else "封面"
+        hashes = {}
+        for source_key, target_key, hash_key in files:
+            actual = _sha256(paths[source_key])
+            if actual != state.get(hash_key):
+                raise RuntimeError(f"已提升{label} hash 已变化，禁止汇入发布包")
+            target = paths[target_key]
+            if os.path.exists(target) and _sha256(target) != actual:
+                raise RuntimeError(f"发布包内{label} hash 已变化，禁止覆盖")
+            hashes[os.path.basename(target)] = actual
+        for source_key, target_key, _ in files:
+            if not os.path.exists(paths[target_key]):
+                os.makedirs(paths["release_root"], exist_ok=True)
+                shutil.copy2(paths[source_key], paths[target_key])
+        parts[name] = hashes
+    write_json(paths["release_draft"], {
+        "version": 4, "publish_id": parent["publish_id"],
+        "status": "ready_to_finalize" if len(parts) == 2 else "incomplete",
+        "source_hashes": parent["source_hashes"], "artifacts": parts,
+    })
+
+
 def cmd_publish_init(args):
     project = set_project(args.project)
     video = _load_video_run(project, args.video_run_id)
@@ -2405,7 +2443,8 @@ def cmd_publish_copy_promote(args):
     _save_publish_child(paths["copy_state"], state)
     parent["children"]["copy"] = "promoted"
     _save_publish_parent(paths, parent)
-    print("发布文案已独立提升")
+    _sync_publish_release_draft(paths, parent)
+    print("发布文案已独立提升并汇入发布目录")
 
 
 def cmd_publish_copy_status(args):
@@ -2453,6 +2492,129 @@ def _require_active_cover_template(state):
     errors = validate_cover_template_snapshot(state.get("template"))
     if errors:
         raise RuntimeError("封面模板已停用或快照无效：" + "；".join(errors))
+
+
+def _verified_v3_cover_reuse_errors(project, parent, cover):
+    """核对旧 V3 已验证封面，禁止把复用图片记作本次新生成。"""
+    record = cover.get("reuse_provenance")
+    required = {"kind", "source_publish_id", "source_package_path",
+                "source_package_sha256", "source_state_path"}
+    if not isinstance(record, dict) or set(record) != required or \
+            record.get("kind") != "verified_v3":
+        return ["旧封面复用来源记录无效"]
+    source_id = record.get("source_publish_id")
+    if not isinstance(source_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]+", source_id):
+        return ["旧封面 publish ID 无效"]
+    candidate_dir = os.path.join(
+        "publishing", "candidates",
+        f"{parent['video_run_id']}_{parent['revision']}")
+    expected_package = os.path.join(candidate_dir, "package.json")
+    expected_state = os.path.join(
+        "workflow", "runs", parent["video_run_id"], "publish",
+        source_id, "state.json")
+    if record.get("source_package_path") != expected_package or \
+            record.get("source_state_path") != expected_state:
+        return ["旧封面来源路径与本次视频 run 不匹配"]
+    package_path = os.path.join(project, expected_package)
+    state_path = os.path.join(project, expected_state)
+    if not os.path.isfile(package_path) or not os.path.isfile(state_path):
+        return ["旧封面来源包或验证状态缺失"]
+    package_hash = _sha256(package_path)
+    if record.get("source_package_sha256") != package_hash:
+        return ["旧封面来源包 hash 已变化"]
+    legacy = read_json(package_path)
+    legacy_state = read_json(state_path)
+    source = legacy.get("source", {})
+    errors = []
+    if legacy.get("version") != 3 or legacy.get("publish_id") != source_id or \
+            legacy_state.get("version") != 3 or \
+            legacy_state.get("status") not in ("verified", "promoted") or \
+            legacy_state.get("verified_hash") != package_hash:
+        errors.append("旧 V3 发布包未通过哈希绑定的验证")
+    if source.get("project_id") != parent["project_id"] or \
+            source.get("video_run_id") != parent["video_run_id"] or \
+            source.get("revision") != parent["revision"] or \
+            source.get("video_artifact") != parent["video_artifact"] or \
+            source.get("hashes") != parent["source_hashes"]:
+        errors.append("旧封面与本次正式输入或视频版本不匹配")
+    old_cover = legacy.get("cover", {})
+    if old_cover.get("selected_cover_id") != cover.get("selected_cover_id") or \
+            old_cover.get("candidates") != cover.get("candidates"):
+        errors.append("旧封面候选或用户选中的图片与来源包不一致")
+    candidates_root = os.path.realpath(os.path.join(project, candidate_dir))
+    for candidate in cover.get("candidates", []):
+        if not isinstance(candidate, dict) or \
+                candidate.get("layout_id") != cover.get("template", {}).get("id"):
+            errors.append("旧封面不是当前唯一正式模板")
+            continue
+        for key in ("base_path", "final_path"):
+            full = os.path.realpath(os.path.join(project, candidate.get(key) or ""))
+            if os.path.commonpath((candidates_root, full)) != candidates_root:
+                errors.append("旧封面图片不在本视频的候选目录")
+    return sorted(set(errors))
+
+
+def cmd_publish_cover_reuse_verified(args):
+    """将用户明确指定的已验证 V3 原图接入 V4 封面子状态。"""
+    project, paths, parent, _, source, hashes = _publish_v4_context(args)
+    state = read_json(paths["cover_state"])
+    if state.get("status") != "awaiting_template" or \
+            state.get("template_selection") or \
+            os.path.exists(paths["cover_candidate"]) or \
+            os.path.exists(paths["approved_cover"]):
+        raise RuntimeError("本次封面已开始处理或已有正式资产，不能导入旧封面")
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", args.source_publish_id):
+        raise RuntimeError("旧封面 publish ID 无效")
+    candidate_dir = os.path.join(
+        "publishing", "candidates",
+        f"{parent['video_run_id']}_{parent['revision']}")
+    package_rel = os.path.join(candidate_dir, "package.json")
+    package_path = os.path.join(project, package_rel)
+    legacy = read_json(package_path)
+    selected = next((item for item in legacy.get("cover", {}).get("candidates", [])
+                     if item.get("id") == args.cover_id), None)
+    if selected is None or legacy.get("cover", {}).get("selected_cover_id") != args.cover_id:
+        raise RuntimeError("指定图片不是旧 V3 发布包中已选择的封面")
+    if os.path.basename(selected.get("final_path", "")) != args.filename:
+        raise RuntimeError("指定文件名与旧 V3 封面候选不一致")
+    template = cover_template_snapshot(selected.get("layout_id"))
+    selection = {
+        "recommended_template_id": template["id"],
+        "recommendation_reason": "沿用用户明确指定且已验证的 V3 正式封面",
+        "selected_template_id": template["id"],
+        "topic_sha256": hashes["topic"],
+        "selected_at": datetime.datetime.now().isoformat(),
+    }
+    cover = {
+        "version": 1, "publish_id": parent["publish_id"],
+        "source_hashes": hashes, "template_selection": selection,
+        "template": template,
+        "candidates": legacy["cover"]["candidates"],
+        "selected_cover_id": args.cover_id,
+        "reuse_provenance": {
+            "kind": "verified_v3",
+            "source_publish_id": args.source_publish_id,
+            "source_package_path": package_rel,
+            "source_package_sha256": _sha256(package_path),
+            "source_state_path": os.path.join(
+                "workflow", "runs", parent["video_run_id"], "publish",
+                args.source_publish_id, "state.json"),
+        },
+    }
+    errors = validate_publish_cover(
+        cover, template, source["topic"], project, hashes)
+    errors += _verified_v3_cover_reuse_errors(project, parent, cover)
+    if errors:
+        raise RuntimeError("；".join(sorted(set(errors))))
+    write_json(paths["cover_candidate"], cover)
+    state.update(status="selected", template_selection=selection,
+                 template=template, generation={"mode": "reused_verified_v3",
+                                                "source_publish_id": args.source_publish_id},
+                 verified_hash=None)
+    _save_publish_child(paths["cover_state"], state)
+    parent["children"]["cover"] = "selected"
+    _save_publish_parent(paths, parent)
+    print("旧 V3 已验证封面已按原图接入 V4，等待独立校验")
 
 
 def _cover_planning_source(project, state, source):
@@ -2930,7 +3092,10 @@ def cmd_publish_cover_verify(args):
     errors += validate_publish_cover(cover,
                                      state.get("template") or {}, source["topic"],
                                      project, hashes, require_selection=True)
-    errors += _cover_image_task_problems(project, paths, parent, state, cover)
+    if "reuse_provenance" in cover:
+        errors += _verified_v3_cover_reuse_errors(project, parent, cover)
+    else:
+        errors += _cover_image_task_problems(project, paths, parent, state, cover)
     if errors:
         raise RuntimeError("；".join(sorted(set(errors))))
     state.update(status="verified", verified_hash=_sha256(paths["cover_candidate"]))
@@ -2941,7 +3106,7 @@ def cmd_publish_cover_verify(args):
 
 
 def cmd_publish_cover_promote(args):
-    project, paths, parent, _, _, _ = _publish_v4_context(args)
+    project, paths, parent, _, source, hashes = _publish_v4_context(args)
     state = read_json(paths["cover_state"])
     _require_active_cover_template(state)
     if state.get("status") != "verified" or state.get("verified_hash") != \
@@ -2950,6 +3115,12 @@ def cmd_publish_cover_promote(args):
     if os.path.exists(paths["approved_cover"]):
         raise RuntimeError("已存在提升后的封面，禁止覆盖")
     data = read_json(paths["cover_candidate"])
+    if "reuse_provenance" in data:
+        errors = validate_publish_cover(data, state["template"], source["topic"],
+                                        project, hashes)
+        errors += _verified_v3_cover_reuse_errors(project, parent, data)
+        if errors:
+            raise RuntimeError("；".join(sorted(set(errors))))
     selected = next(x for x in data["candidates"]
                     if x["id"] == data["selected_cover_id"])
     os.makedirs(paths["approved_root"], exist_ok=True)
@@ -2961,7 +3132,8 @@ def cmd_publish_cover_promote(args):
     _save_publish_child(paths["cover_state"], state)
     parent["children"]["cover"] = "promoted"
     _save_publish_parent(paths, parent)
-    print("封面已独立提升")
+    _sync_publish_release_draft(paths, parent)
+    print("封面已独立提升并汇入发布目录")
 
 
 def cmd_publish_cover_status(args):
@@ -3005,10 +3177,7 @@ def cmd_publish_finalize(args):
                                          actual_image, parent["publish_id"], hashes)
     if errors:
         raise RuntimeError("；".join(errors))
-    os.makedirs(paths["release_root"], exist_ok=True)
-    shutil.copy2(paths["approved_copy"], paths["release_copy"])
-    shutil.copy2(paths["approved_cover"], paths["release_cover"])
-    shutil.copy2(paths["approved_cover_image"], paths["release_cover_image"])
+    _sync_publish_release_draft(paths, parent)
     write_json(paths["release"], package)
     youtube = copy_data["platforms"]["youtube"]
     title = next(x["title"] for x in youtube["titles"]
@@ -3027,6 +3196,7 @@ def cmd_publish_finalize(args):
                      "\n\n## 上传前人工检查\n- 人工上传\n- 检查标题、简介与封面\n")
     parent.update(status="finalized", release_sha256=_sha256(paths["release"]))
     _save_publish_parent(paths, parent)
+    os.remove(paths["release_draft"])
     print("V4 发布包已汇总；未执行平台上传")
 
 
@@ -3187,6 +3357,7 @@ def parser():
         ("publish-copy-status", cmd_publish_copy_status),
         ("publish-cover-template-options", cmd_publish_cover_template_options),
         ("publish-cover-select-template", cmd_publish_cover_select_template),
+        ("publish-cover-reuse-verified", cmd_publish_cover_reuse_verified),
         ("publish-cover-plan", cmd_publish_cover_plan),
         ("publish-cover-verify-plan", cmd_publish_cover_verify_plan),
         ("publish-cover-generate", cmd_publish_cover_generate),
@@ -3211,6 +3382,10 @@ def parser():
             p.add_argument("--recommended", choices=COVER_TEMPLATE_IDS,
                            required=True)
             p.add_argument("--reason", required=True)
+        elif name == "publish-cover-reuse-verified":
+            p.add_argument("--source-publish-id", required=True)
+            p.add_argument("--cover-id", required=True)
+            p.add_argument("--filename", required=True)
         elif name == "publish-cover-review":
             p.add_argument("--cover-id", required=True)
             p.add_argument("--result", choices=("pass", "fail"), required=True)

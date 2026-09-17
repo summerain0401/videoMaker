@@ -171,6 +171,8 @@ python3 pipeline/workflow.py publish-finalize <video_run_id> <publish_id> --proj
 
 封面模板注册表仅保留 `reference_006_v1`，没有默认选择。用户明确选择后，正式流程生成两个不同的语义方案，以正式场景为风格锚点、必要角色为主体，采用左侧两行观点钩子与右侧人物的既有版式。两个无字底图由项目固定的图片生成方式生成，书名、作者和观点文字由本地确定性合成。已发布的旧模板封面仅作为历史记录保留。
 
+用户明确指定同一视频 run 中已验证的 V3 封面时，可使用 `publish-cover-reuse-verified <video_run_id> <publish_id> --project <id> --source-publish-id <old_id> --cover-id <candidate_id> --filename <original.png>`。命令核对旧发布包、正式输入、原图和视觉审核的哈希，并把来源记录写入 V4 候选；随后仍需执行 `publish-cover-verify` 和 `publish-cover-promote`。复用保留原图字节，不签发新的图片任务，也不改写历史包。
+
 任务包会记录下一图片阶段所需的 Agent 环境。项目图片生成方式为 `imagegen` 时，Antigravity 只能写入发布文案或封面语义方案，随后必须停止；`publish-cover-generate` 只允许在带 Codex 会话标记的环境签发和确认 ImageGen 图片，避免其他工具生成的 PNG 被误记为 ImageGen 产物。
 
-V4 发布文案与封面分别进入 `publishing/approved/<publish_id>/`。两者都提升且 hash 未变化后，`publish-finalize` 才会写入 `publishing/releases/<publish_id>/`；所有命令都不执行平台上传。历史 V1–V3 发布包只读。
+V4 发布文案与封面分别提升到 `publishing/approved/<publish_id>/`，并立即将各自文件汇入 `publishing/releases/<publish_id>/`。该目录的 `draft.json` 标明已汇入的部分；两者都提升且 hash 未变化后，`publish-finalize` 才会生成正式 `package.json` 和 `upload.md`。所有命令都不执行平台上传。历史 V1–V3 发布包只读。

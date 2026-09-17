@@ -144,6 +144,55 @@ class PublishingV4Tests(unittest.TestCase):
                           (120 + index * 20, 140, 160)).save(task["output_path"])
                 workflow.cmd_publish_cover_generate(self.args)
 
+    def _write_verified_v3_cover(self):
+        source_id = "pub_legacy_verified"
+        old_root = os.path.join(self.project, "publishing", "candidates",
+                                "run_video_v2")
+        images = os.path.join(old_root, "covers")
+        os.makedirs(images, exist_ok=True)
+        candidates = []
+        for index, cover_id in enumerate(("cover_priority", "cover_choice")):
+            base = os.path.join(images, f"{cover_id}_v3_base.png")
+            final = os.path.join(images, f"{cover_id}_v3.png")
+            Image.new("RGB", (1920, 1080),
+                      (80 + index * 30, 110, 140)).save(base)
+            Image.new("RGB", (1920, 1080),
+                      (120 + index * 30, 150, 170)).save(final)
+            digest = workflow._sha256(final)
+            candidates.append({
+                "id": cover_id, "layout_id": "reference_006_v1",
+                "text": {"title_lines": ["把时间留给", "重要的事"],
+                         "subtitle": "旧版已审核文字", "book_title": "富人的逻辑",
+                         "author": self.topic["author"]},
+                "base_path": os.path.relpath(base, self.project),
+                "base_sha256": workflow._sha256(base),
+                "final_path": os.path.relpath(final, self.project),
+                "sha256": digest,
+                "visual_review": {
+                    "status": "passed", "asset_sha256": digest,
+                    **{key: True for key in cover_templates.get_cover_template(
+                        "reference_006_v1")["review_dimensions"]}},
+            })
+        parent = workflow.read_json(self.paths["state"])
+        package_path = os.path.join(old_root, "package.json")
+        workflow.write_json(package_path, {
+            "version": 3, "publish_id": source_id,
+            "source": {"project_id": "001", "video_run_id": "run_video",
+                       "revision": "v2",
+                       "video_artifact": parent["video_artifact"],
+                       "hashes": parent["source_hashes"]},
+            "cover": {"selected_cover_id": "cover_priority",
+                      "candidates": candidates},
+        })
+        source_state = os.path.join(
+            self.project, "workflow", "runs", "run_video", "publish",
+            source_id, "state.json")
+        workflow.write_json(source_state, {
+            "version": 3, "status": "verified",
+            "verified_hash": workflow._sha256(package_path),
+        })
+        return source_id, candidates[0]["final_path"]
+
     def test_registry_has_only_reference_template(self):
         first = cover_templates.cover_template_snapshot("reference_006_v1")
         self.assertEqual(first,
@@ -208,6 +257,56 @@ class PublishingV4Tests(unittest.TestCase):
         with Image.open(first) as image:
             self.assertEqual(image.size, (1920, 1080))
 
+    def test_reuse_verified_v3_cover_preserves_original_image(self):
+        source_id, original = self._write_verified_v3_cover()
+        workflow.cmd_publish_cover_reuse_verified(SimpleNamespace(
+            **vars(self.args), source_publish_id=source_id,
+            cover_id="cover_priority", filename="cover_priority_v3.png"))
+        candidate = workflow.read_json(self.paths["cover_candidate"])
+        self.assertEqual(candidate["reuse_provenance"]["kind"], "verified_v3")
+        self.assertEqual(candidate["selected_cover_id"], "cover_priority")
+        self.assertNotEqual(candidate["candidates"][0]["text"]["book_title"],
+                            self.topic["book_title"])
+        workflow.cmd_publish_cover_verify(self.args)
+        workflow.cmd_publish_cover_promote(self.args)
+        self.assertEqual(workflow._sha256(self.paths["approved_cover_image"]),
+                         workflow._sha256(os.path.join(self.project, original)))
+        self.assertEqual(workflow.read_json(self.paths["cover_state"])["status"],
+                         "promoted")
+        workflow.cmd_publish_copy_run(self.args)
+        workflow.write_json(self.paths["copy_candidate"], self._copy_candidate())
+        workflow.cmd_publish_copy_select(SimpleNamespace(
+            **vars(self.args), title_id="title_0"))
+        workflow.cmd_publish_copy_verify(self.args)
+        workflow.cmd_publish_copy_promote(self.args)
+        workflow.cmd_publish_finalize(self.args)
+        release = workflow.read_json(self.paths["release"])
+        self.assertEqual(release["cover"]["selected_cover_id"], "cover_priority")
+        self.assertEqual(workflow._sha256(self.paths["release_cover_image"]),
+                         workflow._sha256(os.path.join(self.project, original)))
+
+    def test_reuse_rejects_changed_legacy_image(self):
+        source_id, original = self._write_verified_v3_cover()
+        workflow.cmd_publish_cover_reuse_verified(SimpleNamespace(
+            **vars(self.args), source_publish_id=source_id,
+            cover_id="cover_priority", filename="cover_priority_v3.png"))
+        Image.new("RGB", (1920, 1080), "red").save(
+            os.path.join(self.project, original))
+        with self.assertRaisesRegex(RuntimeError, "hash 无效"):
+            workflow.cmd_publish_cover_verify(self.args)
+
+    def test_reuse_rechecks_legacy_image_at_promotion(self):
+        source_id, original = self._write_verified_v3_cover()
+        workflow.cmd_publish_cover_reuse_verified(SimpleNamespace(
+            **vars(self.args), source_publish_id=source_id,
+            cover_id="cover_priority", filename="cover_priority_v3.png"))
+        workflow.cmd_publish_cover_verify(self.args)
+        Image.new("RGB", (1920, 1080), "red").save(
+            os.path.join(self.project, original))
+        with self.assertRaisesRegex(RuntimeError, "hash 无效"):
+            workflow.cmd_publish_cover_promote(self.args)
+        self.assertFalse(os.path.exists(self.paths["approved_cover_image"]))
+
     def test_finalize_rejects_promoted_child_hash_drift(self):
         workflow.cmd_publish_cover_select_template(SimpleNamespace(
             **vars(self.args), template_id="reference_006_v1",
@@ -238,6 +337,12 @@ class PublishingV4Tests(unittest.TestCase):
             **vars(self.args), title_id="title_0"))
         workflow.cmd_publish_copy_verify(self.args)
         workflow.cmd_publish_copy_promote(self.args)
+        draft = workflow.read_json(self.paths["release_draft"])
+        self.assertEqual(draft["status"], "incomplete")
+        self.assertEqual(list(draft["artifacts"]), ["copy"])
+        self.assertTrue(os.path.isfile(self.paths["release_copy"]))
+        self.assertFalse(os.path.exists(self.paths["release_cover"]))
+        self.assertFalse(os.path.exists(self.paths["release"]))
         with self.assertRaisesRegex(RuntimeError, "分别提升"):
             workflow.cmd_publish_finalize(self.args)
 
@@ -263,6 +368,9 @@ class PublishingV4Tests(unittest.TestCase):
             **vars(self.args), cover_id="cover_a"))
         workflow.cmd_publish_cover_verify(self.args)
         workflow.cmd_publish_cover_promote(self.args)
+        draft = workflow.read_json(self.paths["release_draft"])
+        self.assertEqual(draft["status"], "ready_to_finalize")
+        self.assertEqual(set(draft["artifacts"]), {"copy", "cover"})
         workflow.cmd_publish_finalize(self.args)
         package = workflow.read_json(self.paths["release"])
         self.assertEqual(package["version"], 4)
@@ -271,6 +379,51 @@ class PublishingV4Tests(unittest.TestCase):
         for artifact in (self.paths["release_copy"], self.paths["release_cover"],
                          self.paths["release_cover_image"], self.paths["upload"]):
             self.assertTrue(os.path.isfile(artifact))
+        self.assertFalse(os.path.exists(self.paths["release_draft"]))
+
+    def test_cover_can_enter_release_before_copy(self):
+        source_id, _ = self._write_verified_v3_cover()
+        workflow.cmd_publish_cover_reuse_verified(SimpleNamespace(
+            **vars(self.args), source_publish_id=source_id,
+            cover_id="cover_priority", filename="cover_priority_v3.png"))
+        workflow.cmd_publish_cover_verify(self.args)
+        workflow.cmd_publish_cover_promote(self.args)
+        draft = workflow.read_json(self.paths["release_draft"])
+        self.assertEqual(draft["status"], "incomplete")
+        self.assertEqual(list(draft["artifacts"]), ["cover"])
+        self.assertTrue(os.path.isfile(self.paths["release_cover_image"]))
+        self.assertFalse(os.path.exists(self.paths["release_copy"]))
+        workflow.cmd_publish_copy_run(self.args)
+        workflow.write_json(self.paths["copy_candidate"], self._copy_candidate())
+        workflow.cmd_publish_copy_select(SimpleNamespace(
+            **vars(self.args), title_id="title_0"))
+        workflow.cmd_publish_copy_verify(self.args)
+        workflow.cmd_publish_copy_promote(self.args)
+        # 兼容变更前已提升、但尚未把文件汇入 release 的 V4 任务。
+        for key in ("release_copy", "release_cover", "release_cover_image",
+                    "release_draft"):
+            os.remove(self.paths[key])
+        workflow.cmd_publish_finalize(self.args)
+        self.assertTrue(os.path.isfile(self.paths["release"]))
+        self.assertTrue(os.path.isfile(self.paths["release_cover_image"]))
+
+    def test_finalize_rejects_changed_release_component(self):
+        source_id, _ = self._write_verified_v3_cover()
+        workflow.cmd_publish_cover_reuse_verified(SimpleNamespace(
+            **vars(self.args), source_publish_id=source_id,
+            cover_id="cover_priority", filename="cover_priority_v3.png"))
+        workflow.cmd_publish_cover_verify(self.args)
+        workflow.cmd_publish_cover_promote(self.args)
+        workflow.cmd_publish_copy_run(self.args)
+        workflow.write_json(self.paths["copy_candidate"], self._copy_candidate())
+        workflow.cmd_publish_copy_select(SimpleNamespace(
+            **vars(self.args), title_id="title_0"))
+        workflow.cmd_publish_copy_verify(self.args)
+        workflow.cmd_publish_copy_promote(self.args)
+        Image.new("RGB", (1920, 1080), "red").save(
+            self.paths["release_cover_image"])
+        with self.assertRaisesRegex(RuntimeError, "发布包内封面 hash 已变化"):
+            workflow.cmd_publish_finalize(self.args)
 
     def test_historical_cover_state_is_readable(self):
         state = workflow.read_json(self.paths["cover_state"])

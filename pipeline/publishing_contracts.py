@@ -375,7 +375,10 @@ def validate_publish_cover(data, template_snapshot, topic, project_root,
     errors = []
     required = {"version", "publish_id", "source_hashes", "template_selection",
                 "template", "candidates", "selected_cover_id"}
-    if not isinstance(data, dict) or set(data) != required:
+    if not isinstance(data, dict):
+        return ["封面产物顶层字段必须严格匹配 canonical contract"]
+    reused = "reuse_provenance" in data
+    if set(data) != required | ({"reuse_provenance"} if reused else set()):
         return ["封面产物顶层字段必须严格匹配 canonical contract"]
     if data.get("version") != 1 or data.get("source_hashes") != expected_source_hashes:
         errors.append("封面产物版本或 source hashes 不匹配")
@@ -397,7 +400,9 @@ def validate_publish_cover(data, template_snapshot, topic, project_root,
             errors.append("封面候选必须是对象")
             continue
         text = candidate.get("text", {})
-        if text.get("book_title") != topic.get("book_title"):
+        # 旧 V3 已验证成图可能使用正式书名的简称；原图和文字元数据必须
+        # 由 workflow 的来源包哈希校验原样锁定，不能伪装为本次新生成的图片。
+        if not reused and text.get("book_title") != topic.get("book_title"):
             errors.append("封面书名必须与正式 topic 完全一致")
         if text.get("author") != topic.get("author"):
             errors.append("观点钩子封面作者必须与正式 topic 完全一致")
@@ -421,7 +426,7 @@ def validate_publish_cover(data, template_snapshot, topic, project_root,
             except Exception:
                 errors.append("封面成品无法读取")
         task = candidate.get("cover_task", {})
-        if not all(task.get(k) is not None for k in (
+        if not reused and not all(task.get(k) is not None for k in (
                 "task_sha256", "prompt_sha256", "reference_images",
                 "character_ids")):
             errors.append("封面 ImageTask 追溯字段不完整")
