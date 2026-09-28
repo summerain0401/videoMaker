@@ -2926,7 +2926,7 @@ def _compose_reference_cover(base, destination, candidate, font_path):
         draw.text((80, y - 8), text_value, fill=color, font=font)
     subtitle = candidate["text"].get("subtitle", "")
     if subtitle:
-        font = _cover_font(draw, font_path, subtitle, 900, 46)
+        font = _cover_font(draw, font_path, subtitle, 900, 46, minimum=28)
         draw.text((82, 674), subtitle, fill=ink, font=font,
                   stroke_width=2, stroke_fill=shadow)
     bookline = f"《{candidate['text']['book_title']}》｜{candidate['text']['author']}"

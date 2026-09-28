@@ -6,3 +6,6 @@ model_reasoning_effort = "medium"
 enabled = true
 # 节省上下文与避免并发写冲突：同一时刻最多启用一个专用代理。
 max_concurrent_threads_per_session = 1
+
+[sandbox_workspace_write]
+network_access = true
