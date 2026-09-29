@@ -35,7 +35,8 @@ provider 的唯一事实源，run 只使用 `state.json` 中的完整快照。�
    图片阶段需切换到 Codex。工作流不会自动启动或调用另一个 Agent。
 5. 新 run 执行 `pipeline/workflow.py init --project <id>`；恢复时先执行
    `pipeline/workflow.py status <run_id> --project <id>`。读取 `AGENTS.md`、项目
-   `project.json`、`input/topic_request.md`、角色库和命令帮助，只使用状态输出的路径。
+   `project.json`、`input/topic_request.md`、`docs/used_books.md`、角色库和命令帮助，
+   只使用状态输出的路径。
 
 ## Provider 路由
 
@@ -53,7 +54,8 @@ provider 的唯一事实源，run 只使用 `state.json` 中的完整快照。�
    `topic`、`copy`、`script` 或 `storyboard`。
 2. 读取状态输出指向的 `workflow/runs/<run_id>/tasks/<stage>.json`，严格满足其中
    `output_contract`，且只写 `candidate_path`。不得把聊天回复当成候选交付。
-3. topic 输出三个候选且 `selected_id` 初始为 null；用户选择后才执行
+3. topic 输出三个未在任务包 `used_books` 中出现的候选，且 `selected_id` 初始为 null；
+   用户选择后才执行
    `select-topic`。topic 校验并提升后，如果 run 尚未选择内容模板，执行
    `template-options`；由 Sol 根据正式选题推荐一个模板、说明理由并展示全部选项。
    只有用户明确选择后才执行 `select-template`，不得静默采用默认模板。script 是

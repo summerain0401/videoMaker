@@ -29,6 +29,9 @@ from cover_templates import (
     validate_cover_template_snapshot,
 )
 from providers import IMAGE_PROVIDERS, LLM_PROVIDERS, make_image, make_llm
+from used_books import (
+    collect_used_books, duplicate_book_problems, refresh_used_books_catalog,
+)
 from workflow_contracts import (
     ALL_STAGES, APPROVAL_STAGES, STAGE_STATES, build_image_tasks,
     normalize_providers,
@@ -686,7 +689,10 @@ def build_task(paths, state, stage):
         request = os.path.join(project, "input", "topic_request.md")
         with open(request, encoding="utf-8") as handle:
             request_text = handle.read()
+        used_books = [entry for entry in collect_used_books(PJ.PROJECTS_DIR)
+                      if entry["project_id"] != str(state["project_id"])]
         return {"stage": stage, "topic_request": request_text,
+                "used_books": used_books,
                 "candidate_path": paths[stage],
                 "content_template": content_template,
                 "output_contract": {
@@ -696,7 +702,8 @@ def build_task(paths, state, stage):
                         "id", "book_title", "author", "angle",
                         "audience_promise", "video_title", "rationale",
                     ],
-                    "requirements": "输出 3 个候选；id 唯一；selected_id 初始为 null",
+                    "requirements": "输出 3 个候选；id 唯一；selected_id 初始为 null；"
+                                    "不得重复 used_books 中的书目",
                 }}
     if content_template is None:
         raise RuntimeError(
@@ -1385,6 +1392,11 @@ def cmd_verify(args):
     project = paths["project"]
     if stage == "topic":
         problems = validate_topic(read_json(paths[stage]), require_selection=True)
+        if not problems:
+            candidate = read_json(paths[stage])
+            problems.extend(duplicate_book_problems(
+                candidate["candidates"], collect_used_books(PJ.PROJECTS_DIR),
+                state["project_id"]))
     elif stage == "copy":
         problems = validate_copy(read_json(paths[stage]), state.get("content_template"))
     elif stage == "script":
@@ -1505,6 +1517,11 @@ def cmd_promote(args):
         topic = selected_topic(candidates)
         if not topic:
             raise RuntimeError("topic 未选择")
+        duplicates = duplicate_book_problems(
+            candidates["candidates"], collect_used_books(PJ.PROJECTS_DIR),
+            state["project_id"])
+        if duplicates:
+            raise RuntimeError("；".join(duplicates))
         canonical = dict(topic)
         canonical["source_candidates"] = [x["id"] for x in candidates["candidates"]]
         target = os.path.join(
@@ -1587,6 +1604,8 @@ def cmd_promote(args):
     transition(state, stage, "promoted", "已人工确认并提升")
     unlock(state)
     save_state(paths, state)
+    if stage == "topic":
+        refresh_used_books_catalog(PJ.PROJECTS_DIR)
     if stage == "topic" and not state.get("content_template"):
         print(json.dumps({
             "stage": "topic",

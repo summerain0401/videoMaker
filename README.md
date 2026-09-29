@@ -47,6 +47,9 @@ $PY pipeline/workflow.py select-template <run_id> practical_workshop_v1 \
 
 随后依次处理 `copy`、`script` 和 `storyboard`。内容模板未由用户明确选择前，`copy` 保持阻断；不再静默采用默认模板。`storyboard` 的顺序固定为：生成候选 → `verify storyboard` → `run storyboard-review` → `verify storyboard-review` → 人工确认后 `promote storyboard`。最后一步会把匹配哈希的审核记录与正式分镜一起锁定，禁止先提升分镜再审核。
 
+已做书目见 [已做书单](docs/used_books.md)。它从各项目的正式选题汇总，
+每次提升 topic 后自动更新；新 topic 任务包会附上书单，校验和提升会拦截跨项目重复书目。
+
 `script` 提升后 `voice` 可运行；分镜与审核记录一起提升后 `images` 才可运行，两条分支可以并行。图片与语音都完成后运行 `render` 和 `qa`：
 
 ```bash

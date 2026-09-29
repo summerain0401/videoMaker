@@ -1,5 +1,5 @@
 # 项目仅使用 Sol 和 Luna；Sol 主控，按需把明确执行任务交给 Luna。
-model = "gpt-5.6-sol"
+model = "gpt-6-sol"
 model_reasoning_effort = "medium"
 
 [agents]

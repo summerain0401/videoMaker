@@ -614,6 +614,66 @@ class WorkflowStateTests(unittest.TestCase):
         PJ._CACHE.clear()
         self.tmp.cleanup()
 
+    def test_used_books_enter_topic_task_block_duplicates_and_refresh_catalog(self):
+        create = SimpleNamespace(project="020", llm="codex", llm_model=None,
+                                 image="imagegen", image_model=None,
+                                 azure_voice="voice-A")
+        with redirect_stdout(io.StringIO()):
+            workflow.cmd_create(create)
+        first = workflow.project_for_id("020")
+        write_json(os.path.join(first, "input", "topic.json"), {
+            "book_title": "影响力：实践篇", "author": "测试作者"})
+
+        create.project = "021"
+        with redirect_stdout(io.StringIO()):
+            workflow.cmd_create(create)
+            workflow.cmd_init(SimpleNamespace(project="021", run_id="run_books"))
+            workflow.cmd_run(SimpleNamespace(
+                run_id="run_books", stage="topic", project="021", beats=None))
+        paths, state = workflow.locate_run("run_books", "021")
+        task = workflow.build_task(paths, state, "topic")
+        self.assertEqual(task["used_books"][0]["book_title"], "影响力：实践篇")
+        self.assertEqual(workflow.duplicate_book_problems(
+            [{"id": "other", "book_title": "影响力", "author": "另一作者"}],
+            task["used_books"], "021"), [])
+
+        candidate = {
+            "id": "t1", "book_title": "影响力", "author": "测试作者",
+            "angle": "角度", "audience_promise": "承诺",
+            "video_title": "标题", "rationale": "理由",
+        }
+        write_json(paths["topic"], {"candidates": [candidate],
+                                    "selected_id": "t1"})
+        with self.assertRaisesRegex(RuntimeError, "topic 校验失败"), \
+                redirect_stdout(io.StringIO()):
+            workflow.cmd_verify(SimpleNamespace(
+                run_id="run_books", project="021", stage="topic"))
+        self.assertIn("书目已用于项目 020", read_json(paths["state"])
+                      ["stages"]["topic"]["note"])
+
+        candidate["book_title"] = "全新书目"
+        write_json(paths["topic"], {"candidates": [candidate],
+                                    "selected_id": "t1"})
+        with redirect_stdout(io.StringIO()):
+            workflow.cmd_verify(SimpleNamespace(
+                run_id="run_books", project="021", stage="topic"))
+        with mock.patch.object(workflow, "collect_used_books", return_value=[{
+                "project_id": "022", "book_title": "全新书目",
+                "author": "测试作者", "source": "正式选题"}]):
+            with self.assertRaisesRegex(RuntimeError, "书目已用于项目 022"):
+                workflow.cmd_promote(SimpleNamespace(
+                    run_id="run_books", project="021", stage="topic",
+                    replace=False))
+        with redirect_stdout(io.StringIO()):
+            workflow.cmd_promote(SimpleNamespace(
+                run_id="run_books", project="021", stage="topic",
+                replace=False))
+        catalog = os.path.join(self.tmp.name, "docs", "used_books.md")
+        with open(catalog, encoding="utf-8") as handle:
+            text = handle.read()
+        self.assertIn("| 020 | 影响力：实践篇 |", text)
+        self.assertIn("| 021 | 全新书目 |", text)
+
     def test_project_provider_snapshot_and_parallel_unlock(self):
         create_args = SimpleNamespace(
             project="003", llm="deepseek", llm_model="deepseek-chat",

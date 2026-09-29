@@ -1,6 +1,6 @@
 name = "sol_architect"
 description = "仅在用户明确要求独立复核时使用的 Sol 只读专家；日常创作与设计由 Sol 主控直接完成。"
-model = "gpt-5.6-sol"
+model = "gpt-6-sol"
 model_reasoning_effort = "high"
 sandbox_mode = "read-only"
 developer_instructions = """
