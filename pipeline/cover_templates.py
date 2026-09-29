@@ -28,6 +28,36 @@ _TEMPLATES = {
             "标题、标识和水印。"
         ),
     },
+    "book_spotlight_v2": {
+        "id": "book_spotlight_v2",
+        "version": 2,
+        "display_name": "书籍主视觉封面（混合文字）",
+        "description": (
+            "左侧书封与书脊原生呈现书名，右侧确定性合成两行观点钩子的"
+            "深色编辑插画封面。"
+        ),
+        "layout": "book_left_hook_right_hybrid",
+        "canvas": [1920, 1080],
+        "candidate_count": 2,
+        "requires_style_anchor": True,
+        "requires_character_ids": False,
+        "allows_people": False,
+        "title_line_max_chars": 9,
+        "subtitle_max_chars": 16,
+        "book_text_mode": "generated_exact",
+        "right_text_mode": "local_deterministic",
+        "review_dimensions": [
+            "style", "book_recognition", "book_text_accuracy", "semantic",
+            "layout", "thumbnail_legibility",
+        ],
+        "generation_policy": (
+            "以正式场景作为画风锚点，左侧立体书籍的书封与书脊必须原生生成"
+            "准确书名，书封原生生成准确作者名；右侧保留自然形成的深蓝低细节"
+            "文字区且不得生成可读文字。右侧书目信息、两行观点钩子与副标题"
+            "由本地确定性合成，不使用覆盖书籍的硬边整块遮罩；底图禁止人物、"
+            "额外可读文字、标识和水印。"
+        ),
+    },
 }
 
 COVER_TEMPLATE_IDS = tuple(_TEMPLATES)

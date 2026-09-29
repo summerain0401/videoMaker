@@ -2635,9 +2635,12 @@ def _cover_planning_source(project, state, source):
 
 def _cover_plan_contract(parent, state, hashes):
     template_id = state["template"]["id"]
+    spec = state["template"]["spec"]
+    character_ids = (["registered id"]
+                     if spec["requires_character_ids"] else [])
     candidate = {"id": "string", "concept": "string", "subject": "string",
                  "composition": "string", "title_lines": "exactly 2 strings",
-                 "subtitle": "string", "character_ids": ["registered id"]}
+                 "subtitle": "string", "character_ids": character_ids}
     return {"version": 1, "publish_id": parent["publish_id"],
             "source_hashes": hashes, "template_id": template_id,
             "candidates": [candidate, candidate]}
@@ -2653,8 +2656,19 @@ def cmd_publish_cover_plan(args):
                                "verified", "promoted"):
         raise RuntimeError("封面方案已冻结或进入后续阶段")
     context = _cover_planning_source(project, state, source)
+    spec = state["template"]["spec"]
     image_route = _interactive_image_execution_route(
         parent["providers"]["image"])
+    character_instruction = (
+        "并提供正式角色 ID；"
+        if spec["requires_character_ids"] else
+        "且 character_ids 必须为空列表，不得规划人物；"
+    )
+    typography_instruction = (
+        "书名与作者将在后续图片任务中作为书籍原生文字注入，右侧文字由本地合成。"
+        if spec.get("book_text_mode") == "generated_exact" else
+        "书名和作者由本地合成注入。"
+    )
     task = {"stage": "publish-cover", "source": context,
             "source_hashes": hashes, "template": state["template"],
             "template_selection": state["template_selection"],
@@ -2667,8 +2681,9 @@ def cmd_publish_cover_plan(args):
             },
             "instruction": ("只输出两个不同的语义方案，不得输出 provider、model、"
                             "最终 prompt、negative prompt、图片路径或 hash。"
-                            "每个方案提供两行观点标题、解释副标题及正式角色 ID；"
-                            "书名和作者由本地合成注入。写入 candidate_path "
+                            "每个方案提供两行观点标题、解释副标题"
+                            f"{character_instruction}"
+                            f"{typography_instruction}写入 candidate_path "
                             "后必须立即停止；"
                             f"后续图片只能在 {image_route['required_agent_environment']} "
                             "环境执行，当前内容 Agent 不得代替。"),
@@ -2746,24 +2761,72 @@ def _cover_image_tasks(project, paths, state, source):
                 raise RuntimeError("封面风格参考路径或 hash 已变化")
         anchors = anchors[:expected_count]
     tasks = []
+    book_title = source["topic"]["book_title"]
+    author = source["topic"].get("author", "")
     for candidate in plan["candidates"]:
-        description = (f"cover background concept: {candidate['concept']}; subject: "
-                       f"{candidate['subject']}; composition: {candidate['composition']}; "
-                       "leave readable left hook area and character emphasis on right")
+        if spec["layout"] == "book_left_hook_right_hybrid":
+            author_instruction = (
+                f" and render the exact author name {author!r} on the front cover"
+                if author else ""
+            )
+            description = (
+                f"cover background concept: {candidate['concept']}; subject: "
+                f"{candidate['subject']}; composition: {candidate['composition']}; "
+                "place one upright three-dimensional hardback book entirely within "
+                "the left 44 percent; integrate the exact simplified-Chinese book "
+                f"title {book_title!r} naturally into both the front cover and spine"
+                f"{author_instruction}; preserve correct glyphs, reading order, "
+                "perspective, print texture, and lighting; keep the right 52 percent "
+                "as a naturally dark navy, low-detail, high-contrast field without "
+                "any generated captions or display copy"
+            )
+        else:
+            description = (
+                f"cover background concept: {candidate['concept']}; subject: "
+                f"{candidate['subject']}; composition: {candidate['composition']}; "
+                "leave readable left hook area and character emphasis on right"
+            )
         character_ids = candidate["character_ids"]
         char_bits = character_ids
         references = [os.path.realpath(os.path.join(project, anchors[0]["path"]))]
         style = "match the supplied official scene style anchor"
-        negative = ("readable text, letters, words, title, captions, logo, watermark, "
-                    "book mockup, photorealistic corporate stock art, flat vector "
-                    "technology wallpaper" +
-                    (", person, people, character"
-                     if not spec["allows_people"] else ""))
+        forbidden_subject = ("" if spec["layout"] ==
+                             "book_left_hook_right_hybrid"
+                             else ", book mockup")
+        if spec["layout"] == "book_left_hook_right_hybrid":
+            negative = (
+                "incorrect book title, misspelled Chinese characters, duplicated "
+                "glyphs, extra readable text outside the book, captions, logo, "
+                "watermark, photorealistic corporate stock art, flat vector "
+                "technology wallpaper, person, people, character"
+            )
+            exact_text = book_title
+            if author:
+                exact_text += f"；{author}"
+            text_policy = (
+                f"required exact book text: title {book_title!r} on the front cover "
+                f"and spine"
+                + (f", author {author!r} on the front cover" if author else "")
+                + "; local compositor adds all right-side typography"
+            )
+            manifest_text_policy = {
+                "mode": "required_exact", "exact_text": exact_text,
+            }
+        else:
+            negative = (
+                "readable text, letters, words, title, captions, logo, watermark, "
+                "photorealistic corporate stock art, flat vector technology "
+                f"wallpaper{forbidden_subject}"
+                + (", person, people, character"
+                   if not spec["allows_people"] else "")
+            )
+            text_policy = "no readable text; local compositor adds all typography"
+            manifest_text_policy = {"mode": "forbidden"}
         sources = {"style": style, "palette": palette_text,
                    "description": description, "char_bits": char_bits,
                    "shot": "wide",
                    "emotion": "neutral",
-                   "text_policy": "no readable text; local compositor adds all typography"}
+                   "text_policy": text_policy}
         prompt = build_image_prompt(**sources)
         task = {"key": candidate["id"], "prompt": prompt,
                 "negative_prompt": negative, "size": [1920, 1080],
@@ -2774,7 +2837,7 @@ def _cover_image_tasks(project, paths, state, source):
                 "style_anchor": (anchors[0] if anchors else None),
                 "rule_manifest": {"prompt_sources": sources,
                                   "negative_prompt": negative,
-                                  "text_policy": {"mode": "forbidden"},
+                                  "text_policy": manifest_text_policy,
                                   "template_sha256": state["template"]["sha256"]}}
         task["task_sha256"] = _stable_json_hash(task)
         tasks.append(task)
@@ -2938,6 +3001,45 @@ def _compose_reference_cover(base, destination, candidate, font_path):
     return lines
 
 
+def _compose_book_spotlight_hybrid_cover(
+        base, destination, candidate, font_path):
+    """Compose only the right-side copy; preserve generated book typography."""
+    image = base.convert("RGB").resize((1920, 1080), Image.Resampling.LANCZOS)
+    draw = ImageDraw.Draw(image)
+    lines = candidate["text"]["title_lines"]
+    if len(lines) != 2 or not all(lines):
+        raise RuntimeError("书籍主视觉封面必须严格为两行标题")
+
+    ink = (237, 244, 255)
+    gold = (246, 183, 76)
+    cyan = (88, 196, 216)
+    shadow = (5, 12, 24)
+    book_title = candidate["text"]["book_title"]
+    author = candidate["text"]["author"]
+
+    bookline = f"《{book_title}》｜{author}"
+    font = _cover_font(draw, font_path, bookline, 920, 50, minimum=24)
+    draw.text((880, 132), bookline, fill=ink, font=font,
+              stroke_width=2, stroke_fill=shadow)
+    draw.line((880, 224, 1800, 224), fill=cyan, width=5)
+
+    for text_value, y, color in ((lines[0], 278, ink),
+                                 (lines[1], 508, gold)):
+        font = _cover_font(draw, font_path, text_value, 920, 168, minimum=64)
+        draw.text((890, y + 8), text_value, fill=shadow, font=font,
+                  stroke_width=5, stroke_fill=shadow)
+        draw.text((880, y), text_value, fill=color, font=font)
+
+    subtitle = candidate["text"].get("subtitle", "")
+    if subtitle:
+        font = _cover_font(draw, font_path, subtitle, 920, 52, minimum=32)
+        draw.text((882, 822), subtitle, fill=ink, font=font,
+                  stroke_width=2, stroke_fill=shadow)
+    draw.line((882, 936, 984, 936), fill=cyan, width=8)
+    image.save(destination, "PNG")
+    return lines
+
+
 def cmd_publish_cover_compose(args):
     project, paths, parent, _, _, _ = _publish_v4_context(args)
     state = read_json(paths["cover_state"])
@@ -2948,13 +3050,21 @@ def cmd_publish_cover_compose(args):
     font_path = _cover_font_path()
     if not font_path:
         raise RuntimeError("未找到可用中文字体")
+    composers = {
+        "hook_left_character_right": _compose_reference_cover,
+        "book_left_hook_right_hybrid": _compose_book_spotlight_hybrid_cover,
+    }
+    layout = state["template"]["spec"]["layout"]
+    composer = composers.get(layout)
+    if composer is None:
+        raise RuntimeError(f"封面模板缺少合成器：{layout}")
     for candidate in data["candidates"]:
         base_path = os.path.join(project, candidate["base_path"])
         if _sha256(base_path) != candidate["base_sha256"]:
             raise RuntimeError("封面底图 hash 已变化")
         destination = os.path.join(paths["covers_dir"], candidate["id"] + ".png")
         with Image.open(base_path) as base:
-            _compose_reference_cover(base, destination, candidate, font_path)
+            composer(base, destination, candidate, font_path)
         candidate["final_path"] = os.path.relpath(destination, project)
         candidate["sha256"] = _sha256(destination)
         candidate["visual_review"] = None

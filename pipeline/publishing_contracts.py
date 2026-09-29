@@ -361,8 +361,20 @@ def validate_cover_plan(data, template_snapshot, topic, publish_id,
         lines = candidate.get("title_lines", [])
         if not isinstance(lines, list) or len(lines) != 2 or not all(lines):
             errors.append("观点钩子封面必须提供两行标题")
-        if not candidate.get("character_ids"):
+        elif any(len(line) > spec.get("title_line_max_chars", 1000)
+                 for line in lines):
+            errors.append("观点钩子封面单行标题过长")
+        subtitle = candidate.get("subtitle", "")
+        if not isinstance(subtitle, str) or \
+                len(subtitle) > spec.get("subtitle_max_chars", 1000):
+            errors.append("观点钩子封面副标题过长")
+        character_ids = candidate.get("character_ids")
+        if not isinstance(character_ids, list):
+            errors.append("观点钩子封面角色 ID 必须为列表")
+        elif spec.get("requires_character_ids") and not character_ids:
             errors.append("观点钩子封面必须提供角色 ID")
+        elif not spec.get("allows_people") and character_ids:
+            errors.append("当前封面模板禁止使用人物角色")
     if len(set(concepts)) != len(concepts):
         errors.append("两个封面候选必须使用不同视觉概念")
     errors.extend(scan_compliance(data))

@@ -193,14 +193,21 @@ class PublishingV4Tests(unittest.TestCase):
         })
         return source_id, candidates[0]["final_path"]
 
-    def test_registry_has_only_reference_template(self):
+    def test_registry_lists_all_active_templates(self):
         first = cover_templates.cover_template_snapshot("reference_006_v1")
         self.assertEqual(first,
                          cover_templates.cover_template_snapshot("reference_006_v1"))
         self.assertEqual([item["id"] for item in
                           cover_templates.cover_template_catalog()],
-                         ["reference_006_v1"])
+                         ["reference_006_v1", "book_spotlight_v2"])
         self.assertEqual(first["spec"]["layout"], "hook_left_character_right")
+        hybrid = cover_templates.cover_template_snapshot("book_spotlight_v2")
+        self.assertEqual(hybrid["spec"]["layout"],
+                         "book_left_hook_right_hybrid")
+        self.assertEqual(hybrid["spec"]["book_text_mode"],
+                         "generated_exact")
+        self.assertEqual(hybrid["spec"]["right_text_mode"],
+                         "local_deterministic")
         with self.assertRaisesRegex(ValueError, "未知封面模板"):
             cover_templates.cover_template_snapshot("book_title_author_v2")
         self.assertIn("publish-cover-select-template", workflow.parser().format_help())
@@ -234,6 +241,52 @@ class PublishingV4Tests(unittest.TestCase):
                             for task in tasks))
         self.assertTrue(all("left hook area" in task["prompt"] for task in tasks))
 
+    def test_book_spotlight_v2_requires_exact_generated_book_text(self):
+        self._write_style_references()
+        workflow.cmd_publish_cover_select_template(SimpleNamespace(
+            **vars(self.args), template_id="book_spotlight_v2",
+            recommended="book_spotlight_v2", reason="采用书籍原生文字方案"))
+        workflow.cmd_publish_cover_plan(self.args)
+        planning_task = workflow.read_json(self.paths["cover_task"])
+        self.assertIn("书籍原生文字", planning_task["instruction"])
+        self.assertNotIn("书名和作者由本地合成注入",
+                         planning_task["instruction"])
+        parent = workflow.read_json(self.paths["state"])
+        workflow.write_json(self.paths["cover_plan"], {
+            "version": 1, "publish_id": "pub_v4",
+            "source_hashes": parent["source_hashes"],
+            "template_id": "book_spotlight_v2",
+            "candidates": [
+                {"id": "cover_a", "concept": "财富能力",
+                 "subject": "书籍与两套能力", "composition": "左书右文",
+                 "title_lines": ["赚钱靠进攻", "守财靠防守"],
+                 "subtitle": "两套完全不同的能力", "character_ids": []},
+                {"id": "cover_b", "concept": "财富分水岭",
+                 "subject": "书籍与财富路径", "composition": "左书右文",
+                 "title_lines": ["会赚钱的人", "未必守得住钱"],
+                 "subtitle": "真正差距在第二套能力", "character_ids": []},
+            ],
+        })
+        workflow.cmd_publish_cover_verify_plan(self.args)
+        state = workflow.read_json(self.paths["cover_state"])
+        _, source, _ = workflow._publish_sources(self.project, "main")
+        tasks = workflow._cover_image_tasks(
+            self.project, self.paths, state, source)
+        self.assertEqual(len(tasks), 2)
+        for task in tasks:
+            policy = task["rule_manifest"]["text_policy"]
+            self.assertEqual(policy["mode"], "required_exact")
+            self.assertIn(self.topic["book_title"], policy["exact_text"])
+            self.assertIn(self.topic["author"], policy["exact_text"])
+            self.assertIn(self.topic["book_title"], task["prompt"])
+            self.assertIn(self.topic["author"], task["prompt"])
+            self.assertIn("right-side typography", task["prompt"])
+            self.assertIn("extra readable text outside the book",
+                          task["negative_prompt"])
+            self.assertNotIn("readable text, letters, words",
+                             task["negative_prompt"])
+            self.assertEqual(workflow.validate_image_task_prompt(task), [])
+
     def test_imagegen_requires_codex_session(self):
         self._select_and_verify_plan()
         with mock.patch.dict(os.environ, {"CODEX_SESSION_ID": ""}):
@@ -256,6 +309,29 @@ class PublishingV4Tests(unittest.TestCase):
         self.assertEqual(workflow._sha256(first), workflow._sha256(second))
         with Image.open(first) as image:
             self.assertEqual(image.size, (1920, 1080))
+
+    def test_book_spotlight_v2_preserves_generated_book_area(self):
+        font = workflow._cover_font_path()
+        base = Image.new("RGB", (1920, 1080), "#8899AA")
+        candidate = {"text": {
+            "title_lines": ["真正的风险", "是你没看见样本"],
+            "subtitle": "别只研究台上的赢家",
+            "book_title": "随机漫步的傻瓜",
+            "author": "纳西姆·尼古拉斯·塔勒布",
+        }}
+        first = os.path.join(self.temp.name, "book_hybrid_1.png")
+        second = os.path.join(self.temp.name, "book_hybrid_2.png")
+        workflow._compose_book_spotlight_hybrid_cover(
+            base, first, candidate, font)
+        workflow._compose_book_spotlight_hybrid_cover(
+            base, second, candidate, font)
+        self.assertEqual(workflow._sha256(first), workflow._sha256(second))
+        with Image.open(first) as image:
+            self.assertEqual(image.size, (1920, 1080))
+            self.assertEqual(image.crop((0, 0, 840, 1080)).tobytes(),
+                             base.crop((0, 0, 840, 1080)).tobytes())
+            self.assertNotEqual(image.crop((860, 0, 1920, 1080)).tobytes(),
+                                base.crop((860, 0, 1920, 1080)).tobytes())
 
     def test_reuse_verified_v3_cover_preserves_original_image(self):
         source_id, original = self._write_verified_v3_cover()
