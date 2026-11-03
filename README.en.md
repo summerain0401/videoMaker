@@ -1,6 +1,6 @@
 # videoMaker
 
-[中文](README.md) | [English](README.en.md)
+[English](README.md) | [简体中文](README.zh-CN.md)
 
 A 16:9 long-form video workflow for Chinese book commentary. Topics, copy, narration scripts, storyboards, and images pass human review before Azure speech, subtitles, motion, rendering, and QA. Publishing copy and covers have separate selection, verification, and approval steps.
 
